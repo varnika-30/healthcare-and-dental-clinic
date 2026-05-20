@@ -9,38 +9,325 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as ServicesRouteImport } from './routes/services'
+import { Route as DoctorsRouteImport } from './routes/doctors'
+import { Route as ContactRouteImport } from './routes/contact'
+import { Route as BookRouteImport } from './routes/book'
+import { Route as AboutRouteImport } from './routes/about'
+import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthSignupRouteImport } from './routes/auth/signup'
+import { Route as AuthResetPasswordRouteImport } from './routes/auth/reset-password'
+import { Route as AuthLoginRouteImport } from './routes/auth/login'
+import { Route as AuthForgotRouteImport } from './routes/auth/forgot'
+import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as AuthenticatedDashboardStaffRouteImport } from './routes/_authenticated/dashboard.staff'
+import { Route as AuthenticatedDashboardSettingsRouteImport } from './routes/_authenticated/dashboard.settings'
+import { Route as AuthenticatedDashboardRecordsRouteImport } from './routes/_authenticated/dashboard.records'
+import { Route as AuthenticatedDashboardQueueRouteImport } from './routes/_authenticated/dashboard.queue'
+import { Route as AuthenticatedDashboardPrescriptionsRouteImport } from './routes/_authenticated/dashboard.prescriptions'
+import { Route as AuthenticatedDashboardPatientsRouteImport } from './routes/_authenticated/dashboard.patients'
+import { Route as AuthenticatedDashboardBillingRouteImport } from './routes/_authenticated/dashboard.billing'
+import { Route as AuthenticatedDashboardAppointmentsRouteImport } from './routes/_authenticated/dashboard.appointments'
 
+const ServicesRoute = ServicesRouteImport.update({
+  id: '/services',
+  path: '/services',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DoctorsRoute = DoctorsRouteImport.update({
+  id: '/doctors',
+  path: '/doctors',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ContactRoute = ContactRouteImport.update({
+  id: '/contact',
+  path: '/contact',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BookRoute = BookRouteImport.update({
+  id: '/book',
+  path: '/book',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AboutRoute = AboutRouteImport.update({
+  id: '/about',
+  path: '/about',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedRoute = AuthenticatedRouteImport.update({
+  id: '/_authenticated',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthSignupRoute = AuthSignupRouteImport.update({
+  id: '/auth/signup',
+  path: '/auth/signup',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthResetPasswordRoute = AuthResetPasswordRouteImport.update({
+  id: '/auth/reset-password',
+  path: '/auth/reset-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthLoginRoute = AuthLoginRouteImport.update({
+  id: '/auth/login',
+  path: '/auth/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthForgotRoute = AuthForgotRouteImport.update({
+  id: '/auth/forgot',
+  path: '/auth/forgot',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedDashboardStaffRoute =
+  AuthenticatedDashboardStaffRouteImport.update({
+    id: '/staff',
+    path: '/staff',
+    getParentRoute: () => AuthenticatedDashboardRoute,
+  } as any)
+const AuthenticatedDashboardSettingsRoute =
+  AuthenticatedDashboardSettingsRouteImport.update({
+    id: '/settings',
+    path: '/settings',
+    getParentRoute: () => AuthenticatedDashboardRoute,
+  } as any)
+const AuthenticatedDashboardRecordsRoute =
+  AuthenticatedDashboardRecordsRouteImport.update({
+    id: '/records',
+    path: '/records',
+    getParentRoute: () => AuthenticatedDashboardRoute,
+  } as any)
+const AuthenticatedDashboardQueueRoute =
+  AuthenticatedDashboardQueueRouteImport.update({
+    id: '/queue',
+    path: '/queue',
+    getParentRoute: () => AuthenticatedDashboardRoute,
+  } as any)
+const AuthenticatedDashboardPrescriptionsRoute =
+  AuthenticatedDashboardPrescriptionsRouteImport.update({
+    id: '/prescriptions',
+    path: '/prescriptions',
+    getParentRoute: () => AuthenticatedDashboardRoute,
+  } as any)
+const AuthenticatedDashboardPatientsRoute =
+  AuthenticatedDashboardPatientsRouteImport.update({
+    id: '/patients',
+    path: '/patients',
+    getParentRoute: () => AuthenticatedDashboardRoute,
+  } as any)
+const AuthenticatedDashboardBillingRoute =
+  AuthenticatedDashboardBillingRouteImport.update({
+    id: '/billing',
+    path: '/billing',
+    getParentRoute: () => AuthenticatedDashboardRoute,
+  } as any)
+const AuthenticatedDashboardAppointmentsRoute =
+  AuthenticatedDashboardAppointmentsRouteImport.update({
+    id: '/appointments',
+    path: '/appointments',
+    getParentRoute: () => AuthenticatedDashboardRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/about': typeof AboutRoute
+  '/book': typeof BookRoute
+  '/contact': typeof ContactRoute
+  '/doctors': typeof DoctorsRoute
+  '/services': typeof ServicesRoute
+  '/dashboard': typeof AuthenticatedDashboardRouteWithChildren
+  '/auth/forgot': typeof AuthForgotRoute
+  '/auth/login': typeof AuthLoginRoute
+  '/auth/reset-password': typeof AuthResetPasswordRoute
+  '/auth/signup': typeof AuthSignupRoute
+  '/dashboard/appointments': typeof AuthenticatedDashboardAppointmentsRoute
+  '/dashboard/billing': typeof AuthenticatedDashboardBillingRoute
+  '/dashboard/patients': typeof AuthenticatedDashboardPatientsRoute
+  '/dashboard/prescriptions': typeof AuthenticatedDashboardPrescriptionsRoute
+  '/dashboard/queue': typeof AuthenticatedDashboardQueueRoute
+  '/dashboard/records': typeof AuthenticatedDashboardRecordsRoute
+  '/dashboard/settings': typeof AuthenticatedDashboardSettingsRoute
+  '/dashboard/staff': typeof AuthenticatedDashboardStaffRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/about': typeof AboutRoute
+  '/book': typeof BookRoute
+  '/contact': typeof ContactRoute
+  '/doctors': typeof DoctorsRoute
+  '/services': typeof ServicesRoute
+  '/dashboard': typeof AuthenticatedDashboardRouteWithChildren
+  '/auth/forgot': typeof AuthForgotRoute
+  '/auth/login': typeof AuthLoginRoute
+  '/auth/reset-password': typeof AuthResetPasswordRoute
+  '/auth/signup': typeof AuthSignupRoute
+  '/dashboard/appointments': typeof AuthenticatedDashboardAppointmentsRoute
+  '/dashboard/billing': typeof AuthenticatedDashboardBillingRoute
+  '/dashboard/patients': typeof AuthenticatedDashboardPatientsRoute
+  '/dashboard/prescriptions': typeof AuthenticatedDashboardPrescriptionsRoute
+  '/dashboard/queue': typeof AuthenticatedDashboardQueueRoute
+  '/dashboard/records': typeof AuthenticatedDashboardRecordsRoute
+  '/dashboard/settings': typeof AuthenticatedDashboardSettingsRoute
+  '/dashboard/staff': typeof AuthenticatedDashboardStaffRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/_authenticated': typeof AuthenticatedRouteWithChildren
+  '/about': typeof AboutRoute
+  '/book': typeof BookRoute
+  '/contact': typeof ContactRoute
+  '/doctors': typeof DoctorsRoute
+  '/services': typeof ServicesRoute
+  '/_authenticated/dashboard': typeof AuthenticatedDashboardRouteWithChildren
+  '/auth/forgot': typeof AuthForgotRoute
+  '/auth/login': typeof AuthLoginRoute
+  '/auth/reset-password': typeof AuthResetPasswordRoute
+  '/auth/signup': typeof AuthSignupRoute
+  '/_authenticated/dashboard/appointments': typeof AuthenticatedDashboardAppointmentsRoute
+  '/_authenticated/dashboard/billing': typeof AuthenticatedDashboardBillingRoute
+  '/_authenticated/dashboard/patients': typeof AuthenticatedDashboardPatientsRoute
+  '/_authenticated/dashboard/prescriptions': typeof AuthenticatedDashboardPrescriptionsRoute
+  '/_authenticated/dashboard/queue': typeof AuthenticatedDashboardQueueRoute
+  '/_authenticated/dashboard/records': typeof AuthenticatedDashboardRecordsRoute
+  '/_authenticated/dashboard/settings': typeof AuthenticatedDashboardSettingsRoute
+  '/_authenticated/dashboard/staff': typeof AuthenticatedDashboardStaffRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/about'
+    | '/book'
+    | '/contact'
+    | '/doctors'
+    | '/services'
+    | '/dashboard'
+    | '/auth/forgot'
+    | '/auth/login'
+    | '/auth/reset-password'
+    | '/auth/signup'
+    | '/dashboard/appointments'
+    | '/dashboard/billing'
+    | '/dashboard/patients'
+    | '/dashboard/prescriptions'
+    | '/dashboard/queue'
+    | '/dashboard/records'
+    | '/dashboard/settings'
+    | '/dashboard/staff'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/about'
+    | '/book'
+    | '/contact'
+    | '/doctors'
+    | '/services'
+    | '/dashboard'
+    | '/auth/forgot'
+    | '/auth/login'
+    | '/auth/reset-password'
+    | '/auth/signup'
+    | '/dashboard/appointments'
+    | '/dashboard/billing'
+    | '/dashboard/patients'
+    | '/dashboard/prescriptions'
+    | '/dashboard/queue'
+    | '/dashboard/records'
+    | '/dashboard/settings'
+    | '/dashboard/staff'
+  id:
+    | '__root__'
+    | '/'
+    | '/_authenticated'
+    | '/about'
+    | '/book'
+    | '/contact'
+    | '/doctors'
+    | '/services'
+    | '/_authenticated/dashboard'
+    | '/auth/forgot'
+    | '/auth/login'
+    | '/auth/reset-password'
+    | '/auth/signup'
+    | '/_authenticated/dashboard/appointments'
+    | '/_authenticated/dashboard/billing'
+    | '/_authenticated/dashboard/patients'
+    | '/_authenticated/dashboard/prescriptions'
+    | '/_authenticated/dashboard/queue'
+    | '/_authenticated/dashboard/records'
+    | '/_authenticated/dashboard/settings'
+    | '/_authenticated/dashboard/staff'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
+  AboutRoute: typeof AboutRoute
+  BookRoute: typeof BookRoute
+  ContactRoute: typeof ContactRoute
+  DoctorsRoute: typeof DoctorsRoute
+  ServicesRoute: typeof ServicesRoute
+  AuthForgotRoute: typeof AuthForgotRoute
+  AuthLoginRoute: typeof AuthLoginRoute
+  AuthResetPasswordRoute: typeof AuthResetPasswordRoute
+  AuthSignupRoute: typeof AuthSignupRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/services': {
+      id: '/services'
+      path: '/services'
+      fullPath: '/services'
+      preLoaderRoute: typeof ServicesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/doctors': {
+      id: '/doctors'
+      path: '/doctors'
+      fullPath: '/doctors'
+      preLoaderRoute: typeof DoctorsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/contact': {
+      id: '/contact'
+      path: '/contact'
+      fullPath: '/contact'
+      preLoaderRoute: typeof ContactRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/book': {
+      id: '/book'
+      path: '/book'
+      fullPath: '/book'
+      preLoaderRoute: typeof BookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/about': {
+      id: '/about'
+      path: '/about'
+      fullPath: '/about'
+      preLoaderRoute: typeof AboutRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated': {
+      id: '/_authenticated'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AuthenticatedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -48,22 +335,155 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/auth/signup': {
+      id: '/auth/signup'
+      path: '/auth/signup'
+      fullPath: '/auth/signup'
+      preLoaderRoute: typeof AuthSignupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth/reset-password': {
+      id: '/auth/reset-password'
+      path: '/auth/reset-password'
+      fullPath: '/auth/reset-password'
+      preLoaderRoute: typeof AuthResetPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth/login': {
+      id: '/auth/login'
+      path: '/auth/login'
+      fullPath: '/auth/login'
+      preLoaderRoute: typeof AuthLoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth/forgot': {
+      id: '/auth/forgot'
+      path: '/auth/forgot'
+      fullPath: '/auth/forgot'
+      preLoaderRoute: typeof AuthForgotRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/dashboard': {
+      id: '/_authenticated/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof AuthenticatedDashboardRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/dashboard/staff': {
+      id: '/_authenticated/dashboard/staff'
+      path: '/staff'
+      fullPath: '/dashboard/staff'
+      preLoaderRoute: typeof AuthenticatedDashboardStaffRouteImport
+      parentRoute: typeof AuthenticatedDashboardRoute
+    }
+    '/_authenticated/dashboard/settings': {
+      id: '/_authenticated/dashboard/settings'
+      path: '/settings'
+      fullPath: '/dashboard/settings'
+      preLoaderRoute: typeof AuthenticatedDashboardSettingsRouteImport
+      parentRoute: typeof AuthenticatedDashboardRoute
+    }
+    '/_authenticated/dashboard/records': {
+      id: '/_authenticated/dashboard/records'
+      path: '/records'
+      fullPath: '/dashboard/records'
+      preLoaderRoute: typeof AuthenticatedDashboardRecordsRouteImport
+      parentRoute: typeof AuthenticatedDashboardRoute
+    }
+    '/_authenticated/dashboard/queue': {
+      id: '/_authenticated/dashboard/queue'
+      path: '/queue'
+      fullPath: '/dashboard/queue'
+      preLoaderRoute: typeof AuthenticatedDashboardQueueRouteImport
+      parentRoute: typeof AuthenticatedDashboardRoute
+    }
+    '/_authenticated/dashboard/prescriptions': {
+      id: '/_authenticated/dashboard/prescriptions'
+      path: '/prescriptions'
+      fullPath: '/dashboard/prescriptions'
+      preLoaderRoute: typeof AuthenticatedDashboardPrescriptionsRouteImport
+      parentRoute: typeof AuthenticatedDashboardRoute
+    }
+    '/_authenticated/dashboard/patients': {
+      id: '/_authenticated/dashboard/patients'
+      path: '/patients'
+      fullPath: '/dashboard/patients'
+      preLoaderRoute: typeof AuthenticatedDashboardPatientsRouteImport
+      parentRoute: typeof AuthenticatedDashboardRoute
+    }
+    '/_authenticated/dashboard/billing': {
+      id: '/_authenticated/dashboard/billing'
+      path: '/billing'
+      fullPath: '/dashboard/billing'
+      preLoaderRoute: typeof AuthenticatedDashboardBillingRouteImport
+      parentRoute: typeof AuthenticatedDashboardRoute
+    }
+    '/_authenticated/dashboard/appointments': {
+      id: '/_authenticated/dashboard/appointments'
+      path: '/appointments'
+      fullPath: '/dashboard/appointments'
+      preLoaderRoute: typeof AuthenticatedDashboardAppointmentsRouteImport
+      parentRoute: typeof AuthenticatedDashboardRoute
+    }
   }
 }
 
+interface AuthenticatedDashboardRouteChildren {
+  AuthenticatedDashboardAppointmentsRoute: typeof AuthenticatedDashboardAppointmentsRoute
+  AuthenticatedDashboardBillingRoute: typeof AuthenticatedDashboardBillingRoute
+  AuthenticatedDashboardPatientsRoute: typeof AuthenticatedDashboardPatientsRoute
+  AuthenticatedDashboardPrescriptionsRoute: typeof AuthenticatedDashboardPrescriptionsRoute
+  AuthenticatedDashboardQueueRoute: typeof AuthenticatedDashboardQueueRoute
+  AuthenticatedDashboardRecordsRoute: typeof AuthenticatedDashboardRecordsRoute
+  AuthenticatedDashboardSettingsRoute: typeof AuthenticatedDashboardSettingsRoute
+  AuthenticatedDashboardStaffRoute: typeof AuthenticatedDashboardStaffRoute
+}
+
+const AuthenticatedDashboardRouteChildren: AuthenticatedDashboardRouteChildren =
+  {
+    AuthenticatedDashboardAppointmentsRoute:
+      AuthenticatedDashboardAppointmentsRoute,
+    AuthenticatedDashboardBillingRoute: AuthenticatedDashboardBillingRoute,
+    AuthenticatedDashboardPatientsRoute: AuthenticatedDashboardPatientsRoute,
+    AuthenticatedDashboardPrescriptionsRoute:
+      AuthenticatedDashboardPrescriptionsRoute,
+    AuthenticatedDashboardQueueRoute: AuthenticatedDashboardQueueRoute,
+    AuthenticatedDashboardRecordsRoute: AuthenticatedDashboardRecordsRoute,
+    AuthenticatedDashboardSettingsRoute: AuthenticatedDashboardSettingsRoute,
+    AuthenticatedDashboardStaffRoute: AuthenticatedDashboardStaffRoute,
+  }
+
+const AuthenticatedDashboardRouteWithChildren =
+  AuthenticatedDashboardRoute._addFileChildren(
+    AuthenticatedDashboardRouteChildren,
+  )
+
+interface AuthenticatedRouteChildren {
+  AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRouteWithChildren
+}
+
+const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
+  AuthenticatedDashboardRoute: AuthenticatedDashboardRouteWithChildren,
+}
+
+const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
+  AuthenticatedRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AuthenticatedRoute: AuthenticatedRouteWithChildren,
+  AboutRoute: AboutRoute,
+  BookRoute: BookRoute,
+  ContactRoute: ContactRoute,
+  DoctorsRoute: DoctorsRoute,
+  ServicesRoute: ServicesRoute,
+  AuthForgotRoute: AuthForgotRoute,
+  AuthLoginRoute: AuthLoginRoute,
+  AuthResetPasswordRoute: AuthResetPasswordRoute,
+  AuthSignupRoute: AuthSignupRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
