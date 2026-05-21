@@ -10,15 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import type { ReactNode } from "react";
 
-const NAV: Record<AppRole, { to: string; label: string; icon: any }[]> = {
-  patient: [
-    { to: "/dashboard", label: "Overview", icon: LayoutDashboard },
-    { to: "/dashboard/appointments", label: "Appointments", icon: Calendar },
-    { to: "/dashboard/records", label: "Records", icon: FileText },
-    { to: "/dashboard/prescriptions", label: "Prescriptions", icon: Pill },
-    { to: "/dashboard/billing", label: "Billing", icon: Receipt },
-    { to: "/dashboard/settings", label: "Settings", icon: Settings },
-  ],
+const NAV: Record<Exclude<AppRole, "patient">, { to: string; label: string; icon: any }[]> = {
   doctor: [
     { to: "/dashboard", label: "Today", icon: LayoutDashboard },
     { to: "/dashboard/appointments", label: "Schedule", icon: Calendar },
@@ -48,7 +40,8 @@ const NAV: Record<AppRole, { to: string; label: string; icon: any }[]> = {
 export function DashboardShell({ children }: { children: ReactNode }) {
   const { role, user, signOut } = useAuth();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const items = NAV[role ?? "patient"];
+  const staffRole = (role && role !== "patient" ? role : "doctor") as "admin" | "doctor" | "receptionist";
+  const items = NAV[staffRole];
 
   const initials = (user?.user_metadata?.full_name ?? user?.email ?? "U")
     .split(" ").map((s: string) => s[0]).slice(0, 2).join("").toUpperCase();

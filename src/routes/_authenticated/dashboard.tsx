@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { DashboardShell } from "@/components/dashboard/DashboardShell";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { useAuth } from "@/lib/auth-context";
@@ -9,9 +9,17 @@ import {
   Calendar, Users, Receipt, Activity, Pill, FileText, Clock, TrendingUp, Stethoscope, UserCheck,
 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({ meta: [{ title: "Dashboard — Lumident" }] }),
+  beforeLoad: async () => {
+    const { data: u } = await supabase.auth.getUser();
+    if (!u.user) return;
+    const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", u.user.id);
+    const isStaff = (roles ?? []).some((r) => ["admin", "doctor", "receptionist"].includes(r.role));
+    if (!isStaff) throw redirect({ to: "/portal" });
+  },
   component: Dashboard,
 });
 

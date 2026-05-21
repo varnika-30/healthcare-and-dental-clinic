@@ -40,13 +40,20 @@ function Login() {
               e.preventDefault();
               const fd = new FormData(e.currentTarget);
               setLoading(true);
-              const { error } = await supabase.auth.signInWithPassword({
+              const { data: signIn, error } = await supabase.auth.signInWithPassword({
                 email: String(fd.get("email")), password: String(fd.get("password")),
               });
               setLoading(false);
               if (error) return toast.error(error.message);
               toast.success("Signed in.");
-              navigate({ to: "/dashboard" });
+              const userId = signIn.user?.id;
+              if (userId) {
+                const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", userId);
+                const isStaff = (roles ?? []).some((r) => ["admin","doctor","receptionist"].includes(r.role));
+                navigate({ to: isStaff ? "/dashboard" : "/portal" });
+              } else {
+                navigate({ to: "/portal" });
+              }
             }}
           >
             <div><Label htmlFor="email">Email</Label><Input id="email" name="email" type="email" required maxLength={255} className="mt-1" /></div>
