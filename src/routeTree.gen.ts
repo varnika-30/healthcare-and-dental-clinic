@@ -20,7 +20,15 @@ import { Route as AuthSignupRouteImport } from './routes/auth/signup'
 import { Route as AuthResetPasswordRouteImport } from './routes/auth/reset-password'
 import { Route as AuthLoginRouteImport } from './routes/auth/login'
 import { Route as AuthForgotRouteImport } from './routes/auth/forgot'
+import { Route as AuthenticatedPortalRouteImport } from './routes/_authenticated/portal'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as AuthenticatedPortalIndexRouteImport } from './routes/_authenticated/portal.index'
+import { Route as AuthenticatedPortalTreatmentsRouteImport } from './routes/_authenticated/portal.treatments'
+import { Route as AuthenticatedPortalSettingsRouteImport } from './routes/_authenticated/portal.settings'
+import { Route as AuthenticatedPortalRecordsRouteImport } from './routes/_authenticated/portal.records'
+import { Route as AuthenticatedPortalPrescriptionsRouteImport } from './routes/_authenticated/portal.prescriptions'
+import { Route as AuthenticatedPortalBillingRouteImport } from './routes/_authenticated/portal.billing'
+import { Route as AuthenticatedPortalAppointmentsRouteImport } from './routes/_authenticated/portal.appointments'
 import { Route as AuthenticatedDashboardStaffRouteImport } from './routes/_authenticated/dashboard.staff'
 import { Route as AuthenticatedDashboardSettingsRouteImport } from './routes/_authenticated/dashboard.settings'
 import { Route as AuthenticatedDashboardRecordsRouteImport } from './routes/_authenticated/dashboard.records'
@@ -84,11 +92,58 @@ const AuthForgotRoute = AuthForgotRouteImport.update({
   path: '/auth/forgot',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedPortalRoute = AuthenticatedPortalRouteImport.update({
+  id: '/portal',
+  path: '/portal',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedPortalIndexRoute =
+  AuthenticatedPortalIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedPortalRoute,
+  } as any)
+const AuthenticatedPortalTreatmentsRoute =
+  AuthenticatedPortalTreatmentsRouteImport.update({
+    id: '/treatments',
+    path: '/treatments',
+    getParentRoute: () => AuthenticatedPortalRoute,
+  } as any)
+const AuthenticatedPortalSettingsRoute =
+  AuthenticatedPortalSettingsRouteImport.update({
+    id: '/settings',
+    path: '/settings',
+    getParentRoute: () => AuthenticatedPortalRoute,
+  } as any)
+const AuthenticatedPortalRecordsRoute =
+  AuthenticatedPortalRecordsRouteImport.update({
+    id: '/records',
+    path: '/records',
+    getParentRoute: () => AuthenticatedPortalRoute,
+  } as any)
+const AuthenticatedPortalPrescriptionsRoute =
+  AuthenticatedPortalPrescriptionsRouteImport.update({
+    id: '/prescriptions',
+    path: '/prescriptions',
+    getParentRoute: () => AuthenticatedPortalRoute,
+  } as any)
+const AuthenticatedPortalBillingRoute =
+  AuthenticatedPortalBillingRouteImport.update({
+    id: '/billing',
+    path: '/billing',
+    getParentRoute: () => AuthenticatedPortalRoute,
+  } as any)
+const AuthenticatedPortalAppointmentsRoute =
+  AuthenticatedPortalAppointmentsRouteImport.update({
+    id: '/appointments',
+    path: '/appointments',
+    getParentRoute: () => AuthenticatedPortalRoute,
+  } as any)
 const AuthenticatedDashboardStaffRoute =
   AuthenticatedDashboardStaffRouteImport.update({
     id: '/staff',
@@ -146,6 +201,7 @@ export interface FileRoutesByFullPath {
   '/doctors': typeof DoctorsRoute
   '/services': typeof ServicesRoute
   '/dashboard': typeof AuthenticatedDashboardRouteWithChildren
+  '/portal': typeof AuthenticatedPortalRouteWithChildren
   '/auth/forgot': typeof AuthForgotRoute
   '/auth/login': typeof AuthLoginRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
@@ -158,6 +214,13 @@ export interface FileRoutesByFullPath {
   '/dashboard/records': typeof AuthenticatedDashboardRecordsRoute
   '/dashboard/settings': typeof AuthenticatedDashboardSettingsRoute
   '/dashboard/staff': typeof AuthenticatedDashboardStaffRoute
+  '/portal/appointments': typeof AuthenticatedPortalAppointmentsRoute
+  '/portal/billing': typeof AuthenticatedPortalBillingRoute
+  '/portal/prescriptions': typeof AuthenticatedPortalPrescriptionsRoute
+  '/portal/records': typeof AuthenticatedPortalRecordsRoute
+  '/portal/settings': typeof AuthenticatedPortalSettingsRoute
+  '/portal/treatments': typeof AuthenticatedPortalTreatmentsRoute
+  '/portal/': typeof AuthenticatedPortalIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -179,6 +242,13 @@ export interface FileRoutesByTo {
   '/dashboard/records': typeof AuthenticatedDashboardRecordsRoute
   '/dashboard/settings': typeof AuthenticatedDashboardSettingsRoute
   '/dashboard/staff': typeof AuthenticatedDashboardStaffRoute
+  '/portal/appointments': typeof AuthenticatedPortalAppointmentsRoute
+  '/portal/billing': typeof AuthenticatedPortalBillingRoute
+  '/portal/prescriptions': typeof AuthenticatedPortalPrescriptionsRoute
+  '/portal/records': typeof AuthenticatedPortalRecordsRoute
+  '/portal/settings': typeof AuthenticatedPortalSettingsRoute
+  '/portal/treatments': typeof AuthenticatedPortalTreatmentsRoute
+  '/portal': typeof AuthenticatedPortalIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -190,6 +260,7 @@ export interface FileRoutesById {
   '/doctors': typeof DoctorsRoute
   '/services': typeof ServicesRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRouteWithChildren
+  '/_authenticated/portal': typeof AuthenticatedPortalRouteWithChildren
   '/auth/forgot': typeof AuthForgotRoute
   '/auth/login': typeof AuthLoginRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
@@ -202,6 +273,13 @@ export interface FileRoutesById {
   '/_authenticated/dashboard/records': typeof AuthenticatedDashboardRecordsRoute
   '/_authenticated/dashboard/settings': typeof AuthenticatedDashboardSettingsRoute
   '/_authenticated/dashboard/staff': typeof AuthenticatedDashboardStaffRoute
+  '/_authenticated/portal/appointments': typeof AuthenticatedPortalAppointmentsRoute
+  '/_authenticated/portal/billing': typeof AuthenticatedPortalBillingRoute
+  '/_authenticated/portal/prescriptions': typeof AuthenticatedPortalPrescriptionsRoute
+  '/_authenticated/portal/records': typeof AuthenticatedPortalRecordsRoute
+  '/_authenticated/portal/settings': typeof AuthenticatedPortalSettingsRoute
+  '/_authenticated/portal/treatments': typeof AuthenticatedPortalTreatmentsRoute
+  '/_authenticated/portal/': typeof AuthenticatedPortalIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -213,6 +291,7 @@ export interface FileRouteTypes {
     | '/doctors'
     | '/services'
     | '/dashboard'
+    | '/portal'
     | '/auth/forgot'
     | '/auth/login'
     | '/auth/reset-password'
@@ -225,6 +304,13 @@ export interface FileRouteTypes {
     | '/dashboard/records'
     | '/dashboard/settings'
     | '/dashboard/staff'
+    | '/portal/appointments'
+    | '/portal/billing'
+    | '/portal/prescriptions'
+    | '/portal/records'
+    | '/portal/settings'
+    | '/portal/treatments'
+    | '/portal/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -246,6 +332,13 @@ export interface FileRouteTypes {
     | '/dashboard/records'
     | '/dashboard/settings'
     | '/dashboard/staff'
+    | '/portal/appointments'
+    | '/portal/billing'
+    | '/portal/prescriptions'
+    | '/portal/records'
+    | '/portal/settings'
+    | '/portal/treatments'
+    | '/portal'
   id:
     | '__root__'
     | '/'
@@ -256,6 +349,7 @@ export interface FileRouteTypes {
     | '/doctors'
     | '/services'
     | '/_authenticated/dashboard'
+    | '/_authenticated/portal'
     | '/auth/forgot'
     | '/auth/login'
     | '/auth/reset-password'
@@ -268,6 +362,13 @@ export interface FileRouteTypes {
     | '/_authenticated/dashboard/records'
     | '/_authenticated/dashboard/settings'
     | '/_authenticated/dashboard/staff'
+    | '/_authenticated/portal/appointments'
+    | '/_authenticated/portal/billing'
+    | '/_authenticated/portal/prescriptions'
+    | '/_authenticated/portal/records'
+    | '/_authenticated/portal/settings'
+    | '/_authenticated/portal/treatments'
+    | '/_authenticated/portal/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -363,12 +464,68 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthForgotRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/portal': {
+      id: '/_authenticated/portal'
+      path: '/portal'
+      fullPath: '/portal'
+      preLoaderRoute: typeof AuthenticatedPortalRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/dashboard': {
       id: '/_authenticated/dashboard'
       path: '/dashboard'
       fullPath: '/dashboard'
       preLoaderRoute: typeof AuthenticatedDashboardRouteImport
       parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/portal/': {
+      id: '/_authenticated/portal/'
+      path: '/'
+      fullPath: '/portal/'
+      preLoaderRoute: typeof AuthenticatedPortalIndexRouteImport
+      parentRoute: typeof AuthenticatedPortalRoute
+    }
+    '/_authenticated/portal/treatments': {
+      id: '/_authenticated/portal/treatments'
+      path: '/treatments'
+      fullPath: '/portal/treatments'
+      preLoaderRoute: typeof AuthenticatedPortalTreatmentsRouteImport
+      parentRoute: typeof AuthenticatedPortalRoute
+    }
+    '/_authenticated/portal/settings': {
+      id: '/_authenticated/portal/settings'
+      path: '/settings'
+      fullPath: '/portal/settings'
+      preLoaderRoute: typeof AuthenticatedPortalSettingsRouteImport
+      parentRoute: typeof AuthenticatedPortalRoute
+    }
+    '/_authenticated/portal/records': {
+      id: '/_authenticated/portal/records'
+      path: '/records'
+      fullPath: '/portal/records'
+      preLoaderRoute: typeof AuthenticatedPortalRecordsRouteImport
+      parentRoute: typeof AuthenticatedPortalRoute
+    }
+    '/_authenticated/portal/prescriptions': {
+      id: '/_authenticated/portal/prescriptions'
+      path: '/prescriptions'
+      fullPath: '/portal/prescriptions'
+      preLoaderRoute: typeof AuthenticatedPortalPrescriptionsRouteImport
+      parentRoute: typeof AuthenticatedPortalRoute
+    }
+    '/_authenticated/portal/billing': {
+      id: '/_authenticated/portal/billing'
+      path: '/billing'
+      fullPath: '/portal/billing'
+      preLoaderRoute: typeof AuthenticatedPortalBillingRouteImport
+      parentRoute: typeof AuthenticatedPortalRoute
+    }
+    '/_authenticated/portal/appointments': {
+      id: '/_authenticated/portal/appointments'
+      path: '/appointments'
+      fullPath: '/portal/appointments'
+      preLoaderRoute: typeof AuthenticatedPortalAppointmentsRouteImport
+      parentRoute: typeof AuthenticatedPortalRoute
     }
     '/_authenticated/dashboard/staff': {
       id: '/_authenticated/dashboard/staff'
@@ -459,12 +616,37 @@ const AuthenticatedDashboardRouteWithChildren =
     AuthenticatedDashboardRouteChildren,
   )
 
+interface AuthenticatedPortalRouteChildren {
+  AuthenticatedPortalAppointmentsRoute: typeof AuthenticatedPortalAppointmentsRoute
+  AuthenticatedPortalBillingRoute: typeof AuthenticatedPortalBillingRoute
+  AuthenticatedPortalPrescriptionsRoute: typeof AuthenticatedPortalPrescriptionsRoute
+  AuthenticatedPortalRecordsRoute: typeof AuthenticatedPortalRecordsRoute
+  AuthenticatedPortalSettingsRoute: typeof AuthenticatedPortalSettingsRoute
+  AuthenticatedPortalTreatmentsRoute: typeof AuthenticatedPortalTreatmentsRoute
+  AuthenticatedPortalIndexRoute: typeof AuthenticatedPortalIndexRoute
+}
+
+const AuthenticatedPortalRouteChildren: AuthenticatedPortalRouteChildren = {
+  AuthenticatedPortalAppointmentsRoute: AuthenticatedPortalAppointmentsRoute,
+  AuthenticatedPortalBillingRoute: AuthenticatedPortalBillingRoute,
+  AuthenticatedPortalPrescriptionsRoute: AuthenticatedPortalPrescriptionsRoute,
+  AuthenticatedPortalRecordsRoute: AuthenticatedPortalRecordsRoute,
+  AuthenticatedPortalSettingsRoute: AuthenticatedPortalSettingsRoute,
+  AuthenticatedPortalTreatmentsRoute: AuthenticatedPortalTreatmentsRoute,
+  AuthenticatedPortalIndexRoute: AuthenticatedPortalIndexRoute,
+}
+
+const AuthenticatedPortalRouteWithChildren =
+  AuthenticatedPortalRoute._addFileChildren(AuthenticatedPortalRouteChildren)
+
 interface AuthenticatedRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRouteWithChildren
+  AuthenticatedPortalRoute: typeof AuthenticatedPortalRouteWithChildren
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedDashboardRoute: AuthenticatedDashboardRouteWithChildren,
+  AuthenticatedPortalRoute: AuthenticatedPortalRouteWithChildren,
 }
 
 const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
