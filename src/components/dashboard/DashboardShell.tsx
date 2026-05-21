@@ -10,15 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import type { ReactNode } from "react";
 
-const NAV: Record<AppRole, { to: string; label: string; icon: any }[]> = {
-  patient: [
-    { to: "/dashboard", label: "Overview", icon: LayoutDashboard },
-    { to: "/dashboard/appointments", label: "Appointments", icon: Calendar },
-    { to: "/dashboard/records", label: "Records", icon: FileText },
-    { to: "/dashboard/prescriptions", label: "Prescriptions", icon: Pill },
-    { to: "/dashboard/billing", label: "Billing", icon: Receipt },
-    { to: "/dashboard/settings", label: "Settings", icon: Settings },
-  ],
+const NAV: Record<Exclude<AppRole, "patient">, { to: string; label: string; icon: any }[]> = {
   doctor: [
     { to: "/dashboard", label: "Today", icon: LayoutDashboard },
     { to: "/dashboard/appointments", label: "Schedule", icon: Calendar },
