@@ -40,7 +40,8 @@ const NAV: Record<Exclude<AppRole, "patient">, { to: string; label: string; icon
 export function DashboardShell({ children }: { children: ReactNode }) {
   const { role, user, signOut } = useAuth();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const items = NAV[role ?? "patient"];
+  const staffRole = (role && role !== "patient" ? role : "doctor") as "admin" | "doctor" | "receptionist";
+  const items = NAV[staffRole];
 
   const initials = (user?.user_metadata?.full_name ?? user?.email ?? "U")
     .split(" ").map((s: string) => s[0]).slice(0, 2).join("").toUpperCase();
