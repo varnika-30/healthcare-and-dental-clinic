@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
 import { getOrCreateMyPatient } from "@/lib/patient";
+import { getPatientToothHistory } from "@/lib/tooth-treatment-store";
 import { Card } from "@/components/ui/card";
 import { Empty } from "@/components/ui/empty";
 import { ToothChart } from "@/components/dashboard/ToothChart";
@@ -21,21 +21,16 @@ function PortalRecords() {
     queryFn: async () => {
       const patient = await getOrCreateMyPatient();
       if (!patient) return [];
-      const { data } = await supabase
-        .from("tooth_treatments")
-        .select("*")
-        .eq("patient_id", patient.id)
-        .order("performed_at", { ascending: false });
-      return data ?? [];
+      return getPatientToothHistory(patient.id);
     },
   });
 
   const marks = (q.data ?? []).map((t) => ({
-    tooth_number: t.tooth_number,
+    tooth_number: t.toothNumber,
     status: t.status,
     procedure: t.procedure,
   }));
-  const selectedHistory = sel ? (q.data ?? []).filter((t) => t.tooth_number === sel) : [];
+  const selectedHistory = sel ? (q.data ?? []).filter((t) => t.toothNumber === sel) : [];
 
   return (
     <>
@@ -60,11 +55,11 @@ function PortalRecords() {
               {(sel ? selectedHistory : (q.data ?? [])).slice(0, 10).map((t) => (
                 <div key={t.id} className="rounded-xl border border-border/60 p-3 text-sm">
                   <p className="font-medium">
-                    Tooth {t.tooth_number} · {t.procedure}
+                    Tooth {t.toothNumber} · {t.procedure}
                   </p>
                   <p className="text-xs text-muted-foreground capitalize">
                     {t.status.replace("_", " ")}
-                    {t.performed_at ? ` · ${format(new Date(t.performed_at), "MMM d, yyyy")}` : ""}
+                    {t.performedAt ? ` · ${format(new Date(t.performedAt), "MMM d, yyyy")}` : ""}
                   </p>
                   {t.notes && <p className="mt-1 text-xs">{t.notes}</p>}
                 </div>

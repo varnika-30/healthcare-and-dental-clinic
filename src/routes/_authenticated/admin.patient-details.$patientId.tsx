@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
   ArrowLeft,
@@ -25,6 +25,7 @@ import {
   ExternalLink,
   DollarSign,
   FileDown,
+  Printer,
   CheckCircle,
   XCircle,
   Clock,
@@ -33,6 +34,17 @@ import {
   Info,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { addPatientPrescription, getPatientPrescriptions } from "@/lib/prescription-store";
+import {
+  getPatientToothHistory,
+  savePatientToothProcedure,
+  updatePatientToothProcedure,
+  ToothProcedureEntry,
+  ToothTreatmentStatus,
+} from "@/lib/tooth-treatment-store";
+import { ToothChart } from "@/components/dashboard/ToothChart";
+import { Card } from "@/components/ui/card";
+import type { PrescriptionRecord } from "@/lib/prescription-store";
 
 // ==========================================
 // TANSTACK ROUTE DEFINITION
@@ -96,15 +108,6 @@ interface TreatmentRecord {
   notes: string;
   status: "In Progress" | "Completed";
   hasXray?: boolean;
-}
-
-interface PrescriptionRecord {
-  id: string;
-  date: string;
-  associatedTreatment: string;
-  medicines: string[];
-  dosageInstructions: string;
-  followUpRecommendation: string;
 }
 
 interface BillingLogRecord {
@@ -218,11 +221,25 @@ const MOCK_PATIENT_ECOSYSTEM: Record<string, CompletePatientState> = {
     prescriptions: [
       {
         id: "RX-402",
-        date: "May 20, 2026",
+        date: "2026-05-20",
+        clinicName: "Lumident Dental Group",
+        prescribingDoctor: "Dr. Aisha Rahman",
+        licenseNumber: "DN-88431",
+        issueDate: "2026-05-20",
+        linkedTreatment: "Composite Filling (#14, #15)",
         associatedTreatment: "Composite Filling (#14, #15)",
-        medicines: ["Ibuprofen 400mg"],
+        medicines: [
+          {
+            name: "Ibuprofen",
+            strength: "400mg",
+            dosage: "1 tablet",
+            frequency: "Every 4-6 hours",
+            duration: "3 days",
+          },
+        ],
         dosageInstructions: "Take 1 tablet every 4-6 hours post-op as needed for mild soreness.",
         followUpRecommendation: "Routine hygiene recall in 6 months.",
+        status: "Active",
       },
     ],
     billingLogs: [
@@ -280,7 +297,11 @@ export default function AdminPatientDetailsPage() {
   const { patientId } = Route.useParams();
 
   // Unified Centralized Master Source of Truth
-  const initialData = MOCK_PATIENT_ECOSYSTEM[patientId] || MOCK_PATIENT_ECOSYSTEM["P-8832"];
+  const selectedPatient = MOCK_PATIENT_ECOSYSTEM[patientId] || MOCK_PATIENT_ECOSYSTEM["P-8832"];
+  const initialData = {
+    ...selectedPatient,
+    prescriptions: getPatientPrescriptions(patientId || selectedPatient.id),
+  };
   const [patientData, setPatientData] = useState<CompletePatientState>(initialData);
 
   // UI Control Configurations
@@ -304,6 +325,127 @@ export default function AdminPatientDetailsPage() {
     notes: "",
   });
 
+  const [prescriptionModal, setPrescriptionModal] = useState<"create" | "history" | null>(null);
+  const [expandedPrescriptionId, setExpandedPrescriptionId] = useState<string | null>(null);
+  const [isCreatingPrescription, setIsCreatingPrescription] = useState(false);
+  const [prescriptionSuccessMessage, setPrescriptionSuccessMessage] = useState("");
+  const [prescriptionErrorMessage, setPrescriptionErrorMessage] = useState("");
+  const [selectedTooth, setSelectedTooth] = useState<number | null>(null);
+  const [editingProcedureId, setEditingProcedureId] = useState(null);
+  const [selectedToothEntryId, setSelectedToothEntryId] = useState<string | null>(null);
+  const [isToothModalOpen, setIsToothModalOpen] = useState(false);
+  const [viewFullToothHistory, setViewFullToothHistory] = useState(false);
+  const [toothHistory, setToothHistory] = useState<ToothProcedureEntry[]>(
+    getPatientToothHistory(patientId || selectedPatient.id),
+  );
+  const [toothForm, setToothForm] = useState({
+    toothNumber: "",
+    procedure: "",
+    status: "planned" as ToothTreatmentStatus,
+    notes: "",
+    linkedTreatment: initialData.treatments[0]?.procedure || "",
+  });
+
+  const [selectedProcedureId, setSelectedProcedureId] = useState<string | null>(null);
+  const [isEditing, setIsEditing] = useState<boolean>(false);
+  const [isAddingNew, setIsAddingNew] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (!selectedTooth) return;
+
+    if (toothHistory.length > 0 && !isAddingNew) {
+      const proc = toothHistory[0];
+
+      setSelectedProcedureId(proc.id);
+      setIsEditing(false);
+      setIsAddingNew(false);
+
+      setToothForm({
+        toothNumber: String(proc.toothNumber),
+        procedure: proc.procedure,
+        status: proc.status,
+        notes: proc.notes || "",
+        linkedTreatment: proc.linkedTreatment || "",
+      });
+    }
+    else if (toothHistory.length === 0) {
+      setSelectedProcedureId(null);
+      setIsAddingNew(true);
+      setIsEditing(true);
+
+      setToothForm({
+        toothNumber: String(selectedTooth || ""),
+        procedure: "",
+        status: "planned",
+        notes: "",
+        linkedTreatment: "",
+      });
+    }
+  }, [selectedTooth, toothHistory, isAddingNew]);
+
+  const resetFormState = () => {
+    setSelectedProcedureId(null);
+    setIsEditing(false);
+    setIsAddingNew(false);
+
+    setToothForm({
+      toothNumber: "",
+      procedure: "",
+      status: "planned",
+      notes: "",
+      linkedTreatment: "",
+    });
+  };
+
+  const loadProcedureIntoForm = (proc: typeof selectedToothHistory[number]) => {
+    setSelectedProcedureId(proc.id);
+    setIsEditing(false);
+    setIsAddingNew(false);
+
+    setToothForm({
+      toothNumber: String(proc.toothNumber),
+      procedure: proc.procedure,
+      status: proc.status,
+      notes: proc.notes || "",
+      linkedTreatment: proc.linkedTreatment || "",
+    });
+  };
+
+  const handleInitiateAddNew = () => {
+    setSelectedProcedureId(null);
+    setIsAddingNew(true);
+    setIsEditing(true);
+
+    setToothForm({
+      toothNumber: String(selectedTooth || ""),
+      procedure: "",
+      status: "planned",
+      notes: "",
+      linkedTreatment: "",
+    });
+  };
+
+  const handleInitiateEdit = (proc: typeof selectedToothHistory[number]) => {
+    loadProcedureIntoForm(proc);
+    setIsEditing(true);
+  };
+
+  const [toothActionMessage, setToothActionMessage] = useState("");
+  const [prescriptionRows, setPrescriptionRows] = useState([
+    {
+      name: "Ibuprofen",
+      strength: "400mg",
+      dosage: "1 tablet",
+      frequency: "every 4-6 hours",
+      duration: "3 days",
+    },
+  ]);
+  const [prescriptionForm, setPrescriptionForm] = useState({
+    associatedTreatment: initialData.treatments[0]?.procedure || "",
+    dosageInstructions: "Take 1 tablet every 4-6 hours as needed.",
+    followUpRecommendation: "Review patient symptoms during follow-up appointment.",
+  });
+
   // Local state copy for high-fidelity profile form edits
   const [editableProfile, setEditableProfile] = useState<PersonalDetails>({
     ...patientData.profile,
@@ -320,6 +462,7 @@ export default function AdminPatientDetailsPage() {
   const totalBilled = patientData.billingLogs.reduce((sum, log) => sum + log.amountBilled, 0);
   const totalPaid = patientData.billingLogs.reduce((sum, log) => sum + log.amountPaid, 0);
   const outstandingDue = totalBilled - totalPaid;
+  const latestPrescription = patientData.prescriptions[0] ?? null;
 
   // Mini-Calendar Days Alignment
   const calendarDays = Array.from({ length: 31 }, (_, index) => {
@@ -425,6 +568,288 @@ export default function AdminPatientDetailsPage() {
 
     setTreatmentForm({ toothNumber: "", procedure: "", notes: "" });
     setIsAddingTreatment(false);
+  };
+
+  const refreshToothHistory = () => {
+    setToothHistory(getPatientToothHistory(patientId || selectedPatient.id));
+  };
+
+  const getToothMarks = () => {
+    const latestByTooth = new Map<number, ToothProcedureEntry>();
+    toothHistory.forEach((entry) => {
+      const existing = latestByTooth.get(entry.toothNumber);
+      if (!existing || new Date(entry.performedAt) > new Date(existing.performedAt)) {
+        latestByTooth.set(entry.toothNumber, entry);
+      }
+    });
+    return Array.from(latestByTooth.values()).map((entry) => ({
+      tooth_number: entry.toothNumber,
+      status: entry.status,
+      procedure: entry.procedure,
+    }));
+  };
+
+  const selectedToothHistory = selectedTooth
+    ? toothHistory.filter((entry) => entry.toothNumber === selectedTooth)
+    : [];
+
+  const selectedToothEntry = selectedToothEntryId
+    ? toothHistory.find((entry) => entry.id === selectedToothEntryId)
+    : selectedToothHistory[0];
+
+  const openToothModal = (tooth: number) => {
+    const history = toothHistory.filter((entry) => entry.toothNumber === tooth);
+    const latestEntry = history[0];
+    setSelectedTooth(tooth);
+    setSelectedToothEntryId(latestEntry?.id ?? null);
+    setToothForm({
+      toothNumber: String(tooth),
+      procedure: latestEntry?.procedure ?? "",
+      status: latestEntry?.status ?? "planned",
+      notes: latestEntry?.notes ?? "",
+      linkedTreatment: latestEntry?.linkedTreatment ?? patientData.treatments[0]?.procedure ?? "",
+    });
+    setViewFullToothHistory(false);
+    setToothActionMessage("");
+    setIsToothModalOpen(true);
+  };
+
+  const handleAddToothProcedure = () => {
+    if (!selectedTooth) {
+      setToothActionMessage("Select a tooth before adding a procedure.");
+      return;
+    }
+    if (!toothForm.procedure.trim()) {
+      setToothActionMessage("Procedure name is required.");
+      return;
+    }
+
+    savePatientToothProcedure(patientId || selectedPatient.id, {
+      toothNumber: Number(toothForm.toothNumber) || selectedTooth,
+      procedure: toothForm.procedure.trim(),
+      status: toothForm.status,
+      notes: toothForm.notes.trim(),
+      linkedTreatment:
+        toothForm.linkedTreatment.trim() || patientData.treatments[0]?.procedure || "",
+    });
+    refreshToothHistory();
+    setSelectedToothEntryId(null);
+    setToothActionMessage("New tooth procedure added.");
+  };
+
+  const handleSaveToothUpdates = () => {
+    if (!selectedToothEntryId) {
+      setToothActionMessage("Select a procedure to edit.");
+      return;
+    }
+
+    const existingEntry = toothHistory.find((entry) => entry.id === selectedToothEntryId);
+
+    if (!existingEntry) {
+      setToothActionMessage("Procedure not found.");
+      return;
+    }
+
+    updatePatientToothProcedure(patientId || selectedPatient.id, {
+      ...existingEntry,
+      id: existingEntry.id,
+      toothNumber: Number(toothForm.toothNumber),
+      procedure: toothForm.procedure.trim(),
+      status: toothForm.status,
+      notes: toothForm.notes.trim(),
+      linkedTreatment: toothForm.linkedTreatment.trim(),
+    });
+
+    refreshToothHistory();
+
+    setSelectedToothEntryId(null);
+
+    setToothForm({
+      toothNumber: "",
+      procedure: "",
+      status: "planned",
+      notes: "",
+      linkedTreatment: "",
+    });
+
+    setToothActionMessage("Tooth procedure updated.");
+  };
+
+  const handleMarkToothCompleted = () => {};
+
+  const formatPrescriptionDate = (dateStr: string) => {
+    return new Date(dateStr).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  };
+
+  const togglePrescriptionExpand = (id: string) => {
+    setExpandedPrescriptionId((current) => (current === id ? null : id));
+  };
+
+  const handleOpenPrescriptionModal = (mode: "create" | "history") => {
+    setPrescriptionErrorMessage("");
+    setPrescriptionSuccessMessage("");
+    setPrescriptionModal(mode);
+  };
+
+  const handleGeneratePrescriptionPdf = (prescription: PrescriptionRecord) => {
+    const html = `
+      <html>
+        <head>
+          <title>Prescription ${prescription.id}</title>
+          <style>
+            body { font-family: Inter, system-ui, sans-serif; padding: 32px; color: #111827; }
+            h1 { font-size: 24px; margin-bottom: 18px; }
+            .section { margin-bottom: 16px; }
+            .section-title { font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: #6b7280; margin-bottom: 8px; }
+            .med { margin-bottom: 10px; }
+            .med strong { display: block; margin-bottom: 4px; }
+          </style>
+        </head>
+        <body>
+          <h1>Prescription ${prescription.id}</h1>
+          <div class="section"><div class="section-title">Patient</div><div>${patientData.profile.fullName}</div></div>
+          <div class="section"><div class="section-title">Treatment</div><div>${prescription.associatedTreatment}</div></div>
+          <div class="section"><div class="section-title">Issued</div><div>${prescription.date}</div></div>
+          <div class="section"><div class="section-title">Medicines</div>${prescription.medicines
+            .map(
+              (med) =>
+                `<div class="med"><strong>${med.name} ${med.strength}</strong><div>Dosage: ${med.dosage}</div><div>Frequency: ${med.frequency}</div><div>Duration: ${med.duration}</div></div>`,
+            )
+            .join("")}</div>
+          <div class="section"><div class="section-title">Instructions</div><div>${prescription.dosageInstructions}</div></div>
+          <div class="section"><div class="section-title">Follow-up</div><div>${prescription.followUpRecommendation}</div></div>
+        </body>
+      </html>
+    `;
+
+    const printWindow = window.open("", "_blank", "noopener,noreferrer");
+    if (!printWindow) {
+      alert("Please allow pop-ups to print the prescription.");
+      return;
+    }
+
+    printWindow.document.write(html);
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.print();
+  };
+
+  const handleAddPrescription = (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!prescriptionForm.associatedTreatment.trim()) {
+      setPrescriptionErrorMessage("Associated treatment is required.");
+      return;
+    }
+
+    const validRows = prescriptionRows.filter(
+      (row) => row.name.trim() && row.dosage.trim() && row.frequency.trim() && row.duration.trim(),
+    );
+
+    if (!validRows.length) {
+      setPrescriptionErrorMessage(
+        "Add at least one medicine row with dosage, frequency, and duration.",
+      );
+      return;
+    }
+
+    setPrescriptionErrorMessage("");
+    setIsCreatingPrescription(true);
+    setPrescriptionSuccessMessage("");
+
+    window.setTimeout(() => {
+      const newPrescription: PrescriptionRecord = {
+        id: `RX-${Math.floor(1000 + Math.random() * 9000)}`,
+        date: new Date().toISOString().split("T")[0],
+        clinicName: "Lumident Dental Group",
+        prescribingDoctor: "Dr. Aisha Rahman",
+        licenseNumber: "DN-88431",
+        issueDate: new Date().toISOString().split("T")[0],
+        linkedTreatment: prescriptionForm.associatedTreatment,
+        associatedTreatment: prescriptionForm.associatedTreatment,
+        medicines: validRows,
+        dosageInstructions: prescriptionForm.dosageInstructions,
+        followUpRecommendation: prescriptionForm.followUpRecommendation,
+        status: "Active",
+      };
+
+      addPatientPrescription(patientId || selectedPatient.id, newPrescription);
+      setPatientData((prev) => ({
+        ...prev,
+        prescriptions: [newPrescription, ...prev.prescriptions],
+      }));
+      setIsCreatingPrescription(false);
+      setPrescriptionSuccessMessage("Prescription created successfully.");
+      setPrescriptionModal(null);
+      setPrescriptionRows([
+        {
+          name: "",
+          strength: "",
+          dosage: "",
+          frequency: "",
+          duration: "",
+        },
+      ]);
+      setPrescriptionForm({
+        associatedTreatment: initialData.treatments[0]?.procedure || "",
+        dosageInstructions: "",
+        followUpRecommendation: "",
+      });
+    }, 600);
+  };
+
+  const addPrescriptionRow = () => {
+    setPrescriptionRows((prev) => [
+      ...prev,
+      {
+        name: "",
+        strength: "",
+        dosage: "",
+        frequency: "",
+        duration: "",
+      },
+    ]);
+  };
+
+  const removePrescriptionRow = (index: number) => {
+    setPrescriptionRows((prev) => prev.filter((_, idx) => idx !== index));
+  };
+
+  const updatePrescriptionRow = (
+    index: number,
+    field: keyof (typeof prescriptionRows)[number],
+    value: string,
+  ) => {
+    setPrescriptionRows((prev) =>
+      prev.map((row, idx) => (idx === index ? { ...row, [field]: value } : row)),
+    );
+  };
+
+  const triggerPrescriptionAction = (type: "Download" | "Print", rx: PrescriptionRecord) => {
+    if (type === "Print") {
+      handleGeneratePrescriptionPdf(rx);
+      return;
+    }
+
+    const content =
+      `Prescription ${rx.id}\nPatient: ${patientData.profile.fullName}\nTreatment: ${rx.associatedTreatment}\n\n` +
+      rx.medicines
+        .map(
+          (med) => `${med.name} ${med.strength} — ${med.dosage}, ${med.frequency}, ${med.duration}`,
+        )
+        .join("\n") +
+      `\n\nInstructions: ${rx.dosageInstructions}`;
+    const blob = new Blob([content], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `${rx.id}-prescription.txt`;
+    anchor.click();
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -1360,7 +1785,773 @@ export default function AdminPatientDetailsPage() {
             </div>
           </div>
         </div>
+
+        {/* ==========================================
+            INTERACTIVE TOOTH CHART
+           ========================================== */}
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+          <div className="px-4 sm:px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                <FileText className="w-4 h-4 text-emerald-600" /> Interactive Tooth Chart
+              </h3>
+              <p className="text-xs text-slate-500 mt-1">
+                Click a tooth to add procedures, update status, or add notes. Changes sync to the
+                patient portal (read-only).
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => refreshToothHistory()}
+                className="text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 px-2 py-1 rounded-md"
+              >
+                Refresh
+              </button>
+            </div>
+          </div>
+          <div className="p-5">
+            <div className="max-w-[680px] mx-auto">
+              <ToothChart
+                marks={getToothMarks()}
+                selected={selectedTooth ?? null}
+                onSelect={openToothModal}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* ==========================================
+            PRESCRIPTION MANAGEMENT & AUTHORING WORKFLOW
+           ========================================== */}
+        <div className="bg-white rounded-2xl border border-slate-200 border-l-4 border-l-violet-500 shadow-xs overflow-hidden">
+          <div className="px-4 sm:px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                <Pill className="w-4 h-4 text-violet-600" /> Prescription Management Workflow
+              </h3>
+              <p className="text-xs text-slate-500 mt-1">
+                Author prescriptions, review active orders, and keep the patient portal synced in
+                read-only mode.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => handleOpenPrescriptionModal("create")}
+                className="inline-flex items-center gap-2 text-xs font-bold text-white bg-violet-600 hover:bg-violet-700 px-3 py-1.5 rounded-lg transition"
+              >
+                <Plus className="w-3.5 h-3.5" /> Create Prescription
+              </button>
+              <button
+                type="button"
+                onClick={() => handleOpenPrescriptionModal("history")}
+                className="inline-flex items-center gap-2 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-lg transition"
+              >
+                <History className="w-3.5 h-3.5" /> View Prescription History
+              </button>
+            </div>
+          </div>
+
+          <div className="p-4 sm:p-6 space-y-4">
+            <div className="grid grid-cols-1 xl:grid-cols-[1.2fr_0.8fr] gap-4">
+              <div className="rounded-2xl bg-slate-50 border border-slate-200 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wide text-slate-400 font-bold">
+                      Latest Prescription Preview
+                    </p>
+                    <h4 className="mt-2 text-sm font-bold text-slate-900">
+                      {latestPrescription?.associatedTreatment || "No prescription yet"}
+                    </h4>
+                  </div>
+                  {latestPrescription ? (
+                    <span className="text-[10px] font-bold uppercase tracking-wide text-emerald-700 bg-emerald-50 border border-emerald-100 px-2 py-1 rounded-full">
+                      {latestPrescription.status}
+                    </span>
+                  ) : null}
+                </div>
+
+                {latestPrescription ? (
+                  <div className="mt-4 space-y-4 text-sm text-slate-700">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <span className="text-xs text-slate-500 uppercase tracking-wide">
+                          Issued
+                        </span>
+                        <p className="font-semibold text-slate-900 mt-1">
+                          {formatPrescriptionDate(latestPrescription.date)}
+                        </p>
+                      </div>
+                      <div>
+                        <span className="text-xs text-slate-500 uppercase tracking-wide">
+                          Treatment reference
+                        </span>
+                        <p className="font-semibold text-slate-900 mt-1">
+                          {latestPrescription.linkedTreatment}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="rounded-2xl border border-slate-200 bg-white p-4 space-y-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-xs uppercase tracking-wide text-slate-400">
+                          Medicine list
+                        </span>
+                        <span className="text-xs text-slate-500">
+                          {latestPrescription.medicines.length} item(s)
+                        </span>
+                      </div>
+                      <div className="space-y-2">
+                        {latestPrescription.medicines.map((medicine, index) => (
+                          <div
+                            key={index}
+                            className="rounded-xl bg-slate-50 p-3 border border-slate-100"
+                          >
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <p className="font-semibold text-slate-900">
+                                {medicine.name} {medicine.strength}
+                              </p>
+                              <span className="text-[11px] text-slate-500">
+                                {medicine.duration}
+                              </span>
+                            </div>
+                            <p className="text-slate-500 text-xs mt-1">
+                              {medicine.dosage} • {medicine.frequency}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                      <p className="text-[10px] uppercase tracking-wide text-slate-400">
+                        Notes / Instructions
+                      </p>
+                      <p className="mt-2 text-sm text-slate-700 leading-relaxed">
+                        {latestPrescription.dosageInstructions}
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
+                    No prescription has been created for this patient yet. Use Create Prescription
+                    to add the first entry.
+                  </div>
+                )}
+              </div>
+
+              <div className="rounded-2xl border border-slate-200 p-4 bg-white space-y-4">
+                <div className="space-y-2">
+                  <p className="text-[10px] uppercase tracking-wide text-slate-400 font-bold">
+                    Quick Actions
+                  </p>
+                  <div className="grid gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleOpenPrescriptionModal("create")}
+                      className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-violet-600 text-white px-3 py-2 text-xs font-bold hover:bg-violet-700 transition"
+                    >
+                      <Plus className="w-3.5 h-3.5" /> Create Prescription
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleOpenPrescriptionModal("history")}
+                      className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-slate-100 text-slate-700 px-3 py-2 text-xs font-bold hover:bg-slate-200 transition"
+                    >
+                      <History className="w-3.5 h-3.5" /> View Prescription History
+                    </button>
+                    <button
+                      type="button"
+                      disabled={!latestPrescription}
+                      onClick={() =>
+                        latestPrescription && handleGeneratePrescriptionPdf(latestPrescription)
+                      }
+                      className="w-full inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white text-slate-700 px-3 py-2 text-xs font-bold hover:bg-slate-50 transition disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      <FileDown className="w-3.5 h-3.5" /> Generate Prescription PDF
+                    </button>
+                  </div>
+                </div>
+                {latestPrescription ? (
+                  <div className="rounded-2xl border border-slate-100 bg-slate-50 p-3 text-xs text-slate-500">
+                    Latest prescription data is synced to the patient portal in read-only mode.
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          </div>
+
+          <AnimatePresence>
+            {prescriptionModal && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  onClick={() => setPrescriptionModal(null)}
+                  className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
+                />
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 20 }}
+                  className="relative w-full max-w-3xl overflow-hidden rounded-3xl bg-white border border-slate-200 shadow-2xl"
+                >
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-100 px-5 py-4 bg-slate-50">
+                    <div>
+                      <h3 className="text-sm font-bold text-slate-900">
+                        {prescriptionModal === "create"
+                          ? "Create Prescription"
+                          : "Prescription History"}
+                      </h3>
+                      <p className="text-xs text-slate-500 mt-1">
+                        {prescriptionModal === "create"
+                          ? "Add medicines, instructions, and duration before saving the prescription."
+                          : "Browse the patient’s prescription history in a read-only summary view."}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setPrescriptionModal(null)}
+                      className="inline-flex items-center justify-center rounded-xl bg-slate-100 p-2 text-slate-600 hover:bg-slate-200"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  <div className="p-5 space-y-4 text-sm text-slate-700">
+                    {prescriptionModal === "create" ? (
+                      <form onSubmit={handleAddPrescription} className="space-y-4">
+                        {prescriptionErrorMessage ? (
+                          <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-rose-700 text-sm">
+                            {prescriptionErrorMessage}
+                          </div>
+                        ) : null}
+                        {prescriptionSuccessMessage ? (
+                          <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-emerald-700 text-sm">
+                            {prescriptionSuccessMessage}
+                          </div>
+                        ) : null}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-slate-500 font-bold mb-2">
+                              Associated Treatment
+                            </label>
+                            <input
+                              type="text"
+                              value={prescriptionForm.associatedTreatment}
+                              onChange={(e) =>
+                                setPrescriptionForm({
+                                  ...prescriptionForm,
+                                  associatedTreatment: e.target.value,
+                                })
+                              }
+                              className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-violet-500"
+                              required
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-slate-500 font-bold mb-2">
+                              Prescription Notes
+                            </label>
+                            <textarea
+                              rows={3}
+                              value={prescriptionForm.dosageInstructions}
+                              onChange={(e) =>
+                                setPrescriptionForm({
+                                  ...prescriptionForm,
+                                  dosageInstructions: e.target.value,
+                                })
+                              }
+                              className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-violet-500"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-slate-500 font-bold mb-2">
+                            Follow-up Recommendation
+                          </label>
+                          <textarea
+                            rows={2}
+                            value={prescriptionForm.followUpRecommendation}
+                            onChange={(e) =>
+                              setPrescriptionForm({
+                                ...prescriptionForm,
+                                followUpRecommendation: e.target.value,
+                              })
+                            }
+                            className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-violet-500"
+                          />
+                        </div>
+                        <div className="space-y-4">
+                          {prescriptionRows.map((row, rowIndex) => (
+                            <div
+                              key={rowIndex}
+                              className="rounded-2xl border border-slate-200 bg-slate-50 p-4"
+                            >
+                              <div className="flex items-center justify-between gap-3 mb-3">
+                                <span className="text-xs uppercase tracking-wide text-slate-400 font-bold">
+                                  Medicine {rowIndex + 1}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => removePrescriptionRow(rowIndex)}
+                                  className="text-xs font-semibold text-rose-600 hover:text-rose-800"
+                                >
+                                  Remove
+                                </button>
+                              </div>
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                <div>
+                                  <label className="block text-slate-500 text-xs font-semibold mb-1">
+                                    Name
+                                  </label>
+                                  <input
+                                    type="text"
+                                    value={row.name}
+                                    onChange={(e) =>
+                                      updatePrescriptionRow(rowIndex, "name", e.target.value)
+                                    }
+                                    className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-violet-500"
+                                    placeholder="Ibuprofen"
+                                    required
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-slate-500 text-xs font-semibold mb-1">
+                                    Strength
+                                  </label>
+                                  <input
+                                    type="text"
+                                    value={row.strength}
+                                    onChange={(e) =>
+                                      updatePrescriptionRow(rowIndex, "strength", e.target.value)
+                                    }
+                                    className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-violet-500"
+                                    placeholder="400mg"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-slate-500 text-xs font-semibold mb-1">
+                                    Dosage
+                                  </label>
+                                  <input
+                                    type="text"
+                                    value={row.dosage}
+                                    onChange={(e) =>
+                                      updatePrescriptionRow(rowIndex, "dosage", e.target.value)
+                                    }
+                                    className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-violet-500"
+                                    placeholder="1 tablet"
+                                    required
+                                  />
+                                </div>
+                              </div>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
+                                <div>
+                                  <label className="block text-slate-500 text-xs font-semibold mb-1">
+                                    Frequency
+                                  </label>
+                                  <input
+                                    type="text"
+                                    value={row.frequency}
+                                    onChange={(e) =>
+                                      updatePrescriptionRow(rowIndex, "frequency", e.target.value)
+                                    }
+                                    className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-violet-500"
+                                    placeholder="Every 4-6 hours"
+                                    required
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-slate-500 text-xs font-semibold mb-1">
+                                    Duration
+                                  </label>
+                                  <input
+                                    type="text"
+                                    value={row.duration}
+                                    onChange={(e) =>
+                                      updatePrescriptionRow(rowIndex, "duration", e.target.value)
+                                    }
+                                    className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-violet-500"
+                                    placeholder="5 days"
+                                    required
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            onClick={addPrescriptionRow}
+                            className="inline-flex items-center gap-2 rounded-xl bg-slate-100 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-200 transition"
+                          >
+                            <Plus className="w-3.5 h-3.5" /> Add medicine row
+                          </button>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-3 justify-end pt-2 border-t border-slate-100">
+                          <button
+                            type="button"
+                            onClick={() => setPrescriptionModal(null)}
+                            className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="submit"
+                            disabled={isCreatingPrescription}
+                            className="rounded-xl bg-violet-600 px-4 py-2 text-xs font-bold text-white hover:bg-violet-700 disabled:opacity-60"
+                          >
+                            {isCreatingPrescription ? "Saving..." : "Save Prescription"}
+                          </button>
+                        </div>
+                      </form>
+                    ) : (
+                      <div className="space-y-4">
+                        {patientData.prescriptions.length === 0 ? (
+                          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
+                            No historical prescriptions are available for this patient.
+                          </div>
+                        ) : (
+                          patientData.prescriptions.map((rx) => {
+                            const isExpanded = expandedPrescriptionId === rx.id;
+                            return (
+                              <div
+                                key={rx.id}
+                                className="rounded-3xl border border-slate-200 bg-slate-50 overflow-hidden"
+                              >
+                                <button
+                                  type="button"
+                                  onClick={() => togglePrescriptionExpand(rx.id)}
+                                  className="w-full px-5 py-4 text-left flex items-center justify-between gap-4 bg-white"
+                                >
+                                  <div className="min-w-0 space-y-1">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      <span className="text-[10px] uppercase tracking-wide font-bold text-slate-400">
+                                        {rx.status}
+                                      </span>
+                                      <h4 className="text-sm font-bold text-slate-900 truncate">
+                                        {rx.associatedTreatment}
+                                      </h4>
+                                    </div>
+                                    <p className="text-xs text-slate-500 truncate">
+                                      Issued {formatPrescriptionDate(rx.date)} •{" "}
+                                      {rx.medicines.map((med) => med.name).join(", ")}
+                                    </p>
+                                  </div>
+                                  <span className="text-slate-400">
+                                    {isExpanded ? (
+                                      <ChevronUp className="w-4 h-4" />
+                                    ) : (
+                                      <ChevronDown className="w-4 h-4" />
+                                    )}
+                                  </span>
+                                </button>
+
+                                {isExpanded ? (
+                                  <div className="px-5 pb-5 pt-4 space-y-3 text-sm text-slate-700">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                      <div className="rounded-2xl bg-white border border-slate-200 p-4">
+                                        <p className="text-[10px] uppercase tracking-wide text-slate-400 font-bold mb-2">
+                                          Medicines
+                                        </p>
+                                        <div className="space-y-2">
+                                          {rx.medicines.map((medicine, index) => (
+                                            <div
+                                              key={index}
+                                              className="rounded-2xl bg-slate-50 p-3 border border-slate-100"
+                                            >
+                                              <p className="font-semibold text-slate-900">
+                                                {medicine.name} {medicine.strength}
+                                              </p>
+                                              <p className="text-xs text-slate-500">
+                                                {medicine.dosage} • {medicine.frequency} •{" "}
+                                                {medicine.duration}
+                                              </p>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </div>
+                                      <div className="rounded-2xl bg-white border border-slate-200 p-4">
+                                        <p className="text-[10px] uppercase tracking-wide text-slate-400 font-bold mb-2">
+                                          Directions
+                                        </p>
+                                        <p className="text-sm text-slate-600">
+                                          {rx.dosageInstructions}
+                                        </p>
+                                        <div className="mt-3 text-[10px] uppercase tracking-wide text-slate-400 font-bold">
+                                          Follow-up
+                                        </div>
+                                        <p className="text-sm text-slate-600">
+                                          {rx.followUpRecommendation}
+                                        </p>
+                                      </div>
+                                    </div>
+                                    <div className="flex flex-wrap items-center justify-between gap-2">
+                                      <span className="text-xs text-slate-500">
+                                        Prescription ID: {rx.id}
+                                      </span>
+                                      <div className="flex flex-wrap gap-2">
+                                        <button
+                                          type="button"
+                                          onClick={() => triggerPrescriptionAction("Download", rx)}
+                                          className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50"
+                                        >
+                                          <FileDown className="w-3.5 h-3.5" /> Download
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => triggerPrescriptionAction("Print", rx)}
+                                          className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50"
+                                        >
+                                          <Printer className="w-3.5 h-3.5" /> Print
+                                        </button>
+                                      </div>
+                                    </div>
+                                  </div>
+                                ) : null}
+                              </div>
+                            );
+                          })
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </motion.div>
+              </div>
+            )}
+          </AnimatePresence>
+        </div>
       </div>
+
+      {/* TOOTH CHART MODAL */}
+      <AnimatePresence>
+        {isToothModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsToothModalOpen(false)}
+              className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 20 }}
+              className="relative w-full max-w-2xl overflow-hidden rounded-3xl bg-white border border-slate-200 shadow-2xl"
+            >
+              <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-5 py-4 bg-slate-50">
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900">
+                    {selectedTooth ? `Tooth ${selectedTooth}` : "Tooth"} — Manage
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Add a procedure, update condition, or mark completed. Patient portal receives
+                    read-only updates.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsToothModalOpen(false)}
+                    className="inline-flex items-center justify-center rounded-xl bg-slate-100 p-2 text-slate-600 hover:bg-slate-200"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="p-5 space-y-4 text-sm text-slate-700">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-3">
+                    <label className="block text-slate-500 text-xs font-bold">Procedure</label>
+                    <input
+                      type="text"
+                      value={toothForm.procedure}
+                      disabled={!isEditing}
+                      onChange={(e) => setToothForm({ ...toothForm, procedure: e.target.value })}
+                      className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
+                      placeholder="e.g. Composite Filling"
+                    />
+
+                    <label className="block text-slate-500 text-xs font-bold">Status</label>
+                    <select
+                      value={toothForm.status}
+                      disabled={!isEditing}
+                      onChange={(e) =>
+                        setToothForm({
+                          ...toothForm,
+                          status: e.target.value as ToothTreatmentStatus,
+                        })
+                      }
+                      className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
+                    >
+                      <option value="planned">Planned</option>
+                      <option value="in_progress">In Progress</option>
+                      <option value="completed">Completed</option>
+                    </select>
+
+                    <label className="block text-slate-500 text-xs font-bold">Notes</label>
+                    <textarea
+                      rows={3}
+                      value={toothForm.notes}
+                      disabled={!isEditing}
+                      onChange={(e) => setToothForm({ ...toothForm, notes: e.target.value })}
+                      className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
+                    />
+
+                    <label className="block text-slate-500 text-xs font-bold">
+                      Linked Treatment
+                    </label>
+                    <input
+                      type="text"
+                      value={toothForm.linkedTreatment}
+                      disabled={!isEditing}
+                      onChange={(e) =>
+                        setToothForm({ ...toothForm, linkedTreatment: e.target.value })
+                      }
+                      className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-sm font-semibold">Recent Procedures</h4>
+                        <span className="text-xs text-slate-400">
+                          {selectedToothHistory.length} records
+                        </span>
+                      </div>
+                      <div className="max-h-56 overflow-auto rounded-xl border border-slate-100 bg-slate-50 p-3 space-y-2">
+                        {selectedToothHistory.length ? (
+                          selectedToothHistory.map((h) => {
+                            const isTargeted = selectedProcedureId === h.id && !isAddingNew;
+
+                            return (
+                              <div
+                                key={h.id}
+                                className="p-2 bg-white rounded border border-slate-100"
+                              >
+                                <div className="flex items-center justify-between text-sm">
+                                  <div>
+                                    <div className="font-bold text-slate-800">{h.procedure}</div>
+                                    <div className="text-xs text-slate-500">
+                                      {h.performedAt} • {h.status.replace("_", " ")}
+                                    </div>
+                                  </div>
+                                  <div className="text-right">
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setToothHistory((prev) =>
+                                          prev.filter((item) => item.id !== h.id),
+                                        );
+                                      }}
+                                      className="text-xs text-red-600 font-bold ml-2"
+                                    >
+                                      Delete
+                                    </button>
+                                  </div>
+                                </div>
+                                {h.notes && (
+                                  <p className="mt-2 text-xs text-slate-600">{h.notes}</p>
+                                )}
+                              </div>
+                            );
+                          })
+                        ) : (
+                          <div className="text-xs text-slate-500">
+                            No procedures recorded for this tooth.
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="pt-3">
+                      <div className="flex gap-2">
+                        <div className="flex items-center gap-2">
+                          {!isEditing && selectedProcedureId && selectedToothHistory.length > 0 ? (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSelectedProcedureId(null);
+                                  setIsAddingNew(true);
+                                  setIsEditing(true);
+
+                                  setToothForm({
+                                    toothNumber: String(selectedTooth || ""),
+                                    procedure: "",
+                                    status: "planned",
+                                    notes: "",
+                                    linkedTreatment: "",
+                                  });
+                                }}
+                                className="inline-flex items-center gap-1.5 py-1.5 px-4 text-xs font-bold rounded-xl border border-slate-200"
+                              >
+                                New Procedure
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const currentProc = selectedToothHistory.find(
+                                    (p) => p.id === selectedProcedureId,
+                                  );
+
+                                  if (currentProc) {
+                                    handleInitiateEdit(currentProc);
+                                  }
+                                }}
+                                className="inline-flex items-center gap-1.5 py-1.5 px-4 text-xs font-bold rounded-xl border border-slate-200"
+                              >
+                                Edit Record
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              {selectedToothHistory.length > 0 && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (isAddingNew) {
+                                      loadProcedureIntoForm(selectedToothHistory[0]);
+                                    } else {
+                                      setIsEditing(false);
+                                    }
+                                  }}
+                                  className="py-1.5 px-3.5 text-xs font-bold rounded-xl"
+                                >
+                                  Cancel
+                                </button>
+                              )}
+
+                              <button
+                                type="button"
+                                onClick={isAddingNew ? handleAddToothProcedure : handleSaveToothUpdates}
+                                className="inline-flex items-center gap-1.5 py-1.5 px-4 text-xs font-bold text-white bg-teal-600 rounded-xl"
+                              >
+                                {isAddingNew ? "Add Procedure" : "Save Updates"}
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                      {toothActionMessage ? (
+                        <div className="mt-2 text-xs text-emerald-700 font-medium">
+                          {toothActionMessage}
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* INDEPENDENT PREMIUM INTERACTIVE MODAL POPOVER DISPATCH AREA */}
       <AnimatePresence>
