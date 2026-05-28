@@ -22,14 +22,29 @@ function Reset() {
           onSubmit={async (e) => {
             e.preventDefault();
             const fd = new FormData(e.currentTarget);
-            const { error } = await supabase.auth.updateUser({ password: String(fd.get("password")) });
+            const { error } = await supabase.auth.updateUser({
+              password: String(fd.get("password")),
+            });
             if (error) return toast.error(error.message);
             toast.success("Password updated.");
             navigate({ to: "/dashboard" });
           }}
         >
-          <div><Label htmlFor="password">New password</Label><Input id="password" name="password" type="password" required minLength={6} maxLength={72} className="mt-1" /></div>
-          <Button type="submit" className="w-full bg-primary-gradient">Update password</Button>
+          <div>
+            <Label htmlFor="password">New password</Label>
+            <Input
+              id="password"
+              name="password"
+              type="password"
+              required
+              minLength={6}
+              maxLength={72}
+              className="mt-1"
+            />
+          </div>
+          <Button type="submit" className="w-full bg-primary-gradient">
+            Update password
+          </Button>
         </form>
       </Card>
     </div>

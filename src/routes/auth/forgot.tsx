@@ -29,11 +29,22 @@ function Forgot() {
             toast.success("Check your inbox for the reset link.");
           }}
         >
-          <div><Label htmlFor="email">Email</Label><Input id="email" name="email" type="email" required className="mt-1" /></div>
-          <Button type="submit" className="w-full bg-primary-gradient">Send reset link</Button>
+          <div>
+            <Label htmlFor="email">Email</Label>
+            <Input id="email" name="email" type="email" required className="mt-1" />
+          </div>
+          <Button type="submit" className="w-full bg-primary-gradient">
+            Send reset link
+          </Button>
         </form>
         <p className="mt-6 text-center text-sm text-muted-foreground">
-          <Link to="/auth/login" className="text-primary hover:underline">Back to sign in</Link>
+          <Link
+            to="/auth/login"
+            search={{ redirect: undefined }}
+            className="text-primary hover:underline"
+          >
+            Back to sign in
+          </Link>
         </p>
       </Card>
     </div>

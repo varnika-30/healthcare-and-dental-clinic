@@ -1,0 +1,8 @@
+Primary color: #27B7AE
+Background: white / off-white
+Cards: rounded-3xl
+Shadows: soft
+Buttons: rounded-xl
+Typography: large and spacious
+Containers: max-w-7xl or max-w-[1400px]
+Theme: premium modern dental clinic

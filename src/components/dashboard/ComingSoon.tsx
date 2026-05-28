@@ -3,8 +3,16 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import type { LucideIcon } from "lucide-react";
 
-export function ComingSoon({ title, icon: Icon, description, action }: {
-  title: string; icon: LucideIcon; description: string; action?: string;
+export function ComingSoon({
+  title,
+  icon: Icon,
+  description,
+  action,
+}: {
+  title: string;
+  icon: LucideIcon;
+  description: string;
+  action?: string;
 }) {
   return (
     <DashboardShell>
@@ -18,7 +26,8 @@ export function ComingSoon({ title, icon: Icon, description, action }: {
         </span>
         <h3 className="mt-4 font-display text-xl font-semibold">Module in progress</h3>
         <p className="mt-2 max-w-md text-sm text-muted-foreground">
-          The {title.toLowerCase()} module is ready to be wired up. Ask the assistant to build out tables, forms, and full CRUD next.
+          The {title.toLowerCase()} module is ready to be wired up. Ask the assistant to build out
+          tables, forms, and full CRUD next.
         </p>
         {action && <Button className="mt-5 bg-primary-gradient">{action}</Button>}
       </Card>

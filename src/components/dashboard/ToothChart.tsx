@@ -36,7 +36,7 @@ export function ToothChart({
             className={cn(
               "flex h-12 w-9 flex-col items-center justify-center rounded-md border bg-card text-[10px] font-medium transition hover:border-primary",
               m && STATUS_COLORS[m.status],
-              active && "ring-2 ring-primary ring-offset-2 ring-offset-background"
+              active && "ring-2 ring-primary ring-offset-2 ring-offset-background",
             )}
           >
             <span className="text-[9px] text-muted-foreground">{t}</span>

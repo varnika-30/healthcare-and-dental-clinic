@@ -1,871 +1,857 @@
-export type Json =
-  | string
-  | number
-  | boolean
-  | null
-  | { [key: string]: Json | undefined }
-  | Json[]
+export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
 
 export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.5"
-  }
+    PostgrestVersion: "14.5";
+  };
   public: {
     Tables: {
       appointments: {
         Row: {
-          created_at: string
-          created_by: string | null
-          doctor_id: string | null
-          duration_minutes: number
-          id: string
-          notes: string | null
-          patient_id: string
-          priority: Database["public"]["Enums"]["appointment_priority"]
-          scheduled_at: string
-          service: string
-          status: Database["public"]["Enums"]["appointment_status"]
-          updated_at: string
-        }
+          created_at: string;
+          created_by: string | null;
+          doctor_id: string | null;
+          duration_minutes: number;
+          id: string;
+          notes: string | null;
+          patient_id: string;
+          priority: Database["public"]["Enums"]["appointment_priority"];
+          scheduled_at: string;
+          service: string;
+          status: Database["public"]["Enums"]["appointment_status"];
+          updated_at: string;
+        };
         Insert: {
-          created_at?: string
-          created_by?: string | null
-          doctor_id?: string | null
-          duration_minutes?: number
-          id?: string
-          notes?: string | null
-          patient_id: string
-          priority?: Database["public"]["Enums"]["appointment_priority"]
-          scheduled_at: string
-          service: string
-          status?: Database["public"]["Enums"]["appointment_status"]
-          updated_at?: string
-        }
+          created_at?: string;
+          created_by?: string | null;
+          doctor_id?: string | null;
+          duration_minutes?: number;
+          id?: string;
+          notes?: string | null;
+          patient_id: string;
+          priority?: Database["public"]["Enums"]["appointment_priority"];
+          scheduled_at: string;
+          service: string;
+          status?: Database["public"]["Enums"]["appointment_status"];
+          updated_at?: string;
+        };
         Update: {
-          created_at?: string
-          created_by?: string | null
-          doctor_id?: string | null
-          duration_minutes?: number
-          id?: string
-          notes?: string | null
-          patient_id?: string
-          priority?: Database["public"]["Enums"]["appointment_priority"]
-          scheduled_at?: string
-          service?: string
-          status?: Database["public"]["Enums"]["appointment_status"]
-          updated_at?: string
-        }
+          created_at?: string;
+          created_by?: string | null;
+          doctor_id?: string | null;
+          duration_minutes?: number;
+          id?: string;
+          notes?: string | null;
+          patient_id?: string;
+          priority?: Database["public"]["Enums"]["appointment_priority"];
+          scheduled_at?: string;
+          service?: string;
+          status?: Database["public"]["Enums"]["appointment_status"];
+          updated_at?: string;
+        };
         Relationships: [
           {
-            foreignKeyName: "appointments_patient_id_fkey"
-            columns: ["patient_id"]
-            isOneToOne: false
-            referencedRelation: "patients"
-            referencedColumns: ["id"]
+            foreignKeyName: "appointments_patient_id_fkey";
+            columns: ["patient_id"];
+            isOneToOne: false;
+            referencedRelation: "patients";
+            referencedColumns: ["id"];
           },
-        ]
-      }
+        ];
+      };
       family_links: {
         Row: {
-          created_at: string
-          id: string
-          patient_id: string
-          related_name: string
-          related_patient_id: string | null
-          relationship: string | null
-        }
+          created_at: string;
+          id: string;
+          patient_id: string;
+          related_name: string;
+          related_patient_id: string | null;
+          relationship: string | null;
+        };
         Insert: {
-          created_at?: string
-          id?: string
-          patient_id: string
-          related_name: string
-          related_patient_id?: string | null
-          relationship?: string | null
-        }
+          created_at?: string;
+          id?: string;
+          patient_id: string;
+          related_name: string;
+          related_patient_id?: string | null;
+          relationship?: string | null;
+        };
         Update: {
-          created_at?: string
-          id?: string
-          patient_id?: string
-          related_name?: string
-          related_patient_id?: string | null
-          relationship?: string | null
-        }
+          created_at?: string;
+          id?: string;
+          patient_id?: string;
+          related_name?: string;
+          related_patient_id?: string | null;
+          relationship?: string | null;
+        };
         Relationships: [
           {
-            foreignKeyName: "family_links_patient_id_fkey"
-            columns: ["patient_id"]
-            isOneToOne: false
-            referencedRelation: "patients"
-            referencedColumns: ["id"]
+            foreignKeyName: "family_links_patient_id_fkey";
+            columns: ["patient_id"];
+            isOneToOne: false;
+            referencedRelation: "patients";
+            referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "family_links_related_patient_id_fkey"
-            columns: ["related_patient_id"]
-            isOneToOne: false
-            referencedRelation: "patients"
-            referencedColumns: ["id"]
+            foreignKeyName: "family_links_related_patient_id_fkey";
+            columns: ["related_patient_id"];
+            isOneToOne: false;
+            referencedRelation: "patients";
+            referencedColumns: ["id"];
           },
-        ]
-      }
+        ];
+      };
       invoice_items: {
         Row: {
-          amount: number
-          created_at: string
-          description: string
-          id: string
-          invoice_id: string
-          quantity: number
-          unit_price: number
-        }
+          amount: number;
+          created_at: string;
+          description: string;
+          id: string;
+          invoice_id: string;
+          quantity: number;
+          unit_price: number;
+        };
         Insert: {
-          amount?: number
-          created_at?: string
-          description: string
-          id?: string
-          invoice_id: string
-          quantity?: number
-          unit_price?: number
-        }
+          amount?: number;
+          created_at?: string;
+          description: string;
+          id?: string;
+          invoice_id: string;
+          quantity?: number;
+          unit_price?: number;
+        };
         Update: {
-          amount?: number
-          created_at?: string
-          description?: string
-          id?: string
-          invoice_id?: string
-          quantity?: number
-          unit_price?: number
-        }
+          amount?: number;
+          created_at?: string;
+          description?: string;
+          id?: string;
+          invoice_id?: string;
+          quantity?: number;
+          unit_price?: number;
+        };
         Relationships: [
           {
-            foreignKeyName: "invoice_items_invoice_id_fkey"
-            columns: ["invoice_id"]
-            isOneToOne: false
-            referencedRelation: "invoices"
-            referencedColumns: ["id"]
+            foreignKeyName: "invoice_items_invoice_id_fkey";
+            columns: ["invoice_id"];
+            isOneToOne: false;
+            referencedRelation: "invoices";
+            referencedColumns: ["id"];
           },
-        ]
-      }
+        ];
+      };
       invoices: {
         Row: {
-          amount_paid: number
-          balance: number
-          created_at: string
-          due_date: string | null
-          id: string
-          invoice_number: string
-          is_current: boolean
-          notes: string | null
-          patient_id: string
-          plan_id: string | null
-          status: Database["public"]["Enums"]["invoice_status"]
-          subtotal: number
-          tax: number
-          total: number
-          updated_at: string
-        }
+          amount_paid: number;
+          balance: number;
+          created_at: string;
+          due_date: string | null;
+          id: string;
+          invoice_number: string;
+          is_current: boolean;
+          notes: string | null;
+          patient_id: string;
+          plan_id: string | null;
+          status: Database["public"]["Enums"]["invoice_status"];
+          subtotal: number;
+          tax: number;
+          total: number;
+          updated_at: string;
+        };
         Insert: {
-          amount_paid?: number
-          balance?: number
-          created_at?: string
-          due_date?: string | null
-          id?: string
-          invoice_number?: string
-          is_current?: boolean
-          notes?: string | null
-          patient_id: string
-          plan_id?: string | null
-          status?: Database["public"]["Enums"]["invoice_status"]
-          subtotal?: number
-          tax?: number
-          total?: number
-          updated_at?: string
-        }
+          amount_paid?: number;
+          balance?: number;
+          created_at?: string;
+          due_date?: string | null;
+          id?: string;
+          invoice_number?: string;
+          is_current?: boolean;
+          notes?: string | null;
+          patient_id: string;
+          plan_id?: string | null;
+          status?: Database["public"]["Enums"]["invoice_status"];
+          subtotal?: number;
+          tax?: number;
+          total?: number;
+          updated_at?: string;
+        };
         Update: {
-          amount_paid?: number
-          balance?: number
-          created_at?: string
-          due_date?: string | null
-          id?: string
-          invoice_number?: string
-          is_current?: boolean
-          notes?: string | null
-          patient_id?: string
-          plan_id?: string | null
-          status?: Database["public"]["Enums"]["invoice_status"]
-          subtotal?: number
-          tax?: number
-          total?: number
-          updated_at?: string
-        }
+          amount_paid?: number;
+          balance?: number;
+          created_at?: string;
+          due_date?: string | null;
+          id?: string;
+          invoice_number?: string;
+          is_current?: boolean;
+          notes?: string | null;
+          patient_id?: string;
+          plan_id?: string | null;
+          status?: Database["public"]["Enums"]["invoice_status"];
+          subtotal?: number;
+          tax?: number;
+          total?: number;
+          updated_at?: string;
+        };
         Relationships: [
           {
-            foreignKeyName: "invoices_patient_id_fkey"
-            columns: ["patient_id"]
-            isOneToOne: false
-            referencedRelation: "patients"
-            referencedColumns: ["id"]
+            foreignKeyName: "invoices_patient_id_fkey";
+            columns: ["patient_id"];
+            isOneToOne: false;
+            referencedRelation: "patients";
+            referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "invoices_plan_id_fkey"
-            columns: ["plan_id"]
-            isOneToOne: false
-            referencedRelation: "treatment_plans"
-            referencedColumns: ["id"]
+            foreignKeyName: "invoices_plan_id_fkey";
+            columns: ["plan_id"];
+            isOneToOne: false;
+            referencedRelation: "treatment_plans";
+            referencedColumns: ["id"];
           },
-        ]
-      }
+        ];
+      };
       notifications: {
         Row: {
-          body: string | null
-          created_at: string
-          id: string
-          read_at: string | null
-          title: string
-          type: Database["public"]["Enums"]["notification_type"]
-          user_id: string
-        }
+          body: string | null;
+          created_at: string;
+          id: string;
+          read_at: string | null;
+          title: string;
+          type: Database["public"]["Enums"]["notification_type"];
+          user_id: string;
+        };
         Insert: {
-          body?: string | null
-          created_at?: string
-          id?: string
-          read_at?: string | null
-          title: string
-          type?: Database["public"]["Enums"]["notification_type"]
-          user_id: string
-        }
+          body?: string | null;
+          created_at?: string;
+          id?: string;
+          read_at?: string | null;
+          title: string;
+          type?: Database["public"]["Enums"]["notification_type"];
+          user_id: string;
+        };
         Update: {
-          body?: string | null
-          created_at?: string
-          id?: string
-          read_at?: string | null
-          title?: string
-          type?: Database["public"]["Enums"]["notification_type"]
-          user_id?: string
-        }
-        Relationships: []
-      }
+          body?: string | null;
+          created_at?: string;
+          id?: string;
+          read_at?: string | null;
+          title?: string;
+          type?: Database["public"]["Enums"]["notification_type"];
+          user_id?: string;
+        };
+        Relationships: [];
+      };
       patients: {
         Row: {
-          allergies: string | null
-          blood_group: string | null
-          created_at: string
-          date_of_birth: string | null
-          email: string | null
-          emergency_contact_name: string | null
-          emergency_contact_phone: string | null
-          family_head_id: string | null
-          full_name: string
-          gender: string | null
-          id: string
-          medical_notes: string | null
-          phone: string | null
-          relationship_to_head: string | null
-          updated_at: string
-          user_id: string | null
-        }
+          allergies: string | null;
+          blood_group: string | null;
+          created_at: string;
+          date_of_birth: string | null;
+          email: string | null;
+          emergency_contact_name: string | null;
+          emergency_contact_phone: string | null;
+          family_head_id: string | null;
+          full_name: string;
+          gender: string | null;
+          id: string;
+          medical_notes: string | null;
+          phone: string | null;
+          relationship_to_head: string | null;
+          updated_at: string;
+          user_id: string | null;
+        };
         Insert: {
-          allergies?: string | null
-          blood_group?: string | null
-          created_at?: string
-          date_of_birth?: string | null
-          email?: string | null
-          emergency_contact_name?: string | null
-          emergency_contact_phone?: string | null
-          family_head_id?: string | null
-          full_name: string
-          gender?: string | null
-          id?: string
-          medical_notes?: string | null
-          phone?: string | null
-          relationship_to_head?: string | null
-          updated_at?: string
-          user_id?: string | null
-        }
+          allergies?: string | null;
+          blood_group?: string | null;
+          created_at?: string;
+          date_of_birth?: string | null;
+          email?: string | null;
+          emergency_contact_name?: string | null;
+          emergency_contact_phone?: string | null;
+          family_head_id?: string | null;
+          full_name: string;
+          gender?: string | null;
+          id?: string;
+          medical_notes?: string | null;
+          phone?: string | null;
+          relationship_to_head?: string | null;
+          updated_at?: string;
+          user_id?: string | null;
+        };
         Update: {
-          allergies?: string | null
-          blood_group?: string | null
-          created_at?: string
-          date_of_birth?: string | null
-          email?: string | null
-          emergency_contact_name?: string | null
-          emergency_contact_phone?: string | null
-          family_head_id?: string | null
-          full_name?: string
-          gender?: string | null
-          id?: string
-          medical_notes?: string | null
-          phone?: string | null
-          relationship_to_head?: string | null
-          updated_at?: string
-          user_id?: string | null
-        }
+          allergies?: string | null;
+          blood_group?: string | null;
+          created_at?: string;
+          date_of_birth?: string | null;
+          email?: string | null;
+          emergency_contact_name?: string | null;
+          emergency_contact_phone?: string | null;
+          family_head_id?: string | null;
+          full_name?: string;
+          gender?: string | null;
+          id?: string;
+          medical_notes?: string | null;
+          phone?: string | null;
+          relationship_to_head?: string | null;
+          updated_at?: string;
+          user_id?: string | null;
+        };
         Relationships: [
           {
-            foreignKeyName: "patients_family_head_id_fkey"
-            columns: ["family_head_id"]
-            isOneToOne: false
-            referencedRelation: "patients"
-            referencedColumns: ["id"]
+            foreignKeyName: "patients_family_head_id_fkey";
+            columns: ["family_head_id"];
+            isOneToOne: false;
+            referencedRelation: "patients";
+            referencedColumns: ["id"];
           },
-        ]
-      }
+        ];
+      };
       payments: {
         Row: {
-          amount: number
-          created_at: string
-          created_by: string | null
-          id: string
-          invoice_id: string
-          method: Database["public"]["Enums"]["payment_method"]
-          paid_at: string
-          reference: string | null
-        }
+          amount: number;
+          created_at: string;
+          created_by: string | null;
+          id: string;
+          invoice_id: string;
+          method: Database["public"]["Enums"]["payment_method"];
+          paid_at: string;
+          reference: string | null;
+        };
         Insert: {
-          amount: number
-          created_at?: string
-          created_by?: string | null
-          id?: string
-          invoice_id: string
-          method?: Database["public"]["Enums"]["payment_method"]
-          paid_at?: string
-          reference?: string | null
-        }
+          amount: number;
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          invoice_id: string;
+          method?: Database["public"]["Enums"]["payment_method"];
+          paid_at?: string;
+          reference?: string | null;
+        };
         Update: {
-          amount?: number
-          created_at?: string
-          created_by?: string | null
-          id?: string
-          invoice_id?: string
-          method?: Database["public"]["Enums"]["payment_method"]
-          paid_at?: string
-          reference?: string | null
-        }
+          amount?: number;
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          invoice_id?: string;
+          method?: Database["public"]["Enums"]["payment_method"];
+          paid_at?: string;
+          reference?: string | null;
+        };
         Relationships: [
           {
-            foreignKeyName: "payments_invoice_id_fkey"
-            columns: ["invoice_id"]
-            isOneToOne: false
-            referencedRelation: "invoices"
-            referencedColumns: ["id"]
+            foreignKeyName: "payments_invoice_id_fkey";
+            columns: ["invoice_id"];
+            isOneToOne: false;
+            referencedRelation: "invoices";
+            referencedColumns: ["id"];
           },
-        ]
-      }
+        ];
+      };
       prescription_items: {
         Row: {
-          created_at: string
-          dosage: string | null
-          duration: string | null
-          frequency: string | null
-          id: string
-          instructions: string | null
-          medication: string
-          prescription_id: string
-        }
+          created_at: string;
+          dosage: string | null;
+          duration: string | null;
+          frequency: string | null;
+          id: string;
+          instructions: string | null;
+          medication: string;
+          prescription_id: string;
+        };
         Insert: {
-          created_at?: string
-          dosage?: string | null
-          duration?: string | null
-          frequency?: string | null
-          id?: string
-          instructions?: string | null
-          medication: string
-          prescription_id: string
-        }
+          created_at?: string;
+          dosage?: string | null;
+          duration?: string | null;
+          frequency?: string | null;
+          id?: string;
+          instructions?: string | null;
+          medication: string;
+          prescription_id: string;
+        };
         Update: {
-          created_at?: string
-          dosage?: string | null
-          duration?: string | null
-          frequency?: string | null
-          id?: string
-          instructions?: string | null
-          medication?: string
-          prescription_id?: string
-        }
+          created_at?: string;
+          dosage?: string | null;
+          duration?: string | null;
+          frequency?: string | null;
+          id?: string;
+          instructions?: string | null;
+          medication?: string;
+          prescription_id?: string;
+        };
         Relationships: [
           {
-            foreignKeyName: "prescription_items_prescription_id_fkey"
-            columns: ["prescription_id"]
-            isOneToOne: false
-            referencedRelation: "prescriptions"
-            referencedColumns: ["id"]
+            foreignKeyName: "prescription_items_prescription_id_fkey";
+            columns: ["prescription_id"];
+            isOneToOne: false;
+            referencedRelation: "prescriptions";
+            referencedColumns: ["id"];
           },
-        ]
-      }
+        ];
+      };
       prescriptions: {
         Row: {
-          appointment_id: string | null
-          created_at: string
-          diagnosis: string | null
-          doctor_id: string | null
-          id: string
-          issued_at: string
-          notes: string | null
-          patient_id: string
-          updated_at: string
-        }
+          appointment_id: string | null;
+          created_at: string;
+          diagnosis: string | null;
+          doctor_id: string | null;
+          id: string;
+          issued_at: string;
+          notes: string | null;
+          patient_id: string;
+          updated_at: string;
+        };
         Insert: {
-          appointment_id?: string | null
-          created_at?: string
-          diagnosis?: string | null
-          doctor_id?: string | null
-          id?: string
-          issued_at?: string
-          notes?: string | null
-          patient_id: string
-          updated_at?: string
-        }
+          appointment_id?: string | null;
+          created_at?: string;
+          diagnosis?: string | null;
+          doctor_id?: string | null;
+          id?: string;
+          issued_at?: string;
+          notes?: string | null;
+          patient_id: string;
+          updated_at?: string;
+        };
         Update: {
-          appointment_id?: string | null
-          created_at?: string
-          diagnosis?: string | null
-          doctor_id?: string | null
-          id?: string
-          issued_at?: string
-          notes?: string | null
-          patient_id?: string
-          updated_at?: string
-        }
+          appointment_id?: string | null;
+          created_at?: string;
+          diagnosis?: string | null;
+          doctor_id?: string | null;
+          id?: string;
+          issued_at?: string;
+          notes?: string | null;
+          patient_id?: string;
+          updated_at?: string;
+        };
         Relationships: [
           {
-            foreignKeyName: "prescriptions_appointment_id_fkey"
-            columns: ["appointment_id"]
-            isOneToOne: false
-            referencedRelation: "appointments"
-            referencedColumns: ["id"]
+            foreignKeyName: "prescriptions_appointment_id_fkey";
+            columns: ["appointment_id"];
+            isOneToOne: false;
+            referencedRelation: "appointments";
+            referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "prescriptions_patient_id_fkey"
-            columns: ["patient_id"]
-            isOneToOne: false
-            referencedRelation: "patients"
-            referencedColumns: ["id"]
+            foreignKeyName: "prescriptions_patient_id_fkey";
+            columns: ["patient_id"];
+            isOneToOne: false;
+            referencedRelation: "patients";
+            referencedColumns: ["id"];
           },
-        ]
-      }
+        ];
+      };
       profiles: {
         Row: {
-          avatar_url: string | null
-          bio: string | null
-          created_at: string
-          date_of_birth: string | null
-          full_name: string | null
-          id: string
-          phone: string | null
-          specialization: string | null
-          updated_at: string
-        }
+          avatar_url: string | null;
+          bio: string | null;
+          created_at: string;
+          date_of_birth: string | null;
+          full_name: string | null;
+          id: string;
+          phone: string | null;
+          specialization: string | null;
+          updated_at: string;
+        };
         Insert: {
-          avatar_url?: string | null
-          bio?: string | null
-          created_at?: string
-          date_of_birth?: string | null
-          full_name?: string | null
-          id: string
-          phone?: string | null
-          specialization?: string | null
-          updated_at?: string
-        }
+          avatar_url?: string | null;
+          bio?: string | null;
+          created_at?: string;
+          date_of_birth?: string | null;
+          full_name?: string | null;
+          id: string;
+          phone?: string | null;
+          specialization?: string | null;
+          updated_at?: string;
+        };
         Update: {
-          avatar_url?: string | null
-          bio?: string | null
-          created_at?: string
-          date_of_birth?: string | null
-          full_name?: string | null
-          id?: string
-          phone?: string | null
-          specialization?: string | null
-          updated_at?: string
-        }
-        Relationships: []
-      }
+          avatar_url?: string | null;
+          bio?: string | null;
+          created_at?: string;
+          date_of_birth?: string | null;
+          full_name?: string | null;
+          id?: string;
+          phone?: string | null;
+          specialization?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       queue_tokens: {
         Row: {
-          appointment_id: string | null
-          called_at: string | null
-          created_at: string
-          done_at: string | null
-          id: string
-          patient_id: string
-          queued_at: string
-          status: Database["public"]["Enums"]["queue_status"]
-          token_number: number
-          updated_at: string
-        }
+          appointment_id: string | null;
+          called_at: string | null;
+          created_at: string;
+          done_at: string | null;
+          id: string;
+          patient_id: string;
+          queued_at: string;
+          status: Database["public"]["Enums"]["queue_status"];
+          token_number: number;
+          updated_at: string;
+        };
         Insert: {
-          appointment_id?: string | null
-          called_at?: string | null
-          created_at?: string
-          done_at?: string | null
-          id?: string
-          patient_id: string
-          queued_at?: string
-          status?: Database["public"]["Enums"]["queue_status"]
-          token_number: number
-          updated_at?: string
-        }
+          appointment_id?: string | null;
+          called_at?: string | null;
+          created_at?: string;
+          done_at?: string | null;
+          id?: string;
+          patient_id: string;
+          queued_at?: string;
+          status?: Database["public"]["Enums"]["queue_status"];
+          token_number: number;
+          updated_at?: string;
+        };
         Update: {
-          appointment_id?: string | null
-          called_at?: string | null
-          created_at?: string
-          done_at?: string | null
-          id?: string
-          patient_id?: string
-          queued_at?: string
-          status?: Database["public"]["Enums"]["queue_status"]
-          token_number?: number
-          updated_at?: string
-        }
+          appointment_id?: string | null;
+          called_at?: string | null;
+          created_at?: string;
+          done_at?: string | null;
+          id?: string;
+          patient_id?: string;
+          queued_at?: string;
+          status?: Database["public"]["Enums"]["queue_status"];
+          token_number?: number;
+          updated_at?: string;
+        };
         Relationships: [
           {
-            foreignKeyName: "queue_tokens_appointment_id_fkey"
-            columns: ["appointment_id"]
-            isOneToOne: false
-            referencedRelation: "appointments"
-            referencedColumns: ["id"]
+            foreignKeyName: "queue_tokens_appointment_id_fkey";
+            columns: ["appointment_id"];
+            isOneToOne: false;
+            referencedRelation: "appointments";
+            referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "queue_tokens_patient_id_fkey"
-            columns: ["patient_id"]
-            isOneToOne: false
-            referencedRelation: "patients"
-            referencedColumns: ["id"]
+            foreignKeyName: "queue_tokens_patient_id_fkey";
+            columns: ["patient_id"];
+            isOneToOne: false;
+            referencedRelation: "patients";
+            referencedColumns: ["id"];
           },
-        ]
-      }
+        ];
+      };
       tooth_treatments: {
         Row: {
-          created_at: string
-          doctor_id: string | null
-          id: string
-          notes: string | null
-          patient_id: string
-          performed_at: string | null
-          plan_id: string | null
-          procedure: string
-          status: Database["public"]["Enums"]["tooth_treatment_status"]
-          tooth_number: number
-          updated_at: string
-        }
+          created_at: string;
+          doctor_id: string | null;
+          id: string;
+          notes: string | null;
+          patient_id: string;
+          performed_at: string | null;
+          plan_id: string | null;
+          procedure: string;
+          status: Database["public"]["Enums"]["tooth_treatment_status"];
+          tooth_number: number;
+          updated_at: string;
+        };
         Insert: {
-          created_at?: string
-          doctor_id?: string | null
-          id?: string
-          notes?: string | null
-          patient_id: string
-          performed_at?: string | null
-          plan_id?: string | null
-          procedure: string
-          status?: Database["public"]["Enums"]["tooth_treatment_status"]
-          tooth_number: number
-          updated_at?: string
-        }
+          created_at?: string;
+          doctor_id?: string | null;
+          id?: string;
+          notes?: string | null;
+          patient_id: string;
+          performed_at?: string | null;
+          plan_id?: string | null;
+          procedure: string;
+          status?: Database["public"]["Enums"]["tooth_treatment_status"];
+          tooth_number: number;
+          updated_at?: string;
+        };
         Update: {
-          created_at?: string
-          doctor_id?: string | null
-          id?: string
-          notes?: string | null
-          patient_id?: string
-          performed_at?: string | null
-          plan_id?: string | null
-          procedure?: string
-          status?: Database["public"]["Enums"]["tooth_treatment_status"]
-          tooth_number?: number
-          updated_at?: string
-        }
+          created_at?: string;
+          doctor_id?: string | null;
+          id?: string;
+          notes?: string | null;
+          patient_id?: string;
+          performed_at?: string | null;
+          plan_id?: string | null;
+          procedure?: string;
+          status?: Database["public"]["Enums"]["tooth_treatment_status"];
+          tooth_number?: number;
+          updated_at?: string;
+        };
         Relationships: [
           {
-            foreignKeyName: "tooth_treatments_patient_id_fkey"
-            columns: ["patient_id"]
-            isOneToOne: false
-            referencedRelation: "patients"
-            referencedColumns: ["id"]
+            foreignKeyName: "tooth_treatments_patient_id_fkey";
+            columns: ["patient_id"];
+            isOneToOne: false;
+            referencedRelation: "patients";
+            referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "tooth_treatments_plan_id_fkey"
-            columns: ["plan_id"]
-            isOneToOne: false
-            referencedRelation: "treatment_plans"
-            referencedColumns: ["id"]
+            foreignKeyName: "tooth_treatments_plan_id_fkey";
+            columns: ["plan_id"];
+            isOneToOne: false;
+            referencedRelation: "treatment_plans";
+            referencedColumns: ["id"];
           },
-        ]
-      }
+        ];
+      };
       treatment_plans: {
         Row: {
-          completed_at: string | null
-          created_at: string
-          description: string | null
-          doctor_id: string | null
-          id: string
-          patient_id: string
-          started_at: string | null
-          status: Database["public"]["Enums"]["treatment_status"]
-          title: string
-          updated_at: string
-        }
+          completed_at: string | null;
+          created_at: string;
+          description: string | null;
+          doctor_id: string | null;
+          id: string;
+          patient_id: string;
+          started_at: string | null;
+          status: Database["public"]["Enums"]["treatment_status"];
+          title: string;
+          updated_at: string;
+        };
         Insert: {
-          completed_at?: string | null
-          created_at?: string
-          description?: string | null
-          doctor_id?: string | null
-          id?: string
-          patient_id: string
-          started_at?: string | null
-          status?: Database["public"]["Enums"]["treatment_status"]
-          title: string
-          updated_at?: string
-        }
+          completed_at?: string | null;
+          created_at?: string;
+          description?: string | null;
+          doctor_id?: string | null;
+          id?: string;
+          patient_id: string;
+          started_at?: string | null;
+          status?: Database["public"]["Enums"]["treatment_status"];
+          title: string;
+          updated_at?: string;
+        };
         Update: {
-          completed_at?: string | null
-          created_at?: string
-          description?: string | null
-          doctor_id?: string | null
-          id?: string
-          patient_id?: string
-          started_at?: string | null
-          status?: Database["public"]["Enums"]["treatment_status"]
-          title?: string
-          updated_at?: string
-        }
+          completed_at?: string | null;
+          created_at?: string;
+          description?: string | null;
+          doctor_id?: string | null;
+          id?: string;
+          patient_id?: string;
+          started_at?: string | null;
+          status?: Database["public"]["Enums"]["treatment_status"];
+          title?: string;
+          updated_at?: string;
+        };
         Relationships: [
           {
-            foreignKeyName: "treatment_plans_patient_id_fkey"
-            columns: ["patient_id"]
-            isOneToOne: false
-            referencedRelation: "patients"
-            referencedColumns: ["id"]
+            foreignKeyName: "treatment_plans_patient_id_fkey";
+            columns: ["patient_id"];
+            isOneToOne: false;
+            referencedRelation: "patients";
+            referencedColumns: ["id"];
           },
-        ]
-      }
+        ];
+      };
       treatment_steps: {
         Row: {
-          completed_at: string | null
-          created_at: string
-          due_at: string | null
-          id: string
-          notes: string | null
-          plan_id: string
-          status: Database["public"]["Enums"]["step_status"]
-          step_order: number
-          title: string
-          updated_at: string
-        }
+          completed_at: string | null;
+          created_at: string;
+          due_at: string | null;
+          id: string;
+          notes: string | null;
+          plan_id: string;
+          status: Database["public"]["Enums"]["step_status"];
+          step_order: number;
+          title: string;
+          updated_at: string;
+        };
         Insert: {
-          completed_at?: string | null
-          created_at?: string
-          due_at?: string | null
-          id?: string
-          notes?: string | null
-          plan_id: string
-          status?: Database["public"]["Enums"]["step_status"]
-          step_order: number
-          title: string
-          updated_at?: string
-        }
+          completed_at?: string | null;
+          created_at?: string;
+          due_at?: string | null;
+          id?: string;
+          notes?: string | null;
+          plan_id: string;
+          status?: Database["public"]["Enums"]["step_status"];
+          step_order: number;
+          title: string;
+          updated_at?: string;
+        };
         Update: {
-          completed_at?: string | null
-          created_at?: string
-          due_at?: string | null
-          id?: string
-          notes?: string | null
-          plan_id?: string
-          status?: Database["public"]["Enums"]["step_status"]
-          step_order?: number
-          title?: string
-          updated_at?: string
-        }
+          completed_at?: string | null;
+          created_at?: string;
+          due_at?: string | null;
+          id?: string;
+          notes?: string | null;
+          plan_id?: string;
+          status?: Database["public"]["Enums"]["step_status"];
+          step_order?: number;
+          title?: string;
+          updated_at?: string;
+        };
         Relationships: [
           {
-            foreignKeyName: "treatment_steps_plan_id_fkey"
-            columns: ["plan_id"]
-            isOneToOne: false
-            referencedRelation: "treatment_plans"
-            referencedColumns: ["id"]
+            foreignKeyName: "treatment_steps_plan_id_fkey";
+            columns: ["plan_id"];
+            isOneToOne: false;
+            referencedRelation: "treatment_plans";
+            referencedColumns: ["id"];
           },
-        ]
-      }
+        ];
+      };
       user_roles: {
         Row: {
-          created_at: string
-          id: string
-          role: Database["public"]["Enums"]["app_role"]
-          user_id: string
-        }
+          created_at: string;
+          id: string;
+          role: Database["public"]["Enums"]["app_role"];
+          user_id: string;
+        };
         Insert: {
-          created_at?: string
-          id?: string
-          role: Database["public"]["Enums"]["app_role"]
-          user_id: string
-        }
+          created_at?: string;
+          id?: string;
+          role: Database["public"]["Enums"]["app_role"];
+          user_id: string;
+        };
         Update: {
-          created_at?: string
-          id?: string
-          role?: Database["public"]["Enums"]["app_role"]
-          user_id?: string
-        }
-        Relationships: []
-      }
-    }
+          created_at?: string;
+          id?: string;
+          role?: Database["public"]["Enums"]["app_role"];
+          user_id?: string;
+        };
+        Relationships: [];
+      };
+    };
     Views: {
-      [_ in never]: never
-    }
+      [_ in never]: never;
+    };
     Functions: {
       has_role: {
         Args: {
-          _role: Database["public"]["Enums"]["app_role"]
-          _user_id: string
-        }
-        Returns: boolean
-      }
-      is_staff: { Args: { _uid: string }; Returns: boolean }
-    }
+          _role: Database["public"]["Enums"]["app_role"];
+          _user_id: string;
+        };
+        Returns: boolean;
+      };
+      is_staff: { Args: { _uid: string }; Returns: boolean };
+    };
     Enums: {
-      app_role: "admin" | "doctor" | "receptionist" | "patient"
-      appointment_priority: "normal" | "urgent" | "emergency"
+      app_role: "admin" | "doctor" | "receptionist" | "patient";
+      appointment_priority: "normal" | "urgent" | "emergency";
       appointment_status:
         | "requested"
         | "confirmed"
         | "in_progress"
         | "completed"
         | "cancelled"
-        | "no_show"
-      invoice_status: "draft" | "issued" | "partial" | "paid" | "void"
-      notification_type: "reminder" | "followup" | "billing" | "system"
-      payment_method:
-        | "cash"
-        | "card"
-        | "upi"
-        | "bank_transfer"
-        | "insurance"
-        | "other"
-      queue_status: "waiting" | "in_room" | "done" | "no_show"
-      step_status: "pending" | "in_progress" | "completed" | "skipped"
-      tooth_treatment_status: "planned" | "in_progress" | "completed"
-      treatment_status: "planned" | "in_progress" | "completed" | "cancelled"
-    }
+        | "no_show";
+      invoice_status: "draft" | "issued" | "partial" | "paid" | "void";
+      notification_type: "reminder" | "followup" | "billing" | "system";
+      payment_method: "cash" | "card" | "upi" | "bank_transfer" | "insurance" | "other";
+      queue_status: "waiting" | "in_room" | "done" | "no_show";
+      step_status: "pending" | "in_progress" | "completed" | "skipped";
+      tooth_treatment_status: "planned" | "in_progress" | "completed";
+      treatment_status: "planned" | "in_progress" | "completed" | "cancelled";
+    };
     CompositeTypes: {
-      [_ in never]: never
-    }
-  }
-}
+      [_ in never]: never;
+    };
+  };
+};
 
-type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
+type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">;
 
-type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
+type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">];
 
 export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
   TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
+    schema: keyof DatabaseWithoutInternals;
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
     : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
+  schema: keyof DatabaseWithoutInternals;
 }
   ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
       DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
-      Row: infer R
+      Row: infer R;
     }
     ? R
     : never
-  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
-        DefaultSchema["Views"])
-    ? (DefaultSchema["Tables"] &
-        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
-        Row: infer R
+  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
+    ? (DefaultSchema["Tables"] & DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+        Row: infer R;
       }
       ? R
       : never
-    : never
+    : never;
 
 export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
   TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
+    schema: keyof DatabaseWithoutInternals;
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
     : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
+  schema: keyof DatabaseWithoutInternals;
 }
   ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
-      Insert: infer I
+      Insert: infer I;
     }
     ? I
     : never
   : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
     ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
-        Insert: infer I
+        Insert: infer I;
       }
       ? I
       : never
-    : never
+    : never;
 
 export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
   TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
+    schema: keyof DatabaseWithoutInternals;
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
     : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
+  schema: keyof DatabaseWithoutInternals;
 }
   ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
-      Update: infer U
+      Update: infer U;
     }
     ? U
     : never
   : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
     ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
-        Update: infer U
+        Update: infer U;
       }
       ? U
       : never
-    : never
+    : never;
 
 export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
   EnumName extends DefaultSchemaEnumNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
+    schema: keyof DatabaseWithoutInternals;
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
     : never = never,
 > = DefaultSchemaEnumNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
+  schema: keyof DatabaseWithoutInternals;
 }
   ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
   : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
     ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
-    : never
+    : never;
 
 export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
   CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
+    schema: keyof DatabaseWithoutInternals;
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
     : never = never,
 > = PublicCompositeTypeNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
+  schema: keyof DatabaseWithoutInternals;
 }
   ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
   : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
     ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
-    : never
+    : never;
 
 export const Constants = {
   public: {
@@ -882,18 +868,11 @@ export const Constants = {
       ],
       invoice_status: ["draft", "issued", "partial", "paid", "void"],
       notification_type: ["reminder", "followup", "billing", "system"],
-      payment_method: [
-        "cash",
-        "card",
-        "upi",
-        "bank_transfer",
-        "insurance",
-        "other",
-      ],
+      payment_method: ["cash", "card", "upi", "bank_transfer", "insurance", "other"],
       queue_status: ["waiting", "in_room", "done", "no_show"],
       step_status: ["pending", "in_progress", "completed", "skipped"],
       tooth_treatment_status: ["planned", "in_progress", "completed"],
       treatment_status: ["planned", "in_progress", "completed", "cancelled"],
     },
   },
-} as const
+} as const;

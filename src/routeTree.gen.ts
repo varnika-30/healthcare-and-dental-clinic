@@ -23,20 +23,22 @@ import { Route as AuthForgotRouteImport } from './routes/auth/forgot'
 import { Route as AuthenticatedPortalRouteImport } from './routes/_authenticated/portal'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedPortalIndexRouteImport } from './routes/_authenticated/portal.index'
-import { Route as AuthenticatedPortalTreatmentsRouteImport } from './routes/_authenticated/portal.treatments'
-import { Route as AuthenticatedPortalSettingsRouteImport } from './routes/_authenticated/portal.settings'
+import { Route as AuthenticatedPortalTreatmentRouteImport } from './routes/_authenticated/portal.treatment'
+import { Route as AuthenticatedPortalRequestAppointmentRouteImport } from './routes/_authenticated/portal.request-appointment'
 import { Route as AuthenticatedPortalRecordsRouteImport } from './routes/_authenticated/portal.records'
+import { Route as AuthenticatedPortalProfileRouteImport } from './routes/_authenticated/portal.profile'
 import { Route as AuthenticatedPortalPrescriptionsRouteImport } from './routes/_authenticated/portal.prescriptions'
+import { Route as AuthenticatedPortalNotificationsRouteImport } from './routes/_authenticated/portal.notifications'
+import { Route as AuthenticatedPortalDocumentsRouteImport } from './routes/_authenticated/portal.documents'
 import { Route as AuthenticatedPortalBillingRouteImport } from './routes/_authenticated/portal.billing'
 import { Route as AuthenticatedPortalAppointmentsRouteImport } from './routes/_authenticated/portal.appointments'
-import { Route as AuthenticatedDashboardStaffRouteImport } from './routes/_authenticated/dashboard.staff'
-import { Route as AuthenticatedDashboardSettingsRouteImport } from './routes/_authenticated/dashboard.settings'
 import { Route as AuthenticatedDashboardRecordsRouteImport } from './routes/_authenticated/dashboard.records'
-import { Route as AuthenticatedDashboardQueueRouteImport } from './routes/_authenticated/dashboard.queue'
-import { Route as AuthenticatedDashboardPrescriptionsRouteImport } from './routes/_authenticated/dashboard.prescriptions'
-import { Route as AuthenticatedDashboardPatientsRouteImport } from './routes/_authenticated/dashboard.patients'
-import { Route as AuthenticatedDashboardBillingRouteImport } from './routes/_authenticated/dashboard.billing'
-import { Route as AuthenticatedDashboardAppointmentsRouteImport } from './routes/_authenticated/dashboard.appointments'
+import { Route as AuthenticatedAdminProfileRouteImport } from './routes/_authenticated/admin.profile'
+import { Route as AuthenticatedAdminPatientsRouteImport } from './routes/_authenticated/admin.patients'
+import { Route as AuthenticatedAdminOngoingTreatmentsRouteImport } from './routes/_authenticated/admin.ongoing-treatments'
+import { Route as AuthenticatedAdminNotificationsRouteImport } from './routes/_authenticated/admin.notifications'
+import { Route as AuthenticatedAdminAppointmentsRouteImport } from './routes/_authenticated/admin.appointments'
+import { Route as AuthenticatedAdminPatientDetailsPatientIdRouteImport } from './routes/_authenticated/admin.patient-details.$patientId'
 
 const ServicesRoute = ServicesRouteImport.update({
   id: '/services',
@@ -108,16 +110,16 @@ const AuthenticatedPortalIndexRoute =
     path: '/',
     getParentRoute: () => AuthenticatedPortalRoute,
   } as any)
-const AuthenticatedPortalTreatmentsRoute =
-  AuthenticatedPortalTreatmentsRouteImport.update({
-    id: '/treatments',
-    path: '/treatments',
+const AuthenticatedPortalTreatmentRoute =
+  AuthenticatedPortalTreatmentRouteImport.update({
+    id: '/treatment',
+    path: '/treatment',
     getParentRoute: () => AuthenticatedPortalRoute,
   } as any)
-const AuthenticatedPortalSettingsRoute =
-  AuthenticatedPortalSettingsRouteImport.update({
-    id: '/settings',
-    path: '/settings',
+const AuthenticatedPortalRequestAppointmentRoute =
+  AuthenticatedPortalRequestAppointmentRouteImport.update({
+    id: '/request-appointment',
+    path: '/request-appointment',
     getParentRoute: () => AuthenticatedPortalRoute,
   } as any)
 const AuthenticatedPortalRecordsRoute =
@@ -126,10 +128,28 @@ const AuthenticatedPortalRecordsRoute =
     path: '/records',
     getParentRoute: () => AuthenticatedPortalRoute,
   } as any)
+const AuthenticatedPortalProfileRoute =
+  AuthenticatedPortalProfileRouteImport.update({
+    id: '/profile',
+    path: '/profile',
+    getParentRoute: () => AuthenticatedPortalRoute,
+  } as any)
 const AuthenticatedPortalPrescriptionsRoute =
   AuthenticatedPortalPrescriptionsRouteImport.update({
     id: '/prescriptions',
     path: '/prescriptions',
+    getParentRoute: () => AuthenticatedPortalRoute,
+  } as any)
+const AuthenticatedPortalNotificationsRoute =
+  AuthenticatedPortalNotificationsRouteImport.update({
+    id: '/notifications',
+    path: '/notifications',
+    getParentRoute: () => AuthenticatedPortalRoute,
+  } as any)
+const AuthenticatedPortalDocumentsRoute =
+  AuthenticatedPortalDocumentsRouteImport.update({
+    id: '/documents',
+    path: '/documents',
     getParentRoute: () => AuthenticatedPortalRoute,
   } as any)
 const AuthenticatedPortalBillingRoute =
@@ -144,53 +164,47 @@ const AuthenticatedPortalAppointmentsRoute =
     path: '/appointments',
     getParentRoute: () => AuthenticatedPortalRoute,
   } as any)
-const AuthenticatedDashboardStaffRoute =
-  AuthenticatedDashboardStaffRouteImport.update({
-    id: '/staff',
-    path: '/staff',
-    getParentRoute: () => AuthenticatedDashboardRoute,
-  } as any)
-const AuthenticatedDashboardSettingsRoute =
-  AuthenticatedDashboardSettingsRouteImport.update({
-    id: '/settings',
-    path: '/settings',
-    getParentRoute: () => AuthenticatedDashboardRoute,
-  } as any)
 const AuthenticatedDashboardRecordsRoute =
   AuthenticatedDashboardRecordsRouteImport.update({
     id: '/records',
     path: '/records',
     getParentRoute: () => AuthenticatedDashboardRoute,
   } as any)
-const AuthenticatedDashboardQueueRoute =
-  AuthenticatedDashboardQueueRouteImport.update({
-    id: '/queue',
-    path: '/queue',
-    getParentRoute: () => AuthenticatedDashboardRoute,
+const AuthenticatedAdminProfileRoute =
+  AuthenticatedAdminProfileRouteImport.update({
+    id: '/admin/profile',
+    path: '/admin/profile',
+    getParentRoute: () => AuthenticatedRoute,
   } as any)
-const AuthenticatedDashboardPrescriptionsRoute =
-  AuthenticatedDashboardPrescriptionsRouteImport.update({
-    id: '/prescriptions',
-    path: '/prescriptions',
-    getParentRoute: () => AuthenticatedDashboardRoute,
+const AuthenticatedAdminPatientsRoute =
+  AuthenticatedAdminPatientsRouteImport.update({
+    id: '/admin/patients',
+    path: '/admin/patients',
+    getParentRoute: () => AuthenticatedRoute,
   } as any)
-const AuthenticatedDashboardPatientsRoute =
-  AuthenticatedDashboardPatientsRouteImport.update({
-    id: '/patients',
-    path: '/patients',
-    getParentRoute: () => AuthenticatedDashboardRoute,
+const AuthenticatedAdminOngoingTreatmentsRoute =
+  AuthenticatedAdminOngoingTreatmentsRouteImport.update({
+    id: '/admin/ongoing-treatments',
+    path: '/admin/ongoing-treatments',
+    getParentRoute: () => AuthenticatedRoute,
   } as any)
-const AuthenticatedDashboardBillingRoute =
-  AuthenticatedDashboardBillingRouteImport.update({
-    id: '/billing',
-    path: '/billing',
-    getParentRoute: () => AuthenticatedDashboardRoute,
+const AuthenticatedAdminNotificationsRoute =
+  AuthenticatedAdminNotificationsRouteImport.update({
+    id: '/admin/notifications',
+    path: '/admin/notifications',
+    getParentRoute: () => AuthenticatedRoute,
   } as any)
-const AuthenticatedDashboardAppointmentsRoute =
-  AuthenticatedDashboardAppointmentsRouteImport.update({
-    id: '/appointments',
-    path: '/appointments',
-    getParentRoute: () => AuthenticatedDashboardRoute,
+const AuthenticatedAdminAppointmentsRoute =
+  AuthenticatedAdminAppointmentsRouteImport.update({
+    id: '/admin/appointments',
+    path: '/admin/appointments',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedAdminPatientDetailsPatientIdRoute =
+  AuthenticatedAdminPatientDetailsPatientIdRouteImport.update({
+    id: '/admin/patient-details/$patientId',
+    path: '/admin/patient-details/$patientId',
+    getParentRoute: () => AuthenticatedRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
@@ -206,21 +220,23 @@ export interface FileRoutesByFullPath {
   '/auth/login': typeof AuthLoginRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
   '/auth/signup': typeof AuthSignupRoute
-  '/dashboard/appointments': typeof AuthenticatedDashboardAppointmentsRoute
-  '/dashboard/billing': typeof AuthenticatedDashboardBillingRoute
-  '/dashboard/patients': typeof AuthenticatedDashboardPatientsRoute
-  '/dashboard/prescriptions': typeof AuthenticatedDashboardPrescriptionsRoute
-  '/dashboard/queue': typeof AuthenticatedDashboardQueueRoute
+  '/admin/appointments': typeof AuthenticatedAdminAppointmentsRoute
+  '/admin/notifications': typeof AuthenticatedAdminNotificationsRoute
+  '/admin/ongoing-treatments': typeof AuthenticatedAdminOngoingTreatmentsRoute
+  '/admin/patients': typeof AuthenticatedAdminPatientsRoute
+  '/admin/profile': typeof AuthenticatedAdminProfileRoute
   '/dashboard/records': typeof AuthenticatedDashboardRecordsRoute
-  '/dashboard/settings': typeof AuthenticatedDashboardSettingsRoute
-  '/dashboard/staff': typeof AuthenticatedDashboardStaffRoute
   '/portal/appointments': typeof AuthenticatedPortalAppointmentsRoute
   '/portal/billing': typeof AuthenticatedPortalBillingRoute
+  '/portal/documents': typeof AuthenticatedPortalDocumentsRoute
+  '/portal/notifications': typeof AuthenticatedPortalNotificationsRoute
   '/portal/prescriptions': typeof AuthenticatedPortalPrescriptionsRoute
+  '/portal/profile': typeof AuthenticatedPortalProfileRoute
   '/portal/records': typeof AuthenticatedPortalRecordsRoute
-  '/portal/settings': typeof AuthenticatedPortalSettingsRoute
-  '/portal/treatments': typeof AuthenticatedPortalTreatmentsRoute
+  '/portal/request-appointment': typeof AuthenticatedPortalRequestAppointmentRoute
+  '/portal/treatment': typeof AuthenticatedPortalTreatmentRoute
   '/portal/': typeof AuthenticatedPortalIndexRoute
+  '/admin/patient-details/$patientId': typeof AuthenticatedAdminPatientDetailsPatientIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -234,21 +250,23 @@ export interface FileRoutesByTo {
   '/auth/login': typeof AuthLoginRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
   '/auth/signup': typeof AuthSignupRoute
-  '/dashboard/appointments': typeof AuthenticatedDashboardAppointmentsRoute
-  '/dashboard/billing': typeof AuthenticatedDashboardBillingRoute
-  '/dashboard/patients': typeof AuthenticatedDashboardPatientsRoute
-  '/dashboard/prescriptions': typeof AuthenticatedDashboardPrescriptionsRoute
-  '/dashboard/queue': typeof AuthenticatedDashboardQueueRoute
+  '/admin/appointments': typeof AuthenticatedAdminAppointmentsRoute
+  '/admin/notifications': typeof AuthenticatedAdminNotificationsRoute
+  '/admin/ongoing-treatments': typeof AuthenticatedAdminOngoingTreatmentsRoute
+  '/admin/patients': typeof AuthenticatedAdminPatientsRoute
+  '/admin/profile': typeof AuthenticatedAdminProfileRoute
   '/dashboard/records': typeof AuthenticatedDashboardRecordsRoute
-  '/dashboard/settings': typeof AuthenticatedDashboardSettingsRoute
-  '/dashboard/staff': typeof AuthenticatedDashboardStaffRoute
   '/portal/appointments': typeof AuthenticatedPortalAppointmentsRoute
   '/portal/billing': typeof AuthenticatedPortalBillingRoute
+  '/portal/documents': typeof AuthenticatedPortalDocumentsRoute
+  '/portal/notifications': typeof AuthenticatedPortalNotificationsRoute
   '/portal/prescriptions': typeof AuthenticatedPortalPrescriptionsRoute
+  '/portal/profile': typeof AuthenticatedPortalProfileRoute
   '/portal/records': typeof AuthenticatedPortalRecordsRoute
-  '/portal/settings': typeof AuthenticatedPortalSettingsRoute
-  '/portal/treatments': typeof AuthenticatedPortalTreatmentsRoute
+  '/portal/request-appointment': typeof AuthenticatedPortalRequestAppointmentRoute
+  '/portal/treatment': typeof AuthenticatedPortalTreatmentRoute
   '/portal': typeof AuthenticatedPortalIndexRoute
+  '/admin/patient-details/$patientId': typeof AuthenticatedAdminPatientDetailsPatientIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -265,21 +283,23 @@ export interface FileRoutesById {
   '/auth/login': typeof AuthLoginRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
   '/auth/signup': typeof AuthSignupRoute
-  '/_authenticated/dashboard/appointments': typeof AuthenticatedDashboardAppointmentsRoute
-  '/_authenticated/dashboard/billing': typeof AuthenticatedDashboardBillingRoute
-  '/_authenticated/dashboard/patients': typeof AuthenticatedDashboardPatientsRoute
-  '/_authenticated/dashboard/prescriptions': typeof AuthenticatedDashboardPrescriptionsRoute
-  '/_authenticated/dashboard/queue': typeof AuthenticatedDashboardQueueRoute
+  '/_authenticated/admin/appointments': typeof AuthenticatedAdminAppointmentsRoute
+  '/_authenticated/admin/notifications': typeof AuthenticatedAdminNotificationsRoute
+  '/_authenticated/admin/ongoing-treatments': typeof AuthenticatedAdminOngoingTreatmentsRoute
+  '/_authenticated/admin/patients': typeof AuthenticatedAdminPatientsRoute
+  '/_authenticated/admin/profile': typeof AuthenticatedAdminProfileRoute
   '/_authenticated/dashboard/records': typeof AuthenticatedDashboardRecordsRoute
-  '/_authenticated/dashboard/settings': typeof AuthenticatedDashboardSettingsRoute
-  '/_authenticated/dashboard/staff': typeof AuthenticatedDashboardStaffRoute
   '/_authenticated/portal/appointments': typeof AuthenticatedPortalAppointmentsRoute
   '/_authenticated/portal/billing': typeof AuthenticatedPortalBillingRoute
+  '/_authenticated/portal/documents': typeof AuthenticatedPortalDocumentsRoute
+  '/_authenticated/portal/notifications': typeof AuthenticatedPortalNotificationsRoute
   '/_authenticated/portal/prescriptions': typeof AuthenticatedPortalPrescriptionsRoute
+  '/_authenticated/portal/profile': typeof AuthenticatedPortalProfileRoute
   '/_authenticated/portal/records': typeof AuthenticatedPortalRecordsRoute
-  '/_authenticated/portal/settings': typeof AuthenticatedPortalSettingsRoute
-  '/_authenticated/portal/treatments': typeof AuthenticatedPortalTreatmentsRoute
+  '/_authenticated/portal/request-appointment': typeof AuthenticatedPortalRequestAppointmentRoute
+  '/_authenticated/portal/treatment': typeof AuthenticatedPortalTreatmentRoute
   '/_authenticated/portal/': typeof AuthenticatedPortalIndexRoute
+  '/_authenticated/admin/patient-details/$patientId': typeof AuthenticatedAdminPatientDetailsPatientIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -296,21 +316,23 @@ export interface FileRouteTypes {
     | '/auth/login'
     | '/auth/reset-password'
     | '/auth/signup'
-    | '/dashboard/appointments'
-    | '/dashboard/billing'
-    | '/dashboard/patients'
-    | '/dashboard/prescriptions'
-    | '/dashboard/queue'
+    | '/admin/appointments'
+    | '/admin/notifications'
+    | '/admin/ongoing-treatments'
+    | '/admin/patients'
+    | '/admin/profile'
     | '/dashboard/records'
-    | '/dashboard/settings'
-    | '/dashboard/staff'
     | '/portal/appointments'
     | '/portal/billing'
+    | '/portal/documents'
+    | '/portal/notifications'
     | '/portal/prescriptions'
+    | '/portal/profile'
     | '/portal/records'
-    | '/portal/settings'
-    | '/portal/treatments'
+    | '/portal/request-appointment'
+    | '/portal/treatment'
     | '/portal/'
+    | '/admin/patient-details/$patientId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -324,21 +346,23 @@ export interface FileRouteTypes {
     | '/auth/login'
     | '/auth/reset-password'
     | '/auth/signup'
-    | '/dashboard/appointments'
-    | '/dashboard/billing'
-    | '/dashboard/patients'
-    | '/dashboard/prescriptions'
-    | '/dashboard/queue'
+    | '/admin/appointments'
+    | '/admin/notifications'
+    | '/admin/ongoing-treatments'
+    | '/admin/patients'
+    | '/admin/profile'
     | '/dashboard/records'
-    | '/dashboard/settings'
-    | '/dashboard/staff'
     | '/portal/appointments'
     | '/portal/billing'
+    | '/portal/documents'
+    | '/portal/notifications'
     | '/portal/prescriptions'
+    | '/portal/profile'
     | '/portal/records'
-    | '/portal/settings'
-    | '/portal/treatments'
+    | '/portal/request-appointment'
+    | '/portal/treatment'
     | '/portal'
+    | '/admin/patient-details/$patientId'
   id:
     | '__root__'
     | '/'
@@ -354,21 +378,23 @@ export interface FileRouteTypes {
     | '/auth/login'
     | '/auth/reset-password'
     | '/auth/signup'
-    | '/_authenticated/dashboard/appointments'
-    | '/_authenticated/dashboard/billing'
-    | '/_authenticated/dashboard/patients'
-    | '/_authenticated/dashboard/prescriptions'
-    | '/_authenticated/dashboard/queue'
+    | '/_authenticated/admin/appointments'
+    | '/_authenticated/admin/notifications'
+    | '/_authenticated/admin/ongoing-treatments'
+    | '/_authenticated/admin/patients'
+    | '/_authenticated/admin/profile'
     | '/_authenticated/dashboard/records'
-    | '/_authenticated/dashboard/settings'
-    | '/_authenticated/dashboard/staff'
     | '/_authenticated/portal/appointments'
     | '/_authenticated/portal/billing'
+    | '/_authenticated/portal/documents'
+    | '/_authenticated/portal/notifications'
     | '/_authenticated/portal/prescriptions'
+    | '/_authenticated/portal/profile'
     | '/_authenticated/portal/records'
-    | '/_authenticated/portal/settings'
-    | '/_authenticated/portal/treatments'
+    | '/_authenticated/portal/request-appointment'
+    | '/_authenticated/portal/treatment'
     | '/_authenticated/portal/'
+    | '/_authenticated/admin/patient-details/$patientId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -485,18 +511,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedPortalIndexRouteImport
       parentRoute: typeof AuthenticatedPortalRoute
     }
-    '/_authenticated/portal/treatments': {
-      id: '/_authenticated/portal/treatments'
-      path: '/treatments'
-      fullPath: '/portal/treatments'
-      preLoaderRoute: typeof AuthenticatedPortalTreatmentsRouteImport
+    '/_authenticated/portal/treatment': {
+      id: '/_authenticated/portal/treatment'
+      path: '/treatment'
+      fullPath: '/portal/treatment'
+      preLoaderRoute: typeof AuthenticatedPortalTreatmentRouteImport
       parentRoute: typeof AuthenticatedPortalRoute
     }
-    '/_authenticated/portal/settings': {
-      id: '/_authenticated/portal/settings'
-      path: '/settings'
-      fullPath: '/portal/settings'
-      preLoaderRoute: typeof AuthenticatedPortalSettingsRouteImport
+    '/_authenticated/portal/request-appointment': {
+      id: '/_authenticated/portal/request-appointment'
+      path: '/request-appointment'
+      fullPath: '/portal/request-appointment'
+      preLoaderRoute: typeof AuthenticatedPortalRequestAppointmentRouteImport
       parentRoute: typeof AuthenticatedPortalRoute
     }
     '/_authenticated/portal/records': {
@@ -506,11 +532,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedPortalRecordsRouteImport
       parentRoute: typeof AuthenticatedPortalRoute
     }
+    '/_authenticated/portal/profile': {
+      id: '/_authenticated/portal/profile'
+      path: '/profile'
+      fullPath: '/portal/profile'
+      preLoaderRoute: typeof AuthenticatedPortalProfileRouteImport
+      parentRoute: typeof AuthenticatedPortalRoute
+    }
     '/_authenticated/portal/prescriptions': {
       id: '/_authenticated/portal/prescriptions'
       path: '/prescriptions'
       fullPath: '/portal/prescriptions'
       preLoaderRoute: typeof AuthenticatedPortalPrescriptionsRouteImport
+      parentRoute: typeof AuthenticatedPortalRoute
+    }
+    '/_authenticated/portal/notifications': {
+      id: '/_authenticated/portal/notifications'
+      path: '/notifications'
+      fullPath: '/portal/notifications'
+      preLoaderRoute: typeof AuthenticatedPortalNotificationsRouteImport
+      parentRoute: typeof AuthenticatedPortalRoute
+    }
+    '/_authenticated/portal/documents': {
+      id: '/_authenticated/portal/documents'
+      path: '/documents'
+      fullPath: '/portal/documents'
+      preLoaderRoute: typeof AuthenticatedPortalDocumentsRouteImport
       parentRoute: typeof AuthenticatedPortalRoute
     }
     '/_authenticated/portal/billing': {
@@ -527,20 +574,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedPortalAppointmentsRouteImport
       parentRoute: typeof AuthenticatedPortalRoute
     }
-    '/_authenticated/dashboard/staff': {
-      id: '/_authenticated/dashboard/staff'
-      path: '/staff'
-      fullPath: '/dashboard/staff'
-      preLoaderRoute: typeof AuthenticatedDashboardStaffRouteImport
-      parentRoute: typeof AuthenticatedDashboardRoute
-    }
-    '/_authenticated/dashboard/settings': {
-      id: '/_authenticated/dashboard/settings'
-      path: '/settings'
-      fullPath: '/dashboard/settings'
-      preLoaderRoute: typeof AuthenticatedDashboardSettingsRouteImport
-      parentRoute: typeof AuthenticatedDashboardRoute
-    }
     '/_authenticated/dashboard/records': {
       id: '/_authenticated/dashboard/records'
       path: '/records'
@@ -548,67 +581,58 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDashboardRecordsRouteImport
       parentRoute: typeof AuthenticatedDashboardRoute
     }
-    '/_authenticated/dashboard/queue': {
-      id: '/_authenticated/dashboard/queue'
-      path: '/queue'
-      fullPath: '/dashboard/queue'
-      preLoaderRoute: typeof AuthenticatedDashboardQueueRouteImport
-      parentRoute: typeof AuthenticatedDashboardRoute
+    '/_authenticated/admin/profile': {
+      id: '/_authenticated/admin/profile'
+      path: '/admin/profile'
+      fullPath: '/admin/profile'
+      preLoaderRoute: typeof AuthenticatedAdminProfileRouteImport
+      parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/dashboard/prescriptions': {
-      id: '/_authenticated/dashboard/prescriptions'
-      path: '/prescriptions'
-      fullPath: '/dashboard/prescriptions'
-      preLoaderRoute: typeof AuthenticatedDashboardPrescriptionsRouteImport
-      parentRoute: typeof AuthenticatedDashboardRoute
+    '/_authenticated/admin/patients': {
+      id: '/_authenticated/admin/patients'
+      path: '/admin/patients'
+      fullPath: '/admin/patients'
+      preLoaderRoute: typeof AuthenticatedAdminPatientsRouteImport
+      parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/dashboard/patients': {
-      id: '/_authenticated/dashboard/patients'
-      path: '/patients'
-      fullPath: '/dashboard/patients'
-      preLoaderRoute: typeof AuthenticatedDashboardPatientsRouteImport
-      parentRoute: typeof AuthenticatedDashboardRoute
+    '/_authenticated/admin/ongoing-treatments': {
+      id: '/_authenticated/admin/ongoing-treatments'
+      path: '/admin/ongoing-treatments'
+      fullPath: '/admin/ongoing-treatments'
+      preLoaderRoute: typeof AuthenticatedAdminOngoingTreatmentsRouteImport
+      parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/dashboard/billing': {
-      id: '/_authenticated/dashboard/billing'
-      path: '/billing'
-      fullPath: '/dashboard/billing'
-      preLoaderRoute: typeof AuthenticatedDashboardBillingRouteImport
-      parentRoute: typeof AuthenticatedDashboardRoute
+    '/_authenticated/admin/notifications': {
+      id: '/_authenticated/admin/notifications'
+      path: '/admin/notifications'
+      fullPath: '/admin/notifications'
+      preLoaderRoute: typeof AuthenticatedAdminNotificationsRouteImport
+      parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/dashboard/appointments': {
-      id: '/_authenticated/dashboard/appointments'
-      path: '/appointments'
-      fullPath: '/dashboard/appointments'
-      preLoaderRoute: typeof AuthenticatedDashboardAppointmentsRouteImport
-      parentRoute: typeof AuthenticatedDashboardRoute
+    '/_authenticated/admin/appointments': {
+      id: '/_authenticated/admin/appointments'
+      path: '/admin/appointments'
+      fullPath: '/admin/appointments'
+      preLoaderRoute: typeof AuthenticatedAdminAppointmentsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/admin/patient-details/$patientId': {
+      id: '/_authenticated/admin/patient-details/$patientId'
+      path: '/admin/patient-details/$patientId'
+      fullPath: '/admin/patient-details/$patientId'
+      preLoaderRoute: typeof AuthenticatedAdminPatientDetailsPatientIdRouteImport
+      parentRoute: typeof AuthenticatedRoute
     }
   }
 }
 
 interface AuthenticatedDashboardRouteChildren {
-  AuthenticatedDashboardAppointmentsRoute: typeof AuthenticatedDashboardAppointmentsRoute
-  AuthenticatedDashboardBillingRoute: typeof AuthenticatedDashboardBillingRoute
-  AuthenticatedDashboardPatientsRoute: typeof AuthenticatedDashboardPatientsRoute
-  AuthenticatedDashboardPrescriptionsRoute: typeof AuthenticatedDashboardPrescriptionsRoute
-  AuthenticatedDashboardQueueRoute: typeof AuthenticatedDashboardQueueRoute
   AuthenticatedDashboardRecordsRoute: typeof AuthenticatedDashboardRecordsRoute
-  AuthenticatedDashboardSettingsRoute: typeof AuthenticatedDashboardSettingsRoute
-  AuthenticatedDashboardStaffRoute: typeof AuthenticatedDashboardStaffRoute
 }
 
 const AuthenticatedDashboardRouteChildren: AuthenticatedDashboardRouteChildren =
   {
-    AuthenticatedDashboardAppointmentsRoute:
-      AuthenticatedDashboardAppointmentsRoute,
-    AuthenticatedDashboardBillingRoute: AuthenticatedDashboardBillingRoute,
-    AuthenticatedDashboardPatientsRoute: AuthenticatedDashboardPatientsRoute,
-    AuthenticatedDashboardPrescriptionsRoute:
-      AuthenticatedDashboardPrescriptionsRoute,
-    AuthenticatedDashboardQueueRoute: AuthenticatedDashboardQueueRoute,
     AuthenticatedDashboardRecordsRoute: AuthenticatedDashboardRecordsRoute,
-    AuthenticatedDashboardSettingsRoute: AuthenticatedDashboardSettingsRoute,
-    AuthenticatedDashboardStaffRoute: AuthenticatedDashboardStaffRoute,
   }
 
 const AuthenticatedDashboardRouteWithChildren =
@@ -619,20 +643,27 @@ const AuthenticatedDashboardRouteWithChildren =
 interface AuthenticatedPortalRouteChildren {
   AuthenticatedPortalAppointmentsRoute: typeof AuthenticatedPortalAppointmentsRoute
   AuthenticatedPortalBillingRoute: typeof AuthenticatedPortalBillingRoute
+  AuthenticatedPortalDocumentsRoute: typeof AuthenticatedPortalDocumentsRoute
+  AuthenticatedPortalNotificationsRoute: typeof AuthenticatedPortalNotificationsRoute
   AuthenticatedPortalPrescriptionsRoute: typeof AuthenticatedPortalPrescriptionsRoute
+  AuthenticatedPortalProfileRoute: typeof AuthenticatedPortalProfileRoute
   AuthenticatedPortalRecordsRoute: typeof AuthenticatedPortalRecordsRoute
-  AuthenticatedPortalSettingsRoute: typeof AuthenticatedPortalSettingsRoute
-  AuthenticatedPortalTreatmentsRoute: typeof AuthenticatedPortalTreatmentsRoute
+  AuthenticatedPortalRequestAppointmentRoute: typeof AuthenticatedPortalRequestAppointmentRoute
+  AuthenticatedPortalTreatmentRoute: typeof AuthenticatedPortalTreatmentRoute
   AuthenticatedPortalIndexRoute: typeof AuthenticatedPortalIndexRoute
 }
 
 const AuthenticatedPortalRouteChildren: AuthenticatedPortalRouteChildren = {
   AuthenticatedPortalAppointmentsRoute: AuthenticatedPortalAppointmentsRoute,
   AuthenticatedPortalBillingRoute: AuthenticatedPortalBillingRoute,
+  AuthenticatedPortalDocumentsRoute: AuthenticatedPortalDocumentsRoute,
+  AuthenticatedPortalNotificationsRoute: AuthenticatedPortalNotificationsRoute,
   AuthenticatedPortalPrescriptionsRoute: AuthenticatedPortalPrescriptionsRoute,
+  AuthenticatedPortalProfileRoute: AuthenticatedPortalProfileRoute,
   AuthenticatedPortalRecordsRoute: AuthenticatedPortalRecordsRoute,
-  AuthenticatedPortalSettingsRoute: AuthenticatedPortalSettingsRoute,
-  AuthenticatedPortalTreatmentsRoute: AuthenticatedPortalTreatmentsRoute,
+  AuthenticatedPortalRequestAppointmentRoute:
+    AuthenticatedPortalRequestAppointmentRoute,
+  AuthenticatedPortalTreatmentRoute: AuthenticatedPortalTreatmentRoute,
   AuthenticatedPortalIndexRoute: AuthenticatedPortalIndexRoute,
 }
 
@@ -642,11 +673,25 @@ const AuthenticatedPortalRouteWithChildren =
 interface AuthenticatedRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRouteWithChildren
   AuthenticatedPortalRoute: typeof AuthenticatedPortalRouteWithChildren
+  AuthenticatedAdminAppointmentsRoute: typeof AuthenticatedAdminAppointmentsRoute
+  AuthenticatedAdminNotificationsRoute: typeof AuthenticatedAdminNotificationsRoute
+  AuthenticatedAdminOngoingTreatmentsRoute: typeof AuthenticatedAdminOngoingTreatmentsRoute
+  AuthenticatedAdminPatientsRoute: typeof AuthenticatedAdminPatientsRoute
+  AuthenticatedAdminProfileRoute: typeof AuthenticatedAdminProfileRoute
+  AuthenticatedAdminPatientDetailsPatientIdRoute: typeof AuthenticatedAdminPatientDetailsPatientIdRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedDashboardRoute: AuthenticatedDashboardRouteWithChildren,
   AuthenticatedPortalRoute: AuthenticatedPortalRouteWithChildren,
+  AuthenticatedAdminAppointmentsRoute: AuthenticatedAdminAppointmentsRoute,
+  AuthenticatedAdminNotificationsRoute: AuthenticatedAdminNotificationsRoute,
+  AuthenticatedAdminOngoingTreatmentsRoute:
+    AuthenticatedAdminOngoingTreatmentsRoute,
+  AuthenticatedAdminPatientsRoute: AuthenticatedAdminPatientsRoute,
+  AuthenticatedAdminProfileRoute: AuthenticatedAdminProfileRoute,
+  AuthenticatedAdminPatientDetailsPatientIdRoute:
+    AuthenticatedAdminPatientDetailsPatientIdRoute,
 }
 
 const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
@@ -669,3 +714,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
