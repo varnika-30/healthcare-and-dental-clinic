@@ -37,6 +37,7 @@ interface SharedPatientProfile {
   fullName: string;
   email: string;
   phone: string;
+  secondaryPhone?: string; // New Optional Data Structure Extension Field
   age: number;
   gender: string;
   occupation: string;
@@ -50,6 +51,7 @@ interface SharedPatientProfile {
   allergies: string[];
   medicalConditions: string[];
   currentMedications: string[];
+  familyHistory?: string[]; // New Optional Extended Medical Component List Matrix
   emergencyContact: {
     name: string;
     relationship: string;
@@ -91,6 +93,7 @@ const MASTER_PATIENT_RECORDS: Record<string, SharedPatientProfile> = {
     fullName: "Eleanor Vance",
     email: "eleanor.vance@gmail.com",
     phone: "(555) 432-1098",
+    secondaryPhone: "(555) 432-1099",
     age: 28,
     gender: "Female",
     occupation: "Graphic Designer",
@@ -101,9 +104,10 @@ const MASTER_PATIENT_RECORDS: Record<string, SharedPatientProfile> = {
       state: "IL",
       zipCode: "62704",
     },
-    allergies: ["Penicillin", "Latex"],
+    allergies: ["Penicillin", "Latex", "Ibuprofen Sensitivity"],
     medicalConditions: ["Mitral Valve Prolapse (Mild)"],
     currentMedications: ["Multivitamin Daily"],
+    familyHistory: ["Father: Diabetes"],
     emergencyContact: { name: "Thomas Vance", relationship: "Spouse", phone: "(555) 901-4433" },
   },
   "P-9831": {
@@ -111,6 +115,7 @@ const MASTER_PATIENT_RECORDS: Record<string, SharedPatientProfile> = {
     fullName: "Samuel Oakley",
     email: "samuel.oakley@outlook.com",
     phone: "(555) 234-5678",
+    secondaryPhone: "(555) 876-5432",
     age: 42,
     gender: "Male",
     occupation: "Civil Engineer",
@@ -119,6 +124,7 @@ const MASTER_PATIENT_RECORDS: Record<string, SharedPatientProfile> = {
     allergies: ["Sulfa Drugs"],
     medicalConditions: ["Type 2 Diabetes (Controlled)"],
     currentMedications: ["Metformin 500mg"],
+    familyHistory: ["Father: Diabetes", "Mother: Hypertension"],
     emergencyContact: { name: "Martha Oakley", relationship: "Mother", phone: "(555) 234-5679" },
   },
 };
@@ -323,6 +329,14 @@ export default function AdminPatientDetailsPage() {
           </div>
           <div>
             <span className="text-xs font-bold text-slate-400 uppercase tracking-wide block">
+              Secondary Phone Number
+            </span>
+            <span className="font-semibold text-slate-700 font-mono text-base mt-0.5 block">
+              {profile.secondaryPhone || "—"}
+            </span>
+          </div>
+          <div>
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-wide block">
               Date of Birth
             </span>
             <span className="font-semibold text-slate-700 font-mono text-base mt-0.5 block">
@@ -331,13 +345,21 @@ export default function AdminPatientDetailsPage() {
           </div>
           <div>
             <span className="text-xs font-bold text-slate-400 uppercase tracking-wide block">
-              Age / Gender
+              Age
             </span>
             <span className="font-medium text-slate-700 text-base mt-0.5 block">
-              {profile.age} Years Old • {profile.gender}
+              {profile.age} Years Old
             </span>
           </div>
           <div>
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-wide block">
+              Sex
+            </span>
+            <span className="font-medium text-slate-700 text-base mt-0.5 block">
+              {profile.gender}
+            </span>
+          </div>
+          <div className="sm:col-span-2">
             <span className="text-xs font-bold text-slate-400 uppercase tracking-wide block">
               Current Registered Occupation
             </span>
@@ -373,7 +395,7 @@ export default function AdminPatientDetailsPage() {
         <div className="space-y-4.5 text-sm">
           <div>
             <span className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-              <ShieldAlert className="w-3.5 h-3.5 text-rose-500" /> Documented Allergies
+              <ShieldAlert className="w-3.5 h-3.5 text-rose-500" /> Allergies / Drug Sensitivities
             </span>
             <div className="flex flex-wrap gap-1.5 mt-2">
               {profile.allergies && profile.allergies.length > 0 ? (
@@ -387,7 +409,7 @@ export default function AdminPatientDetailsPage() {
                 ))
               ) : (
                 <span className="text-slate-400 font-medium italic text-sm">
-                  No known clinical allergies on file.
+                  No known clinical allergies or drug sensitivities on file.
                 </span>
               )}
             </div>
@@ -410,6 +432,28 @@ export default function AdminPatientDetailsPage() {
               ) : (
                 <span className="text-slate-400 font-medium italic text-sm">
                   No baseline standard medications logged.
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div>
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+              <History className="w-3.5 h-3.5 text-teal-600" /> Family History
+            </span>
+            <div className="flex flex-wrap gap-1.5 mt-2">
+              {profile.familyHistory && profile.familyHistory.length > 0 ? (
+                profile.familyHistory.map((historyItem, index) => (
+                  <span
+                    key={index}
+                    className="px-2.5 py-1 bg-teal-50/50 border border-teal-200 text-teal-700 font-semibold rounded-md text-xs"
+                  >
+                    {historyItem}
+                  </span>
+                ))
+              ) : (
+                <span className="text-slate-400 font-medium italic text-sm">
+                  No hereditary background history logged.
                 </span>
               )}
             </div>

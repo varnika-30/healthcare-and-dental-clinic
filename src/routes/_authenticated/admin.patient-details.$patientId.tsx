@@ -76,6 +76,8 @@ interface PersonalDetails {
   age: number;
   gender: string;
   occupation: string;
+  sex: string;
+  secondaryPhone: string;
   bloodGroup: string;
   address: Address;
   emergencyContact: {
@@ -88,6 +90,7 @@ interface PersonalDetails {
     medications: string[];
     conditions: string[];
     notes: string;
+    familyHistory: string;
   };
 }
 
@@ -280,8 +283,10 @@ const MOCK_PATIENT_ECOSYSTEM: Record<string, CompletePatientState> = {
       fullName: "Eleanor Vance",
       email: "eleanor.vance@gmail.com",
       phone: "(555) 432-1098",
+      secondaryPhone: "(555) 432-1100",
       age: 28,
       gender: "Female",
+      sex: "Female",
       occupation: "Graphic Designer",
       bloodGroup: "O+",
       address: {
@@ -297,6 +302,7 @@ const MOCK_PATIENT_ECOSYSTEM: Record<string, CompletePatientState> = {
         medications: ["Multivitamin Daily"],
         conditions: ["Mitral Valve Prolapse (Mild)"],
         notes: "Requires sensitivity monitoring during procedures.",
+        familyHistory: "Mother has hypertension; father has type 2 diabetes.",
       },
     },
     appointments: [
@@ -431,6 +437,22 @@ export default function AdminPatientDetailsPage() {
     if (stored) {
       try {
         const parsed = JSON.parse(stored);
+        // Ensure new profile fields are present for old localStorage data
+        parsed.profile = {
+          ...defaultData.profile,
+          ...parsed.profile,
+          sex: parsed.profile?.sex || parsed.profile?.gender || defaultData.profile.sex,
+          secondaryPhone:
+            parsed.profile?.secondaryPhone || defaultData.profile.secondaryPhone || "",
+          medicalProfile: {
+            ...defaultData.profile.medicalProfile,
+            ...parsed.profile?.medicalProfile,
+            familyHistory:
+              parsed.profile?.medicalProfile?.familyHistory ||
+              defaultData.profile.medicalProfile.familyHistory ||
+              "",
+          },
+        };
         // Sync prescriptions from prescription-store
         parsed.prescriptions = getPatientPrescriptions(patientId || defaultData.id);
         return parsed;
@@ -477,13 +499,14 @@ export default function AdminPatientDetailsPage() {
   const [isAddingTreatment, setIsAddingTreatment] = useState(false);
   const [isBillingExpanded, setIsBillingExpanded] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState<AppointmentRecord | null>(null);
-  const [appointmentClinicalDraft, setAppointmentClinicalDraft] = useState<AppointmentClinicalRecord>({
-    chiefComplaint: "",
-    extraOralExamination: "",
-    oralExamination: "",
-    treatmentAdvised: "",
-    clinicalNotes: "",
-  });
+  const [appointmentClinicalDraft, setAppointmentClinicalDraft] =
+    useState<AppointmentClinicalRecord>({
+      chiefComplaint: "",
+      extraOralExamination: "",
+      oralExamination: "",
+      treatmentAdvised: "",
+      clinicalNotes: "",
+    });
 
   useEffect(() => {
     if (!selectedAppointment) {
@@ -698,6 +721,7 @@ export default function AdminPatientDetailsPage() {
             .map((s) => s.trim())
             .filter((s) => s),
           notes: editableProfile.medicalProfile.notes,
+          familyHistory: editableProfile.medicalProfile.familyHistory || "",
         },
       },
     }));
@@ -1370,12 +1394,22 @@ export default function AdminPatientDetailsPage() {
             </h2>
             <div className="text-xs text-slate-500 font-medium flex flex-wrap items-center gap-x-3 gap-y-1">
               <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded font-semibold">
-                {patientData.profile.age} Yrs • {patientData.profile.gender}
+                {patientData.profile.age} Yrs •{" "}
+                {patientData.profile.sex || patientData.profile.gender}
               </span>
               <span>•</span>
               <span className="font-semibold text-slate-700 flex items-center gap-1">
                 <Phone className="w-3 h-3 text-slate-400" /> {patientData.profile.phone}
               </span>
+              {patientData.profile.secondaryPhone ? (
+                <>
+                  <span>•</span>
+                  <span className="font-semibold text-slate-700 flex items-center gap-1">
+                    <Phone className="w-3 h-3 text-slate-400" />{" "}
+                    {patientData.profile.secondaryPhone}
+                  </span>
+                </>
+              ) : null}
               <span>•</span>
               <span className="text-slate-400 font-mono truncate">{patientData.profile.email}</span>
             </div>
@@ -1493,12 +1527,16 @@ export default function AdminPatientDetailsPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-slate-400 font-bold mb-1">Gender Expression</label>
+                    <label className="block text-slate-400 font-bold mb-1">Sex</label>
                     <input
                       type="text"
-                      value={editableProfile.gender}
+                      value={editableProfile.sex || editableProfile.gender}
                       onChange={(e) =>
-                        setEditableProfile({ ...editableProfile, gender: e.target.value })
+                        setEditableProfile({
+                          ...editableProfile,
+                          sex: e.target.value,
+                          gender: e.target.value,
+                        })
                       }
                       className="w-full p-2 border border-slate-200 rounded-lg font-semibold"
                     />
@@ -1518,7 +1556,7 @@ export default function AdminPatientDetailsPage() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div>
-                    <label className="block text-slate-400 font-bold mb-1">Phone Line</label>
+                    <label className="block text-slate-400 font-bold mb-1">Primary Phone</label>
                     <input
                       type="text"
                       value={editableProfile.phone}
@@ -1528,7 +1566,18 @@ export default function AdminPatientDetailsPage() {
                       className="w-full p-2 border border-slate-200 rounded-lg font-semibold"
                     />
                   </div>
-                  <div className="sm:col-span-2">
+                  <div>
+                    <label className="block text-slate-400 font-bold mb-1">Secondary Phone</label>
+                    <input
+                      type="text"
+                      value={editableProfile.secondaryPhone}
+                      onChange={(e) =>
+                        setEditableProfile({ ...editableProfile, secondaryPhone: e.target.value })
+                      }
+                      className="w-full p-2 border border-slate-200 rounded-lg font-semibold"
+                    />
+                  </div>
+                  <div>
                     <label className="block text-slate-400 font-bold mb-1">Secure Email</label>
                     <input
                       type="email"
@@ -1719,6 +1768,26 @@ export default function AdminPatientDetailsPage() {
                     </div>
                     <div>
                       <label className="block text-slate-400 font-bold mb-1 text-[10px]">
+                        Family History
+                      </label>
+                      <textarea
+                        placeholder="e.g. Mother has hypertension; father has diabetes"
+                        value={editableProfile.medicalProfile.familyHistory}
+                        onChange={(e) =>
+                          setEditableProfile({
+                            ...editableProfile,
+                            medicalProfile: {
+                              ...editableProfile.medicalProfile,
+                              familyHistory: e.target.value,
+                            },
+                          })
+                        }
+                        className="w-full p-2 bg-white border border-rose-200 rounded-md font-medium"
+                        rows={2}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-slate-400 font-bold mb-1 text-[10px]">
                         Clinical Notes
                       </label>
                       <textarea
@@ -1759,6 +1828,40 @@ export default function AdminPatientDetailsPage() {
                       {patientData.profile.email}
                     </span>
                   </div>
+                  <div>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block">
+                      Primary Phone
+                    </span>
+                    <span className="font-semibold text-slate-700 mt-1 block">
+                      {patientData.profile.phone}
+                    </span>
+                  </div>
+
+                  <div>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block">
+                      Secondary Phone
+                    </span>
+                    <span className="font-semibold text-slate-700 mt-1 block">
+                      {patientData.profile.secondaryPhone || "Not Provided"}
+                    </span>
+                  </div>
+                  <div>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block">
+                    Sex
+                  </span>
+                  <span className="font-semibold text-slate-700 mt-1 block">
+                    {patientData.profile.gender}
+                  </span>
+                </div>
+
+                <div>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block">
+                    Age
+                  </span>
+                  <span className="font-semibold text-slate-700 mt-1 block">
+                    {patientData.profile.age}
+                  </span>
+                </div>
                   <div>
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block">
                       Occupation Sector
@@ -1889,6 +1992,15 @@ export default function AdminPatientDetailsPage() {
 
                     <p className="text-slate-500 mt-1">
                       {patientData.profile.medicalProfile.conditions.join(", ")}
+                    </p>
+                  </div>
+
+                  <div>
+                    <span className="font-semibold text-slate-700">Family History:</span>
+
+                    <p className="text-slate-500 mt-1">
+                      {patientData.profile.medicalProfile.familyHistory ||
+                        "No family history recorded."}
                     </p>
                   </div>
 
