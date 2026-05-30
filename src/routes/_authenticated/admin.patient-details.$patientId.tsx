@@ -91,6 +91,14 @@ interface PersonalDetails {
   };
 }
 
+interface AppointmentClinicalRecord {
+  chiefComplaint: string;
+  extraOralExamination: string;
+  oralExamination: string;
+  treatmentAdvised: string;
+  clinicalNotes: string;
+}
+
 interface AppointmentRecord {
   id: string;
   date: string; // ISO format string: YYYY-MM-DD
@@ -98,6 +106,7 @@ interface AppointmentRecord {
   provider: string;
   type: string;
   status: "Upcoming" | "Completed" | "No Show";
+  clinicalRecord?: AppointmentClinicalRecord;
 }
 
 type TreatmentStage = string;
@@ -468,6 +477,36 @@ export default function AdminPatientDetailsPage() {
   const [isAddingTreatment, setIsAddingTreatment] = useState(false);
   const [isBillingExpanded, setIsBillingExpanded] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState<AppointmentRecord | null>(null);
+  const [appointmentClinicalDraft, setAppointmentClinicalDraft] = useState<AppointmentClinicalRecord>({
+    chiefComplaint: "",
+    extraOralExamination: "",
+    oralExamination: "",
+    treatmentAdvised: "",
+    clinicalNotes: "",
+  });
+
+  useEffect(() => {
+    if (!selectedAppointment) {
+      setAppointmentClinicalDraft({
+        chiefComplaint: "",
+        extraOralExamination: "",
+        oralExamination: "",
+        treatmentAdvised: "",
+        clinicalNotes: "",
+      });
+      return;
+    }
+
+    setAppointmentClinicalDraft(
+      selectedAppointment.clinicalRecord || {
+        chiefComplaint: "",
+        extraOralExamination: "",
+        oralExamination: "",
+        treatmentAdvised: "",
+        clinicalNotes: "",
+      },
+    );
+  }, [selectedAppointment]);
 
   // Form Inputs State Management
   const [ledgerForm, setLedgerForm] = useState({
@@ -2552,8 +2591,17 @@ export default function AdminPatientDetailsPage() {
                           </div>
 
                           {matchedAppt && (
-                            <div className="flex gap-1">
-                              <div className="h-2 w-2 rounded-full bg-rose-400" />
+                            <div className="flex gap-1 items-center">
+                              <div
+                                className={`h-2 w-2 rounded-full ${
+                                  matchedAppt.clinicalRecord ? "bg-emerald-500" : "bg-rose-400"
+                                }`}
+                                aria-label={
+                                  matchedAppt.clinicalRecord
+                                    ? "Clinical record saved"
+                                    : "Appointment scheduled"
+                                }
+                              />
                             </div>
                           )}
                         </div>
@@ -3398,15 +3446,150 @@ export default function AdminPatientDetailsPage() {
                   </span>
                 </div>
               </div>
-              <div className="p-3 bg-slate-50 border-t border-slate-100 flex justify-end">
+
+              <div className="p-4 border-t border-slate-100 bg-slate-50 space-y-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <span className="text-[10px] uppercase tracking-wide text-slate-400 font-bold">
+                      Appointment Clinical Record
+                    </span>
+                    <p className="text-[11px] text-slate-500 mt-1">
+                      Store visit-specific findings and notes for this appointment.
+                    </p>
+                  </div>
+                  {selectedAppointment.clinicalRecord ? (
+                    <span className="text-[10px] px-2 py-1 rounded-full bg-emerald-100 text-emerald-700 font-bold">
+                      Saved
+                    </span>
+                  ) : (
+                    <span className="text-[10px] px-2 py-1 rounded-full bg-slate-100 text-slate-600 font-bold">
+                      Draft
+                    </span>
+                  )}
+                </div>
+
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-slate-500 text-[11px] font-bold mb-1">
+                      Chief Complaint
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={appointmentClinicalDraft.chiefComplaint}
+                      onChange={(e) =>
+                        setAppointmentClinicalDraft((prev) => ({
+                          ...prev,
+                          chiefComplaint: e.target.value,
+                        }))
+                      }
+                      className="w-full p-2 border border-slate-200 rounded bg-white text-sm text-slate-700"
+                      placeholder="Write the patient’s main complaint for this visit"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-500 text-[11px] font-bold mb-1">
+                      Extra Oral Examination
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={appointmentClinicalDraft.extraOralExamination}
+                      onChange={(e) =>
+                        setAppointmentClinicalDraft((prev) => ({
+                          ...prev,
+                          extraOralExamination: e.target.value,
+                        }))
+                      }
+                      className="w-full p-2 border border-slate-200 rounded bg-white text-sm text-slate-700"
+                      placeholder="Record inspection of facial symmetry, TMJ, lymph nodes, and lips"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-500 text-[11px] font-bold mb-1">
+                      Oral Examination
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={appointmentClinicalDraft.oralExamination}
+                      onChange={(e) =>
+                        setAppointmentClinicalDraft((prev) => ({
+                          ...prev,
+                          oralExamination: e.target.value,
+                        }))
+                      }
+                      className="w-full p-2 border border-slate-200 rounded bg-white text-sm text-slate-700"
+                      placeholder="Document oral findings, soft tissue exam, and intraoral observations"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-500 text-[11px] font-bold mb-1">
+                      Treatment Advised
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={appointmentClinicalDraft.treatmentAdvised}
+                      onChange={(e) =>
+                        setAppointmentClinicalDraft((prev) => ({
+                          ...prev,
+                          treatmentAdvised: e.target.value,
+                        }))
+                      }
+                      className="w-full p-2 border border-slate-200 rounded bg-white text-sm text-slate-700"
+                      placeholder="Summarize the recommended procedural plan for this visit"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-500 text-[11px] font-bold mb-1">
+                      Clinical Notes
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={appointmentClinicalDraft.clinicalNotes}
+                      onChange={(e) =>
+                        setAppointmentClinicalDraft((prev) => ({
+                          ...prev,
+                          clinicalNotes: e.target.value,
+                        }))
+                      }
+                      className="w-full p-2 border border-slate-200 rounded bg-white text-sm text-slate-700"
+                      placeholder="Add observations, procedural details, and visit-specific remarks"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-3 bg-slate-50 border-t border-slate-100 space-y-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!selectedAppointment) return;
+                    setPatientData((prev) => ({
+                      ...prev,
+                      appointments: prev.appointments.map((a) =>
+                        a.id === selectedAppointment.id
+                          ? { ...a, clinicalRecord: appointmentClinicalDraft }
+                          : a,
+                      ),
+                    }));
+                    setSelectedAppointment((prev) =>
+                      prev ? { ...prev, clinicalRecord: appointmentClinicalDraft } : prev,
+                    );
+                  }}
+                  className="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg transition"
+                >
+                  Save Clinical Visit Record
+                </button>
                 <button
                   type="button"
                   onClick={() => {
                     const nextDate = prompt(
                       "Input micro-reschedule date parameter (YYYY-MM-DD):",
-                      selectedAppointment.date,
+                      selectedAppointment?.date,
                     );
-                    if (nextDate) {
+                    if (nextDate && selectedAppointment) {
                       setPatientData((prev) => ({
                         ...prev,
                         appointments: prev.appointments.map((a) =>
@@ -3419,6 +3602,13 @@ export default function AdminPatientDetailsPage() {
                   className="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg transition text-center"
                 >
                   Quick Reschedule Operational Window
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedAppointment(null)}
+                  className="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg transition"
+                >
+                  Close
                 </button>
               </div>
             </motion.div>
