@@ -186,8 +186,23 @@ const getStagesForProcedure = (procedure: string): string[] => {
   const matchedKey = Object.keys(TREATMENT_STAGE_TEMPLATES).find((key) =>
     normalized.includes(normalizeForMatch(key)),
   );
-  return (matchedKey ? TREATMENT_STAGE_TEMPLATES[matchedKey] : DEFAULT_TREATMENT_STAGES) ||
-    DEFAULT_TREATMENT_STAGES;
+  return (
+    (matchedKey ? TREATMENT_STAGE_TEMPLATES[matchedKey] : DEFAULT_TREATMENT_STAGES) ||
+    DEFAULT_TREATMENT_STAGES
+  );
+};
+
+const formatDate = (d?: string | null) => {
+  if (!d) return "-";
+  try {
+    return new Date(d).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  } catch (e) {
+    return d;
+  }
 };
 
 interface TreatmentRecord {
@@ -200,6 +215,9 @@ interface TreatmentRecord {
   currentStage: TreatmentStage;
   stages?: TreatmentStageDetail[];
   hasXray?: boolean;
+  startDate: string;
+  targetEndDate?: string | null;
+  completedDate?: string | null;
 }
 
 interface BillingLogRecord {
@@ -400,10 +418,7 @@ export default function AdminPatientDetailsPage() {
   const getInitialPatientData = () => {
     const defaultData = MOCK_PATIENT_ECOSYSTEM[patientId] || MOCK_PATIENT_ECOSYSTEM["P-8832"];
     const patientKey = `patient_ecosystem_${patientId || defaultData.id}`;
-    const stored =
-      typeof window !== "undefined"
-        ? localStorage.getItem(patientKey)
-        : null;
+    const stored = typeof window !== "undefined" ? localStorage.getItem(patientKey) : null;
     if (stored) {
       try {
         const parsed = JSON.parse(stored);
@@ -466,6 +481,7 @@ export default function AdminPatientDetailsPage() {
     toothNumber: "",
     procedure: "",
     notes: "",
+    targetEndDate: "",
   });
 
   const [prescriptionModal, setPrescriptionModal] = useState<"create" | "history" | null>(null);
@@ -710,6 +726,10 @@ export default function AdminPatientDetailsPage() {
       status: "Pending",
       currentStage: stagesList[0] || "Consultation",
       stages: initialStages,
+      startDate: new Date().toISOString().split("T")[0],
+      targetEndDate: treatmentForm.targetEndDate ? String(treatmentForm.targetEndDate) : null,
+      completedDate: null,
+      targetEndDate: treatmentForm.targetEndDate || null,
     };
 
     console.log("NEW TREATMENT", newTx);
@@ -719,7 +739,7 @@ export default function AdminPatientDetailsPage() {
       treatments: [newTx, ...prev.treatments],
     }));
 
-    setTreatmentForm({ toothNumber: "", procedure: "", notes: "" });
+    setTreatmentForm({ toothNumber: "", procedure: "", notes: "", targetEndDate: "" });
     setIsAddingTreatment(false);
   };
 
@@ -965,7 +985,15 @@ export default function AdminPatientDetailsPage() {
   const updateTreatmentStatus = (id: string, status: TreatmentRecord["status"]) => {
     setPatientData((prev) => ({
       ...prev,
-      treatments: prev.treatments.map((tx) => (tx.id === id ? { ...tx, status } : tx)),
+      treatments: prev.treatments.map((tx) => {
+        if (tx.id !== id) return tx;
+        const updated: TreatmentRecord = {
+          ...tx,
+          status,
+          completedDate: status === "Completed" ? new Date().toISOString().split("T")[0] : null,
+        };
+        return updated;
+      }),
     }));
   };
 
@@ -2076,6 +2104,23 @@ export default function AdminPatientDetailsPage() {
                             <option value="Braces">Braces</option>
                           </select>
                         </div>
+                        <div>
+                          <label className="block text-slate-400 font-bold mb-0.5">
+                            Target End Date
+                          </label>
+
+                          <input
+                            type="date"
+                            value={treatmentForm.targetEndDate || ""}
+                            onChange={(e) =>
+                              setTreatmentForm({
+                                ...treatmentForm,
+                                targetEndDate: e.target.value,
+                              })
+                            }
+                            className="w-full p-2 border border-slate-200 rounded"
+                          />
+                        </div>
                       </div>
                       <div>
                         <label className="block text-slate-400 font-bold mb-0.5">
@@ -2091,6 +2136,21 @@ export default function AdminPatientDetailsPage() {
                           placeholder="Isolation vectors applied..."
                         />
                       </div>
+
+                      <div>
+                        <label className="block text-slate-400 font-bold mb-0.5">
+                          Target End Date (optional)
+                        </label>
+                        <input
+                          type="date"
+                          value={treatmentForm.targetEndDate}
+                          onChange={(e) =>
+                            setTreatmentForm({ ...treatmentForm, targetEndDate: e.target.value })
+                          }
+                          className="w-full p-2 border border-slate-200 rounded"
+                        />
+                      </div>
+
                       <div className="flex justify-end gap-2">
                         <button
                           type="submit"
@@ -2120,6 +2180,27 @@ export default function AdminPatientDetailsPage() {
                         <span className="text-slate-400 font-medium">{tx.date}</span>
                       </div>
 
+                      <div className="flex items-center gap-3 text-xs text-slate-500 pt-2">
+                        <div>
+                          <div className="text-[10px] uppercase text-slate-400">Started</div>
+                          <div className="font-semibold text-slate-700">
+                            {formatDate(tx.startDate)}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-[10px] uppercase text-slate-400">Target End</div>
+                          <div className="font-semibold text-slate-700">
+                            {tx.targetEndDate ? formatDate(tx.targetEndDate) : "-"}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-[10px] uppercase text-slate-400">Completed</div>
+                          <div className="font-semibold text-slate-700">
+                            {tx.completedDate ? formatDate(tx.completedDate) : "-"}
+                          </div>
+                        </div>
+                      </div>
+
                       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                         <h4 className="font-bold text-slate-900">{tx.procedure}</h4>
                         <span
@@ -2140,7 +2221,9 @@ export default function AdminPatientDetailsPage() {
                       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between text-xs pt-2">
                         <div className="flex flex-wrap items-center gap-2">
                           <label className="inline-flex items-center gap-2 text-slate-500 font-semibold">
-                            <span className="uppercase tracking-[0.18em] text-[9px]">Current Stage</span>
+                            <span className="uppercase tracking-[0.18em] text-[9px]">
+                              Current Stage
+                            </span>
                             <select
                               value={tx.currentStage}
                               onChange={(e) => updateTreatmentStage(tx.id, e.target.value)}
@@ -2161,7 +2244,9 @@ export default function AdminPatientDetailsPage() {
 
                       <div className="mt-2.5 pt-2.5 border-t border-slate-100/70 space-y-2">
                         <div className="flex items-center justify-between">
-                          <span className="font-semibold text-slate-700 text-[10px] uppercase tracking-wider">Treatment Plan & Progress</span>
+                          <span className="font-semibold text-slate-700 text-[10px] uppercase tracking-wider">
+                            Treatment Plan & Progress
+                          </span>
                           <button
                             type="button"
                             onClick={() => toggleManageStages(tx.id)}
@@ -2180,14 +2265,16 @@ export default function AdminPatientDetailsPage() {
                                   stage.status === "completed"
                                     ? "bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100"
                                     : stage.status === "active"
-                                    ? "bg-cyan-50 border-cyan-300 text-cyan-700 ring-1 ring-cyan-400 hover:bg-cyan-100"
-                                    : "bg-slate-50 border-slate-200 text-slate-400 hover:bg-slate-100"
+                                      ? "bg-cyan-50 border-cyan-300 text-cyan-700 ring-1 ring-cyan-400 hover:bg-cyan-100"
+                                      : "bg-slate-50 border-slate-200 text-slate-400 hover:bg-slate-100"
                                 }`}
                                 title="Click to set as active stage"
                               >
                                 {stage.name}
                               </div>
-                              {idx < (tx.stages || []).length - 1 && <span className="text-slate-300">→</span>}
+                              {idx < (tx.stages || []).length - 1 && (
+                                <span className="text-slate-300">→</span>
+                              )}
                             </React.Fragment>
                           ))}
                         </div>
@@ -2195,7 +2282,9 @@ export default function AdminPatientDetailsPage() {
 
                       {expandedTxId === tx.id && (
                         <div className="bg-slate-50/80 p-2.5 rounded-lg border border-slate-100 space-y-2 mt-2">
-                          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide block">Configure Plan Stages</span>
+                          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide block">
+                            Configure Plan Stages
+                          </span>
                           <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
                             {(tx.stages || []).map((stage, idx) => (
                               <div key={idx} className="flex items-center gap-1.5">
@@ -2207,7 +2296,9 @@ export default function AdminPatientDetailsPage() {
                                 />
                                 <select
                                   value={stage.status}
-                                  onChange={(e) => handleSetStageStatus(tx.id, idx, e.target.value as any)}
+                                  onChange={(e) =>
+                                    handleSetStageStatus(tx.id, idx, e.target.value as any)
+                                  }
                                   className="p-1 bg-white border border-slate-200 rounded text-[10px] text-slate-600 font-bold"
                                 >
                                   <option value="completed">Completed</option>
@@ -2252,7 +2343,10 @@ export default function AdminPatientDetailsPage() {
                               onKeyDown={(e) => {
                                 if (e.key === "Enter") {
                                   e.preventDefault();
-                                  handleAddCustomStage(tx.id, (e.currentTarget as HTMLInputElement).value);
+                                  handleAddCustomStage(
+                                    tx.id,
+                                    (e.currentTarget as HTMLInputElement).value,
+                                  );
                                   (e.currentTarget as HTMLInputElement).value = "";
                                 }
                               }}
@@ -2260,7 +2354,9 @@ export default function AdminPatientDetailsPage() {
                             <button
                               type="button"
                               onClick={() => {
-                                const input = document.getElementById(`new-stage-${tx.id}`) as HTMLInputElement | null;
+                                const input = document.getElementById(
+                                  `new-stage-${tx.id}`,
+                                ) as HTMLInputElement | null;
                                 if (input && input.value.trim()) {
                                   handleAddCustomStage(tx.id, input.value);
                                   input.value = "";
@@ -2302,6 +2398,24 @@ export default function AdminPatientDetailsPage() {
                             Complete Treatment
                           </button>
                         )}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (
+                              typeof window !== "undefined" &&
+                              window.confirm("Delete this treatment? This action cannot be undone.")
+                            ) {
+                              setPatientData((prev) => ({
+                                ...prev,
+                                treatments: prev.treatments.filter((t) => t.id !== tx.id),
+                              }));
+                              if (expandedTxId === tx.id) setExpandedTxId(null);
+                            }
+                          }}
+                          className="text-[10px] font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 px-2 py-1 rounded"
+                        >
+                          Delete
+                        </button>
                       </div>
                     </div>
                   ))}
