@@ -216,7 +216,6 @@ interface TreatmentRecord {
   stages?: TreatmentStageDetail[];
   hasXray?: boolean;
   startDate: string;
-  targetEndDate?: string | null;
   completedDate?: string | null;
 }
 
@@ -327,6 +326,7 @@ const MOCK_PATIENT_ECOSYSTEM: Record<string, CompletePatientState> = {
         status: "Ongoing",
         currentStage: "Filling",
         hasXray: true,
+        startDate: "2026-05-18",
       },
     ],
     prescriptions: [
@@ -481,7 +481,8 @@ export default function AdminPatientDetailsPage() {
     toothNumber: "",
     procedure: "",
     notes: "",
-    targetEndDate: "",
+    customTreatmentName: "",
+    customStages: ["Consultation", "Completed"],
   });
 
   const [prescriptionModal, setPrescriptionModal] = useState<"create" | "history" | null>(null);
@@ -707,7 +708,14 @@ export default function AdminPatientDetailsPage() {
     console.log("Treatment Form:", treatmentForm);
     if (!treatmentForm.procedure || !treatmentForm.toothNumber) return;
 
-    const stagesList = getStagesForProcedure(treatmentForm.procedure);
+    const isCustomTreatment = treatmentForm.procedure === "Other";
+    const customName = treatmentForm.customTreatmentName.trim();
+    const customStages = treatmentForm.customStages.map((stage) => stage.trim()).filter(Boolean);
+    if (isCustomTreatment && (!customName || customStages.length === 0)) return;
+
+    const stagesList = isCustomTreatment
+      ? customStages
+      : getStagesForProcedure(treatmentForm.procedure);
     const initialStages = stagesList.map((s, idx) => ({
       name: s,
       status: idx === 0 ? ("active" as const) : ("upcoming" as const),
@@ -721,15 +729,13 @@ export default function AdminPatientDetailsPage() {
         year: "numeric",
       }),
       toothNumber: treatmentForm.toothNumber,
-      procedure: treatmentForm.procedure,
+      procedure: isCustomTreatment ? customName : treatmentForm.procedure,
       notes: treatmentForm.notes,
       status: "Pending",
       currentStage: stagesList[0] || "Consultation",
       stages: initialStages,
       startDate: new Date().toISOString().split("T")[0],
-      targetEndDate: treatmentForm.targetEndDate ? String(treatmentForm.targetEndDate) : null,
       completedDate: null,
-      targetEndDate: treatmentForm.targetEndDate || null,
     };
 
     console.log("NEW TREATMENT", newTx);
@@ -739,7 +745,13 @@ export default function AdminPatientDetailsPage() {
       treatments: [newTx, ...prev.treatments],
     }));
 
-    setTreatmentForm({ toothNumber: "", procedure: "", notes: "", targetEndDate: "" });
+    setTreatmentForm({
+      toothNumber: "",
+      procedure: "",
+      notes: "",
+      customTreatmentName: "",
+      customStages: ["Consultation", "Completed"],
+    });
     setIsAddingTreatment(false);
   };
 
@@ -2078,12 +2090,20 @@ export default function AdminPatientDetailsPage() {
 
                           <select
                             value={treatmentForm.procedure}
-                            onChange={(e) =>
+                            onChange={(e) => {
+                              const nextProcedure = e.target.value;
+                              let nextStages = treatmentForm.customStages;
+
+                              if (nextProcedure === "Other" && nextStages.length === 0) {
+                                nextStages = ["Consultation", "Completed"];
+                              }
+
                               setTreatmentForm({
                                 ...treatmentForm,
-                                procedure: e.target.value,
-                              })
-                            }
+                                procedure: nextProcedure,
+                                customStages: nextStages,
+                              });
+                            }}
                             className="w-full p-2 border border-slate-200 rounded bg-white"
                             required
                           >
@@ -2102,24 +2122,8 @@ export default function AdminPatientDetailsPage() {
                             <option value="Extraction">Extraction</option>
 
                             <option value="Braces">Braces</option>
+                            <option value="Other">Other</option>
                           </select>
-                        </div>
-                        <div>
-                          <label className="block text-slate-400 font-bold mb-0.5">
-                            Target End Date
-                          </label>
-
-                          <input
-                            type="date"
-                            value={treatmentForm.targetEndDate || ""}
-                            onChange={(e) =>
-                              setTreatmentForm({
-                                ...treatmentForm,
-                                targetEndDate: e.target.value,
-                              })
-                            }
-                            className="w-full p-2 border border-slate-200 rounded"
-                          />
                         </div>
                       </div>
                       <div>
@@ -2137,19 +2141,81 @@ export default function AdminPatientDetailsPage() {
                         />
                       </div>
 
-                      <div>
-                        <label className="block text-slate-400 font-bold mb-0.5">
-                          Target End Date (optional)
-                        </label>
-                        <input
-                          type="date"
-                          value={treatmentForm.targetEndDate}
-                          onChange={(e) =>
-                            setTreatmentForm({ ...treatmentForm, targetEndDate: e.target.value })
-                          }
-                          className="w-full p-2 border border-slate-200 rounded"
-                        />
-                      </div>
+                      {treatmentForm.procedure === "Other" && (
+                        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 space-y-4">
+                          <div>
+                            <label className="block text-slate-400 font-bold mb-0.5">
+                              Custom Treatment Name
+                            </label>
+                            <input
+                              type="text"
+                              value={treatmentForm.customTreatmentName}
+                              onChange={(e) =>
+                                setTreatmentForm({
+                                  ...treatmentForm,
+                                  customTreatmentName: e.target.value,
+                                })
+                              }
+                              className="w-full p-2 border border-slate-200 rounded"
+                              required
+                            />
+                          </div>
+                          <div className="space-y-3">
+                            <div className="flex items-center justify-between gap-3">
+                              <span className="text-slate-600 text-sm font-bold">
+                                Custom Treatment Stages
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setTreatmentForm((prev) => ({
+                                    ...prev,
+                                    customStages: [...prev.customStages, "New Stage"],
+                                  }))
+                                }
+                                className="text-xs font-semibold text-cyan-700 bg-cyan-50 hover:bg-cyan-100 px-2 py-1 rounded"
+                              >
+                                Add Stage
+                              </button>
+                            </div>
+                            <div className="space-y-2">
+                              {treatmentForm.customStages.map((stage, index) => (
+                                <div key={index} className="flex items-center gap-2">
+                                  <input
+                                    type="text"
+                                    value={stage}
+                                    onChange={(e) =>
+                                      setTreatmentForm((prev) => ({
+                                        ...prev,
+                                        customStages: prev.customStages.map((item, idx) =>
+                                          idx === index ? e.target.value : item,
+                                        ),
+                                      }))
+                                    }
+                                    className="flex-1 p-2 border border-slate-200 rounded"
+                                    required
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setTreatmentForm((prev) => ({
+                                        ...prev,
+                                        customStages: prev.customStages.filter(
+                                          (_, idx) => idx !== index,
+                                        ),
+                                      }))
+                                    }
+                                    className="text-xs font-semibold text-rose-600 bg-rose-50 hover:bg-rose-100 px-2 py-1 rounded"
+                                    disabled={treatmentForm.customStages.length <= 1}
+                                  >
+                                    Remove
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      )}
 
                       <div className="flex justify-end gap-2">
                         <button
@@ -2180,17 +2246,22 @@ export default function AdminPatientDetailsPage() {
                         <span className="text-slate-400 font-medium">{tx.date}</span>
                       </div>
 
+                      <div className="mt-1 text-[11px] text-slate-500 space-y-0.5">
+                        <div>
+                          <span className="font-semibold">Started:</span> {tx.startDate}
+                        </div>
+                        {tx.completedDate && (
+                          <div>
+                            <span className="font-semibold">Completed:</span> {tx.completedDate}
+                          </div>
+                        )}
+                      </div>
+
                       <div className="flex items-center gap-3 text-xs text-slate-500 pt-2">
                         <div>
                           <div className="text-[10px] uppercase text-slate-400">Started</div>
                           <div className="font-semibold text-slate-700">
                             {formatDate(tx.startDate)}
-                          </div>
-                        </div>
-                        <div>
-                          <div className="text-[10px] uppercase text-slate-400">Target End</div>
-                          <div className="font-semibold text-slate-700">
-                            {tx.targetEndDate ? formatDate(tx.targetEndDate) : "-"}
                           </div>
                         </div>
                         <div>
@@ -2297,7 +2368,11 @@ export default function AdminPatientDetailsPage() {
                                 <select
                                   value={stage.status}
                                   onChange={(e) =>
-                                    handleSetStageStatus(tx.id, idx, e.target.value as any)
+                                    handleSetStageStatus(
+                                      tx.id,
+                                      idx,
+                                      e.target.value as "completed" | "active" | "upcoming",
+                                    )
                                   }
                                   className="p-1 bg-white border border-slate-200 rounded text-[10px] text-slate-600 font-bold"
                                 >
