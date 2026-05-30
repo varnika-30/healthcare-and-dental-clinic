@@ -173,13 +173,21 @@ const DEFAULT_TREATMENT_STAGES = [
   "Completed",
 ];
 
+const normalizeForMatch = (s: string) =>
+  s
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .replace(/\s+/g, " ");
+
 const getStagesForProcedure = (procedure: string): string[] => {
   if (!procedure) return DEFAULT_TREATMENT_STAGES;
-  const normalized = procedure.toLowerCase();
+  const normalized = normalizeForMatch(procedure);
   const matchedKey = Object.keys(TREATMENT_STAGE_TEMPLATES).find((key) =>
-    normalized.includes(key.toLowerCase()),
+    normalized.includes(normalizeForMatch(key)),
   );
-  return matchedKey ? TREATMENT_STAGE_TEMPLATES[matchedKey] : DEFAULT_TREATMENT_STAGES;
+  return (matchedKey ? TREATMENT_STAGE_TEMPLATES[matchedKey] : DEFAULT_TREATMENT_STAGES) ||
+    DEFAULT_TREATMENT_STAGES;
 };
 
 interface TreatmentRecord {
@@ -2098,6 +2106,206 @@ export default function AdminPatientDetailsPage() {
                 <span className="uppercase tracking-[0.18em] text-[9px] text-slate-400">
                   Progress Controlled Below
                 </span>
+
+                <div className="space-y-2">
+                  {patientData.treatments.map((tx) => (
+                    <div
+                      key={tx.id}
+                      className="p-3 bg-slate-50/50 border border-slate-100 rounded-xl space-y-1.5 text-xs"
+                    >
+                      <div className="flex justify-between items-center text-[11px]">
+                        <span className="font-mono bg-white px-2 py-0.5 rounded border border-slate-200 text-cyan-800 font-bold">
+                          Tooth Map: {tx.toothNumber}
+                        </span>
+                        <span className="text-slate-400 font-medium">{tx.date}</span>
+                      </div>
+
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                        <h4 className="font-bold text-slate-900">{tx.procedure}</h4>
+                        <span
+                          className={`inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-[10px] font-bold border ${getTreatmentStatusClasses(
+                            tx.status,
+                          )}`}
+                        >
+                          {tx.status}
+                        </span>
+                      </div>
+
+                      {tx.notes && (
+                        <p className="text-slate-500 font-medium leading-relaxed bg-white p-2 rounded border border-slate-200/60">
+                          {tx.notes}
+                        </p>
+                      )}
+
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between text-xs pt-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <label className="inline-flex items-center gap-2 text-slate-500 font-semibold">
+                            <span className="uppercase tracking-[0.18em] text-[9px]">Current Stage</span>
+                            <select
+                              value={tx.currentStage}
+                              onChange={(e) => updateTreatmentStage(tx.id, e.target.value)}
+                              className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700"
+                            >
+                              {(tx.stages || []).map((stage) => (
+                                <option key={stage.name} value={stage.name}>
+                                  {stage.name}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                        </div>
+                        <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-100 px-2 py-1 text-[10px] font-bold text-slate-700">
+                          {tx.currentStage}
+                        </span>
+                      </div>
+
+                      <div className="mt-2.5 pt-2.5 border-t border-slate-100/70 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="font-semibold text-slate-700 text-[10px] uppercase tracking-wider">Treatment Plan & Progress</span>
+                          <button
+                            type="button"
+                            onClick={() => toggleManageStages(tx.id)}
+                            className="text-[10px] font-bold text-cyan-600 hover:text-cyan-700"
+                          >
+                            {expandedTxId === tx.id ? "Hide Editor" : "Edit Plan Stages"}
+                          </button>
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-1.5 py-1">
+                          {(tx.stages || []).map((stage, idx) => (
+                            <React.Fragment key={stage.name}>
+                              <div
+                                onClick={() => handleStageClick(tx.id, idx)}
+                                className={`cursor-pointer px-2 py-0.5 rounded text-[10px] font-bold border transition ${
+                                  stage.status === "completed"
+                                    ? "bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100"
+                                    : stage.status === "active"
+                                    ? "bg-cyan-50 border-cyan-300 text-cyan-700 ring-1 ring-cyan-400 hover:bg-cyan-100"
+                                    : "bg-slate-50 border-slate-200 text-slate-400 hover:bg-slate-100"
+                                }`}
+                                title="Click to set as active stage"
+                              >
+                                {stage.name}
+                              </div>
+                              {idx < (tx.stages || []).length - 1 && <span className="text-slate-300">→</span>}
+                            </React.Fragment>
+                          ))}
+                        </div>
+                      </div>
+
+                      {expandedTxId === tx.id && (
+                        <div className="bg-slate-50/80 p-2.5 rounded-lg border border-slate-100 space-y-2 mt-2">
+                          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide block">Configure Plan Stages</span>
+                          <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                            {(tx.stages || []).map((stage, idx) => (
+                              <div key={idx} className="flex items-center gap-1.5">
+                                <input
+                                  type="text"
+                                  value={stage.name}
+                                  onChange={(e) => handleRenameStage(tx.id, idx, e.target.value)}
+                                  className="flex-1 p-1 bg-white border border-slate-200 rounded text-[11px]"
+                                />
+                                <select
+                                  value={stage.status}
+                                  onChange={(e) => handleSetStageStatus(tx.id, idx, e.target.value as any)}
+                                  className="p-1 bg-white border border-slate-200 rounded text-[10px] text-slate-600 font-bold"
+                                >
+                                  <option value="completed">Completed</option>
+                                  <option value="active">Active</option>
+                                  <option value="upcoming">Upcoming</option>
+                                </select>
+                                <button
+                                  type="button"
+                                  disabled={idx === 0}
+                                  onClick={() => handleMoveStage(tx.id, idx, "up")}
+                                  className="p-0.5 text-slate-400 hover:text-slate-600 disabled:opacity-30"
+                                  title="Move Up"
+                                >
+                                  ↑
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={idx === (tx.stages || []).length - 1}
+                                  onClick={() => handleMoveStage(tx.id, idx, "down")}
+                                  className="p-0.5 text-slate-400 hover:text-slate-600 disabled:opacity-30"
+                                  title="Move Down"
+                                >
+                                  ↓
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteStage(tx.id, idx)}
+                                  className="p-0.5 text-red-500 hover:text-red-700"
+                                  title="Delete Stage"
+                                >
+                                  ✕
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                          <div className="flex gap-1.5 pt-1.5 border-t border-slate-200/60">
+                            <input
+                              type="text"
+                              placeholder="New stage name..."
+                              id={`new-stage-${tx.id}`}
+                              className="flex-1 p-1 bg-white border border-slate-200 rounded text-[11px]"
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  e.preventDefault();
+                                  handleAddCustomStage(tx.id, (e.currentTarget as HTMLInputElement).value);
+                                  (e.currentTarget as HTMLInputElement).value = "";
+                                }
+                              }}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const input = document.getElementById(`new-stage-${tx.id}`) as HTMLInputElement | null;
+                                if (input && input.value.trim()) {
+                                  handleAddCustomStage(tx.id, input.value);
+                                  input.value = "";
+                                }
+                              }}
+                              className="bg-cyan-600 text-white font-bold px-2 py-1 rounded text-[10px] hover:bg-cyan-700"
+                            >
+                              Add Stage
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="flex flex-wrap items-center gap-2 pt-2">
+                        {tx.status !== "Ongoing" && tx.status !== "Completed" && (
+                          <button
+                            type="button"
+                            onClick={() => updateTreatmentStatus(tx.id, "Ongoing")}
+                            className="text-[10px] font-bold text-cyan-700 bg-cyan-50 hover:bg-cyan-100 px-2 py-1 rounded"
+                          >
+                            {tx.status === "Pending" ? "Start Treatment" : "Resume Treatment"}
+                          </button>
+                        )}
+                        {tx.status === "Ongoing" && (
+                          <button
+                            type="button"
+                            onClick={() => updateTreatmentStatus(tx.id, "Paused")}
+                            className="text-[10px] font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 px-2 py-1 rounded"
+                          >
+                            Pause Treatment
+                          </button>
+                        )}
+                        {tx.status !== "Completed" && (
+                          <button
+                            type="button"
+                            onClick={() => updateTreatmentStatus(tx.id, "Completed")}
+                            className="text-[10px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-2 py-1 rounded"
+                          >
+                            Complete Treatment
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
