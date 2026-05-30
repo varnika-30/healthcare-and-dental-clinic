@@ -288,13 +288,99 @@ const PAST_TREATMENTS: PastTreatment[] = [
   },
 ];
 
+// Helper to map doctor-defined treatments to ActiveTreatmentPlan interface
+const mapDoctorTreatmentToActivePlan = (tx: any): ActiveTreatmentPlan => {
+  const steps: TreatmentStep[] = (tx.stages || []).map((stage: any, idx: number) => ({
+    id: `${tx.id}-step-${idx}`,
+    name: stage.name,
+    description: `Stage ${idx + 1} of the ${tx.procedure} protocol.`,
+    status: stage.status || "upcoming",
+    careInstructions:
+      stage.status === "active"
+        ? "Follow lead provider's guidance during this active stage."
+        : undefined,
+  }));
+
+  const totalSteps = steps.length;
+  const completedStepsCount = steps.filter((s) => s.status === "completed").length;
+  const progressPercent = totalSteps > 0 ? Math.round((completedStepsCount / totalSteps) * 100) : 0;
+
+  const activeStepIdx = (tx.stages || []).findIndex((s: any) => s.status === "active");
+  const stageLabelText =
+    activeStepIdx !== -1
+      ? `Stage ${activeStepIdx + 1} of ${totalSteps}`
+      : completedStepsCount === totalSteps
+        ? "Completed"
+        : `Stage 1 of ${totalSteps}`;
+
+  return {
+    id: tx.id,
+    title: `${tx.procedure} (Tooth ${tx.toothNumber})`,
+    doctor: "Dr. Aisha Rahman",
+    startDate: tx.date || "May 20, 2026",
+    overallProgress: progressPercent,
+    stageLabel: stageLabelText,
+    notes: tx.notes || "Treatment tracking dynamically managed by clinical provider.",
+    steps,
+    nextAppointment: {
+      date: "Tue · Jun 02, 2026",
+      time: "02:15 PM",
+      purpose: `Follow-up for ${tx.procedure}`,
+    },
+  };
+};
+
+const getCombinedActiveTreatments = (): ActiveTreatmentPlan[] => {
+  const stored = localStorage.getItem("patient_ecosystem_P-8832");
+  if (stored) {
+    try {
+      const parsed = JSON.parse(stored);
+      if (parsed && Array.isArray(parsed.treatments)) {
+        // Map ongoing/pending/paused treatments to active plans
+        const doctorPlans = parsed.treatments
+          .filter((tx: any) => tx.status !== "Completed")
+          .map(mapDoctorTreatmentToActivePlan);
+
+        if (doctorPlans.length > 0) {
+          return doctorPlans;
+        }
+      }
+    } catch (e) {
+      console.error("Failed to parse patient treatments from localStorage:", e);
+    }
+  }
+
+  // Fallback to static Eleanor Vance's treatment if no localStorage exists
+  const defaultData = {
+    treatments: [
+      {
+        id: "TX-901",
+        date: "May 20, 2026",
+        toothNumber: "#14, #15",
+        procedure: "Composite Filling (2 Surfaces)",
+        notes: "Deep decay isolated. Clean margins achieved. Patient tolerated anesthesia well.",
+        status: "Ongoing",
+        currentStage: "Filling",
+        stages: [
+          { name: "Consultation", status: "completed" },
+          { name: "Decay Removal", status: "completed" },
+          { name: "Filling", status: "active" },
+          { name: "Polishing", status: "upcoming" },
+          { name: "Completed", status: "upcoming" },
+        ],
+      },
+    ],
+  };
+  return defaultData.treatments.map(mapDoctorTreatmentToActivePlan);
+};
+
 export default function TreatmentProgressPage() {
-  const [selectedPlanId, setSelectedPlanId] = useState<string>("invisalign");
+  const activePlans = getCombinedActiveTreatments();
+  const [selectedPlanId, setSelectedPlanId] = useState<string>(activePlans[0]?.id || "invisalign");
   const [selectedStep, setSelectedStep] = useState<TreatmentStep | null>(null);
   const [showFullHistory, setShowFullHistory] = useState<boolean>(false);
 
-  const currentActivePlan =
-    ACTIVE_TREATMENTS_POOL.find((p) => p.id === selectedPlanId) || ACTIVE_TREATMENTS_POOL[0];
+  const currentActivePlan = activePlans.find((p) => p.id === selectedPlanId) || activePlans[0];
 
   const visiblePastTreatments = showFullHistory ? PAST_TREATMENTS : PAST_TREATMENTS.slice(0, 3);
 
@@ -492,7 +578,7 @@ export default function TreatmentProgressPage() {
               </div>
 
               <div className="space-y-2">
-                {ACTIVE_TREATMENTS_POOL.map((plan) => {
+                {activePlans.map((plan) => {
                   const isSelected = plan.id === selectedPlanId;
                   return (
                     <button

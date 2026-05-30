@@ -100,13 +100,97 @@ interface AppointmentRecord {
   status: "Upcoming" | "Completed" | "No Show";
 }
 
+type TreatmentStage = string;
+
+interface TreatmentStageDetail {
+  name: string;
+  status: "completed" | "active" | "upcoming";
+}
+
+const TREATMENT_STAGE_TEMPLATES: Record<string, string[]> = {
+  "Root Canal": [
+    "Consultation",
+    "X-Ray",
+    "Canal Cleaning",
+    "Root Filling",
+    "Crown Placement",
+    "Completed",
+  ],
+
+  Implant: [
+    "Consultation",
+    "3D Scan",
+    "Tooth Extraction",
+    "Bone Grafting",
+    "Implant Placement",
+    "Healing Period",
+    "Abutment Placement",
+    "Crown Fixing",
+    "Completed",
+  ],
+
+  Bridge: [
+    "Consultation",
+    "Tooth Preparation",
+    "Impression Taking",
+    "Temporary Bridge",
+    "Permanent Bridge Fixing",
+    "Bite Adjustment",
+    "Completed",
+  ],
+
+  "Composite Filling": ["Consultation", "Decay Removal", "Filling", "Polishing", "Completed"],
+
+  "Scaling & Cleaning": ["Consultation", "Scaling", "Deep Cleaning", "Gum Evaluation", "Completed"],
+
+  Extraction: [
+    "Consultation",
+    "X-Ray",
+    "Anesthesia",
+    "Extraction",
+    "Bleeding Control",
+    "Recovery",
+    "Completed",
+  ],
+
+  Braces: [
+    "Consultation",
+    "X-Ray & Scan",
+    "Bracket Placement",
+    "Wire Adjustment",
+    "Monthly Tightening",
+    "Retention",
+    "Completed",
+  ],
+};
+
+const DEFAULT_TREATMENT_STAGES = [
+  "Consultation",
+  "Cleaning",
+  "Filling",
+  "Root Canal",
+  "Crown Placement",
+  "Completed",
+];
+
+const getStagesForProcedure = (procedure: string): string[] => {
+  if (!procedure) return DEFAULT_TREATMENT_STAGES;
+  const normalized = procedure.toLowerCase();
+  const matchedKey = Object.keys(TREATMENT_STAGE_TEMPLATES).find((key) =>
+    normalized.includes(key.toLowerCase()),
+  );
+  return matchedKey ? TREATMENT_STAGE_TEMPLATES[matchedKey] : DEFAULT_TREATMENT_STAGES;
+};
+
 interface TreatmentRecord {
   id: string;
   date: string;
   toothNumber: string;
   procedure: string;
   notes: string;
-  status: "In Progress" | "Completed";
+  status: "Pending" | "Ongoing" | "Paused" | "Completed";
+  currentStage: TreatmentStage;
+  stages?: TreatmentStageDetail[];
   hasXray?: boolean;
 }
 
@@ -214,7 +298,8 @@ const MOCK_PATIENT_ECOSYSTEM: Record<string, CompletePatientState> = {
         toothNumber: "#14, #15",
         procedure: "Composite Filling (2 Surfaces)",
         notes: "Deep decay isolated. Clean margins achieved. Patient tolerated anesthesia well.",
-        status: "In Progress",
+        status: "Ongoing",
+        currentStage: "Filling",
         hasXray: true,
       },
     ],
@@ -296,13 +381,63 @@ const MOCK_PATIENT_ECOSYSTEM: Record<string, CompletePatientState> = {
 export default function AdminPatientDetailsPage() {
   const { patientId } = Route.useParams();
 
-  // Unified Centralized Master Source of Truth
   const selectedPatient = MOCK_PATIENT_ECOSYSTEM[patientId] || MOCK_PATIENT_ECOSYSTEM["P-8832"];
+
   const initialData = {
     ...selectedPatient,
     prescriptions: getPatientPrescriptions(patientId || selectedPatient.id),
   };
-  const [patientData, setPatientData] = useState<CompletePatientState>(initialData);
+
+  // Load initial data from localStorage if available, otherwise mock data
+  const getInitialPatientData = () => {
+    const defaultData = MOCK_PATIENT_ECOSYSTEM[patientId] || MOCK_PATIENT_ECOSYSTEM["P-8832"];
+    const patientKey = `patient_ecosystem_${patientId || defaultData.id}`;
+    const stored =
+      typeof window !== "undefined"
+        ? localStorage.getItem(patientKey)
+        : null;
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        // Sync prescriptions from prescription-store
+        parsed.prescriptions = getPatientPrescriptions(patientId || defaultData.id);
+        return parsed;
+      } catch (e) {
+        console.error("Failed to parse stored patient data:", e);
+      }
+    }
+
+    // Initialize stages for treatments if not present
+    const initializedTreatments = defaultData.treatments.map((tx) => {
+      const stagesList = getStagesForProcedure(tx.procedure);
+      const stages =
+        tx.stages ||
+        stagesList.map((s, idx) => ({
+          name: s,
+          status:
+            s === tx.currentStage
+              ? ("active" as const)
+              : stagesList.indexOf(s) < stagesList.indexOf(tx.currentStage)
+                ? ("completed" as const)
+                : ("upcoming" as const),
+        }));
+      return { ...tx, stages };
+    });
+
+    return {
+      ...defaultData,
+      treatments: initializedTreatments,
+      prescriptions: getPatientPrescriptions(patientId || defaultData.id),
+    };
+  };
+
+  const [patientData, setPatientData] = useState<CompletePatientState>(getInitialPatientData);
+
+  // Auto-save to localStorage
+  useEffect(() => {
+    const patientKey = `patient_ecosystem_${patientData.id}`;
+    localStorage.setItem(patientKey, JSON.stringify(patientData));
+  }, [patientData]);
 
   // UI Control Configurations
   const [isProfileEditing, setIsProfileEditing] = useState(false);
@@ -367,8 +502,7 @@ export default function AdminPatientDetailsPage() {
         notes: proc.notes || "",
         linkedTreatment: proc.linkedTreatment || "",
       });
-    }
-    else if (toothHistory.length === 0) {
+    } else if (toothHistory.length === 0) {
       setSelectedProcedureId(null);
       setIsAddingNew(true);
       setIsEditing(true);
@@ -397,7 +531,7 @@ export default function AdminPatientDetailsPage() {
     });
   };
 
-  const loadProcedureIntoForm = (proc: typeof selectedToothHistory[number]) => {
+  const loadProcedureIntoForm = (proc: (typeof selectedToothHistory)[number]) => {
     setSelectedProcedureId(proc.id);
     setIsEditing(false);
     setIsAddingNew(false);
@@ -425,7 +559,7 @@ export default function AdminPatientDetailsPage() {
     });
   };
 
-  const handleInitiateEdit = (proc: typeof selectedToothHistory[number]) => {
+  const handleInitiateEdit = (proc: (typeof selectedToothHistory)[number]) => {
     loadProcedureIntoForm(proc);
     setIsEditing(true);
   };
@@ -546,7 +680,14 @@ export default function AdminPatientDetailsPage() {
 
   const handleAddTreatment = (e: React.FormEvent) => {
     e.preventDefault();
+    console.log("Treatment Form:", treatmentForm);
     if (!treatmentForm.procedure || !treatmentForm.toothNumber) return;
+
+    const stagesList = getStagesForProcedure(treatmentForm.procedure);
+    const initialStages = stagesList.map((s, idx) => ({
+      name: s,
+      status: idx === 0 ? ("active" as const) : ("upcoming" as const),
+    }));
 
     const newTx: TreatmentRecord = {
       id: `TX-${Math.floor(100 + Math.random() * 900)}`,
@@ -558,8 +699,12 @@ export default function AdminPatientDetailsPage() {
       toothNumber: treatmentForm.toothNumber,
       procedure: treatmentForm.procedure,
       notes: treatmentForm.notes,
-      status: "In Progress",
+      status: "Pending",
+      currentStage: stagesList[0] || "Consultation",
+      stages: initialStages,
     };
+
+    console.log("NEW TREATMENT", newTx);
 
     setPatientData((prev) => ({
       ...prev,
@@ -568,6 +713,252 @@ export default function AdminPatientDetailsPage() {
 
     setTreatmentForm({ toothNumber: "", procedure: "", notes: "" });
     setIsAddingTreatment(false);
+  };
+
+  const getTreatmentStatusClasses = (status: TreatmentRecord["status"]) => {
+    switch (status) {
+      case "Pending":
+        return "bg-amber-50 border-amber-200 text-amber-700";
+      case "Ongoing":
+        return "bg-cyan-50 border-cyan-200 text-cyan-700";
+      case "Paused":
+        return "bg-slate-100 border-slate-300 text-slate-700";
+      case "Completed":
+        return "bg-emerald-50 border-emerald-200 text-emerald-700";
+      default:
+        return "bg-slate-100 border-slate-200 text-slate-700";
+    }
+  };
+
+  const updateTreatmentStage = (id: string, currentStage: TreatmentStage) => {
+    setPatientData((prev) => ({
+      ...prev,
+      treatments: prev.treatments.map((tx) => {
+        if (tx.id !== id) return tx;
+        const currentStages =
+          tx.stages ||
+          getStagesForProcedure(tx.procedure).map((s, i) => ({
+            name: s,
+            status:
+              s === tx.currentStage
+                ? "active"
+                : i < getStagesForProcedure(tx.procedure).indexOf(tx.currentStage)
+                  ? "completed"
+                  : "upcoming",
+          }));
+        const clickedIdx = currentStages.findIndex((s) => s.name === currentStage);
+        const newStages = currentStages.map((stage, idx) => {
+          let status: "completed" | "active" | "upcoming" = "upcoming";
+          if (idx < clickedIdx) {
+            status = "completed";
+          } else if (idx === clickedIdx) {
+            status = "active";
+          }
+          return { ...stage, status };
+        });
+        return {
+          ...tx,
+          currentStage,
+          stages: newStages,
+        };
+      }),
+    }));
+  };
+
+  // Expanded treatment ID for editing stages
+  const [expandedTxId, setExpandedTxId] = useState<string | null>(null);
+
+  const toggleManageStages = (txId: string) => {
+    setExpandedTxId((prev) => (prev === txId ? null : txId));
+  };
+
+  // Stage editing functions
+  const handleRenameStage = (txId: string, idx: number, newName: string) => {
+    setPatientData((prev) => ({
+      ...prev,
+      treatments: prev.treatments.map((tx) => {
+        if (tx.id !== txId) return tx;
+        const currentStages =
+          tx.stages ||
+          getStagesForProcedure(tx.procedure).map((s, i) => ({
+            name: s,
+            status:
+              s === tx.currentStage
+                ? "active"
+                : i < getStagesForProcedure(tx.procedure).indexOf(tx.currentStage)
+                  ? "completed"
+                  : "upcoming",
+          }));
+        const newStages = currentStages.map((stage, i) =>
+          i === idx ? { ...stage, name: newName } : stage,
+        );
+        return {
+          ...tx,
+          stages: newStages,
+          currentStage: newStages.find((s) => s.status === "active")?.name || tx.currentStage,
+        };
+      }),
+    }));
+  };
+
+  const handleSetStageStatus = (
+    txId: string,
+    idx: number,
+    newStatus: "completed" | "active" | "upcoming",
+  ) => {
+    setPatientData((prev) => ({
+      ...prev,
+      treatments: prev.treatments.map((tx) => {
+        if (tx.id !== txId) return tx;
+        const currentStages =
+          tx.stages ||
+          getStagesForProcedure(tx.procedure).map((s, i) => ({
+            name: s,
+            status:
+              s === tx.currentStage
+                ? "active"
+                : i < getStagesForProcedure(tx.procedure).indexOf(tx.currentStage)
+                  ? "completed"
+                  : "upcoming",
+          }));
+        const newStages = currentStages.map((stage, i) =>
+          i === idx ? { ...stage, status: newStatus } : stage,
+        );
+        return {
+          ...tx,
+          stages: newStages,
+          currentStage: newStages.find((s) => s.status === "active")?.name || tx.currentStage,
+        };
+      }),
+    }));
+  };
+
+  const handleMoveStage = (txId: string, idx: number, direction: "up" | "down") => {
+    setPatientData((prev) => ({
+      ...prev,
+      treatments: prev.treatments.map((tx) => {
+        if (tx.id !== txId) return tx;
+        const currentStages = [
+          ...(tx.stages ||
+            getStagesForProcedure(tx.procedure).map((s, i) => ({
+              name: s,
+              status:
+                s === tx.currentStage
+                  ? "active"
+                  : i < getStagesForProcedure(tx.procedure).indexOf(tx.currentStage)
+                    ? "completed"
+                    : "upcoming",
+            }))),
+        ];
+
+        const targetIdx = direction === "up" ? idx - 1 : idx + 1;
+        if (targetIdx < 0 || targetIdx >= currentStages.length) return tx;
+
+        // Swap
+        const temp = currentStages[idx];
+        currentStages[idx] = currentStages[targetIdx];
+        currentStages[targetIdx] = temp;
+
+        return {
+          ...tx,
+          stages: currentStages,
+          currentStage: currentStages.find((s) => s.status === "active")?.name || tx.currentStage,
+        };
+      }),
+    }));
+  };
+
+  const handleDeleteStage = (txId: string, idx: number) => {
+    setPatientData((prev) => ({
+      ...prev,
+      treatments: prev.treatments.map((tx) => {
+        if (tx.id !== txId) return tx;
+        const currentStages =
+          tx.stages ||
+          getStagesForProcedure(tx.procedure).map((s, i) => ({
+            name: s,
+            status:
+              s === tx.currentStage
+                ? "active"
+                : i < getStagesForProcedure(tx.procedure).indexOf(tx.currentStage)
+                  ? "completed"
+                  : "upcoming",
+          }));
+        const newStages = currentStages.filter((_, i) => i !== idx);
+        return {
+          ...tx,
+          stages: newStages,
+          currentStage: newStages.find((s) => s.status === "active")?.name || tx.currentStage,
+        };
+      }),
+    }));
+  };
+
+  const handleAddCustomStage = (txId: string, name: string) => {
+    if (!name.trim()) return;
+    setPatientData((prev) => ({
+      ...prev,
+      treatments: prev.treatments.map((tx) => {
+        if (tx.id !== txId) return tx;
+        const currentStages =
+          tx.stages ||
+          getStagesForProcedure(tx.procedure).map((s, i) => ({
+            name: s,
+            status:
+              s === tx.currentStage
+                ? "active"
+                : i < getStagesForProcedure(tx.procedure).indexOf(tx.currentStage)
+                  ? "completed"
+                  : "upcoming",
+          }));
+        const newStages = [...currentStages, { name: name.trim(), status: "upcoming" as const }];
+        return {
+          ...tx,
+          stages: newStages,
+        };
+      }),
+    }));
+  };
+
+  const handleStageClick = (txId: string, clickedIdx: number) => {
+    setPatientData((prev) => ({
+      ...prev,
+      treatments: prev.treatments.map((tx) => {
+        if (tx.id !== txId) return tx;
+        const currentStages =
+          tx.stages ||
+          getStagesForProcedure(tx.procedure).map((s, i) => ({
+            name: s,
+            status:
+              s === tx.currentStage
+                ? "active"
+                : i < getStagesForProcedure(tx.procedure).indexOf(tx.currentStage)
+                  ? "completed"
+                  : "upcoming",
+          }));
+        const newStages = currentStages.map((stage, idx) => {
+          let status: "completed" | "active" | "upcoming" = "upcoming";
+          if (idx < clickedIdx) {
+            status = "completed";
+          } else if (idx === clickedIdx) {
+            status = "active";
+          }
+          return { ...stage, status };
+        });
+        return {
+          ...tx,
+          stages: newStages,
+          currentStage: newStages[clickedIdx]?.name || tx.currentStage,
+        };
+      }),
+    }));
+  };
+
+  const updateTreatmentStatus = (id: string, status: TreatmentRecord["status"]) => {
+    setPatientData((prev) => ({
+      ...prev,
+      treatments: prev.treatments.map((tx) => (tx.id === id ? { ...tx, status } : tx)),
+    }));
   };
 
   const refreshToothHistory = () => {
@@ -1648,16 +2039,34 @@ export default function AdminPatientDetailsPage() {
                         </div>
                         <div className="col-span-2">
                           <label className="block text-slate-400 font-bold mb-0.5">Procedure</label>
-                          <input
-                            type="text"
-                            placeholder="Resin Matrix Insertion"
+
+                          <select
                             value={treatmentForm.procedure}
                             onChange={(e) =>
-                              setTreatmentForm({ ...treatmentForm, procedure: e.target.value })
+                              setTreatmentForm({
+                                ...treatmentForm,
+                                procedure: e.target.value,
+                              })
                             }
-                            className="w-full p-2 border border-slate-200 rounded"
+                            className="w-full p-2 border border-slate-200 rounded bg-white"
                             required
-                          />
+                          >
+                            <option value="">Select Procedure</option>
+
+                            <option value="Root Canal">Root Canal</option>
+
+                            <option value="Implant">Implant</option>
+
+                            <option value="Bridge">Bridge</option>
+
+                            <option value="Composite Filling">Composite Filling</option>
+
+                            <option value="Scaling & Cleaning">Scaling & Cleaning</option>
+
+                            <option value="Extraction">Extraction</option>
+
+                            <option value="Braces">Braces</option>
+                          </select>
                         </div>
                       </div>
                       <div>
@@ -1686,27 +2095,9 @@ export default function AdminPatientDetailsPage() {
                   )}
                 </AnimatePresence>
 
-                <div className="space-y-2">
-                  {patientData.treatments.map((tx) => (
-                    <div
-                      key={tx.id}
-                      className="p-3 bg-slate-50/50 border border-slate-100 rounded-xl space-y-1.5 text-xs"
-                    >
-                      <div className="flex justify-between items-center text-[11px]">
-                        <span className="font-mono bg-white px-2 py-0.5 rounded border border-slate-200 text-cyan-800 font-bold">
-                          Tooth Map: {tx.toothNumber}
-                        </span>
-                        <span className="text-slate-400 font-medium">{tx.date}</span>
-                      </div>
-                      <h4 className="font-bold text-slate-900">{tx.procedure}</h4>
-                      {tx.notes && (
-                        <p className="text-slate-500 font-medium leading-relaxed bg-white p-2 rounded border border-slate-200/60">
-                          {tx.notes}
-                        </p>
-                      )}
-                    </div>
-                  ))}
-                </div>
+                <span className="uppercase tracking-[0.18em] text-[9px] text-slate-400">
+                  Progress Controlled Below
+                </span>
               </div>
             </div>
           </div>
@@ -2530,7 +2921,9 @@ export default function AdminPatientDetailsPage() {
 
                               <button
                                 type="button"
-                                onClick={isAddingNew ? handleAddToothProcedure : handleSaveToothUpdates}
+                                onClick={
+                                  isAddingNew ? handleAddToothProcedure : handleSaveToothUpdates
+                                }
                                 className="inline-flex items-center gap-1.5 py-1.5 px-4 text-xs font-bold text-white bg-teal-600 rounded-xl"
                               >
                                 {isAddingNew ? "Add Procedure" : "Save Updates"}

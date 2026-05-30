@@ -498,9 +498,44 @@ function TreatmentProgress({
     | null
     | undefined;
 }) {
-  const progress = currentPlan?.progress_percentage ?? 60;
-  const treatmentName = currentPlan?.title ?? "Root canal therapy";
-  const treatmentDesc = currentPlan?.description ?? "Lower right molar";
+  let progress = currentPlan?.progress_percentage ?? 60;
+  let treatmentName = currentPlan?.title ?? "Root canal therapy";
+  let treatmentDesc = currentPlan?.description ?? "Lower right molar";
+  let stagesToRender = [
+    { label: "Stage 1", title: "Initial cleaning", done: true, current: false },
+    { label: "Stage 2", title: "Pulp removal", done: true, current: false },
+    { label: "Stage 3", title: "Sealing & crown", done: false, current: true },
+  ];
+
+  // Try loading dynamic treatment from localStorage
+  const stored = localStorage.getItem("patient_ecosystem_P-8832");
+  if (stored) {
+    try {
+      const parsed = JSON.parse(stored);
+      if (parsed && Array.isArray(parsed.treatments)) {
+        // Find the first active/ongoing treatment
+        const activeTx = parsed.treatments.find((tx: any) => tx.status !== "Completed");
+        if (activeTx) {
+          treatmentName = activeTx.procedure;
+          treatmentDesc = `Tooth ${activeTx.toothNumber}`;
+
+          const total = activeTx.stages?.length || 0;
+          const completed =
+            activeTx.stages?.filter((s: any) => s.status === "completed").length || 0;
+          progress = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+          stagesToRender = (activeTx.stages || []).map((stage: any, idx: number) => ({
+            label: `Stage ${idx + 1}`,
+            title: stage.name,
+            done: stage.status === "completed",
+            current: stage.status === "active",
+          }));
+        }
+      }
+    } catch (e) {
+      console.error("Failed to parse patient treatments in overview:", e);
+    }
+  }
 
   return (
     <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#2dd4bf] to-[#99f6e4] p-6 text-white shadow-[0_20px_60px_rgba(20,184,166,0.22)] md:p-8">
@@ -540,9 +575,15 @@ function TreatmentProgress({
       </div>
 
       <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <Stage label="Stage 1" title="Initial cleaning" done />
-        <Stage label="Stage 2" title="Pulp removal" done />
-        <Stage label="Stage 3" title="Sealing & crown" current />
+        {stagesToRender.slice(0, 3).map((stage, idx) => (
+          <Stage
+            key={idx}
+            label={stage.label}
+            title={stage.title}
+            done={stage.done}
+            current={stage.current}
+          />
+        ))}
       </div>
 
       <div className="mt-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between rounded-2xl border border-teal-100 bg-white p-4">
