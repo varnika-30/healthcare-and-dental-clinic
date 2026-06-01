@@ -80,6 +80,8 @@ function PortalAppointmentsPage() {
   ]);
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [showRequestChoice, setShowRequestChoice] = useState(false);
+  const [showCallModal, setShowCallModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [focusedAppointment, setFocusedAppointment] = useState<Appointment | null>(null);
 
@@ -148,7 +150,11 @@ function PortalAppointmentsPage() {
       setIsSubmitting(false);
       setIsDialogOpen(false);
 
-      toast.success("Your appointment request was submitted. Our team will confirm your slot.");
+      // TODO: Send WhatsApp notification to doctor when backend integration is implemented.
+      toast.success("Appointment Request Submitted", {
+        description:
+          "Your request has been sent to the clinic. A coordinator will contact you shortly.",
+      });
 
       resetBookingForm();
     }, 800);
@@ -260,7 +266,7 @@ function PortalAppointmentsPage() {
 
           <div className="shrink-0 w-full lg:w-auto flex justify-start lg:justify-end pt-1">
             <button
-              onClick={() => setIsDialogOpen(true)}
+              onClick={() => setShowRequestChoice(true)}
               className="bg-teal-600 hover:bg-teal-700 active:bg-teal-800 text-white rounded-xl text-xs sm:text-sm font-bold uppercase tracking-wider px-5 py-3 shadow-md shadow-teal-600/10 flex items-center justify-center gap-2 shrink-0 transition-all transform hover:-translate-y-0.5 w-full sm:w-auto"
             >
               <Plus className="h-4 w-4 stroke-[2.5]" />
@@ -606,6 +612,78 @@ function PortalAppointmentsPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Request Choice Modal */}
+      {showRequestChoice && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-900/40 p-4 backdrop-blur-xs animate-in fade-in duration-200"
+          onClick={() => setShowRequestChoice(false)}
+        >
+          <div
+            className="my-8 w-full max-w-xs animate-in zoom-in-95 space-y-4 rounded-2xl border border-slate-100 bg-white p-4 shadow-2xl duration-200 sm:p-5"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-lg font-bold tracking-tight text-slate-900">Request Appointment</h3>
+            <p className="text-sm text-slate-500">How would you like to proceed?</p>
+
+            <div className="space-y-3 pt-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowRequestChoice(false);
+                  setShowCallModal(true);
+                }}
+                className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg border border-slate-200 text-sm font-bold text-slate-700 hover:bg-slate-50"
+              >
+                Call Clinic
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowRequestChoice(false);
+                  setIsDialogOpen(true);
+                }}
+                className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-teal-600 text-sm font-bold text-white hover:bg-teal-700"
+              >
+                Book Online
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Call Clinic Modal */}
+      {showCallModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-900/40 p-4 backdrop-blur-xs animate-in fade-in duration-200"
+          onClick={() => setShowCallModal(false)}
+        >
+          <div
+            className="my-8 w-full max-w-sm animate-in zoom-in-95 space-y-4 rounded-2xl border border-slate-100 bg-white p-5 shadow-2xl duration-200 sm:p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-lg font-bold tracking-tight text-slate-900">Call the Clinic</h3>
+            <p className="text-sm text-slate-500">You can reach us at:</p>
+            <div className="mt-3">
+              <a
+                href={`tel:${"+14155550182"}`}
+                className="text-xl font-bold text-teal-600 hover:underline"
+              >
+                (415) 555-0182
+              </a>
+            </div>
+            <div className="pt-4 flex justify-end">
+              <button
+                onClick={() => setShowCallModal(false)}
+                className="h-10 px-4 rounded-lg border border-slate-200 text-sm font-bold text-slate-700 hover:bg-slate-50"
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}
