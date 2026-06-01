@@ -502,6 +502,50 @@ export default function PatientManagementPage() {
 
                       setPatients((prev) => [patient, ...prev]);
 
+                      try {
+                        if (typeof window !== "undefined" && window.localStorage) {
+                          const ecosystem = {
+                            id: patient.id,
+                            profile: {
+                              fullName: patient.name,
+                              email: "",
+                              phone: patient.phone,
+                              secondaryPhone: "",
+                              age: patient.age,
+                              gender: patient.gender,
+                              sex: patient.gender || "",
+                              occupation: "",
+                              bloodGroup: "",
+                              address: { street: "", city: "", state: "", zipCode: "" },
+                              emergencyContact: { name: "", relation: "", phone: "" },
+                              medicalProfile: {
+                                allergies: [],
+                                medications: [],
+                                conditions: [],
+                                notes: "",
+                                familyHistory: "",
+                              },
+                            },
+                            appointments: [],
+                            treatments: [],
+                            prescriptions: [],
+                            billingLogs: [],
+                            notes: [],
+                            family: [],
+                            referrals: {
+                              referredBy: null,
+                              referredPatients: [],
+                              trackingNotes: "",
+                            },
+                          };
+
+                          localStorage.setItem(`patient_ecosystem_${patient.id}`, JSON.stringify(ecosystem));
+                        }
+                      } catch (e) {
+                        // eslint-disable-next-line no-console
+                        console.warn("Failed to persist patient ecosystem:", e);
+                      }
+
                       setShowRegisterModal(false);
 
                       setNewPatient({
