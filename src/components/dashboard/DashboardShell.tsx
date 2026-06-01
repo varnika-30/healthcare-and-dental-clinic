@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
-import { Link, useRouterState } from "@tanstack/react-router";
+import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import {
   LayoutDashboard,
   Calendar,
@@ -49,6 +49,7 @@ function DashboardSidebarBrand({ role }: { role: string | null }) {
 
 export function DashboardShell({ children }: { children: ReactNode }) {
   const { role, user, signOut } = useAuth();
+  const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [drawerOpen, setDrawerOpen] = useState(false);
 
@@ -118,7 +119,14 @@ export function DashboardShell({ children }: { children: ReactNode }) {
           <Button
             variant="ghost"
             size="sm"
-            onClick={signOut}
+            onClick={async () => {
+              try {
+                await signOut();
+              } catch (e) {
+                // ignore
+              }
+              navigate({ to: "/auth/login" });
+            }}
             className="w-full justify-start gap-3.5 text-[15px] font-bold text-slate-800 hover:bg-teal-600/5 hover:text-slate-900 rounded-xl py-5 px-4"
           >
             <LogOut className="h-5 w-5 text-slate-700" /> Sign out
@@ -164,14 +172,19 @@ export function DashboardShell({ children }: { children: ReactNode }) {
             <Button
               variant="ghost"
               size="icon"
+              onClick={() => navigate({ to: "/admin/notifications" })}
               className="relative text-slate-700 hover:bg-slate-50 rounded-xl"
+              aria-label="Notifications"
             >
               <Bell className="h-5 w-5" />
               <Badge className="absolute -right-0.5 -top-0.5 h-5 min-w-5 rounded-full bg-teal-600 text-white p-0 px-1 text-[10px] font-bold flex items-center justify-center">
                 3
               </Badge>
             </Button>
-            <Avatar className="h-9 w-9 border border-slate-200 shadow-3xs">
+            <Avatar
+              onClick={() => navigate({ to: "/admin/profile" })}
+              className="h-9 w-9 border border-slate-200 shadow-3xs cursor-pointer"
+            >
               <AvatarFallback className="bg-teal-50 text-teal-950 font-bold text-xs">
                 {initials}
               </AvatarFallback>

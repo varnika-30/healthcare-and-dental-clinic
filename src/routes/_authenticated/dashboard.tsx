@@ -196,7 +196,7 @@ export default function PatientDashboardOverview() {
               Quick Actions
             </span>
 
-            <div className="grid grid-cols-2 sm:flex sm:items-center gap-2.5 w-full sm:w-auto flex-1">
+            <div className="grid grid-cols-3 sm:flex sm:items-center gap-2.5 w-full sm:w-auto flex-1">
               <button
                 type="button"
                 onClick={() => navigate({ to: "/admin/appointments" })}
@@ -208,16 +208,7 @@ export default function PatientDashboardOverview() {
                 <span>Add Appointment</span>
               </button>
 
-              <button
-                type="button"
-                onClick={() => handleAction("Create Chart Note workflow")}
-                className="flex items-center gap-3 px-4 py-2.5 hover:bg-sky-50/50 rounded-xl text-sm font-semibold text-slate-700 transition group text-left"
-              >
-                <div className="p-2 rounded-lg bg-sky-50 text-sky-600 group-hover:bg-sky-500 group-hover:text-white transition-all shadow-3xs">
-                  <FileText className="h-4 w-4" />
-                </div>
-                <span>Create Chart Note</span>
-              </button>
+              
 
               <button
                 type="button"
@@ -408,7 +399,7 @@ export default function PatientDashboardOverview() {
                         </div>
                         <button
                           type="button"
-                          onClick={() => handleAction(`Manage ${trt.patientName}`)}
+                          onClick={() => navigate({ to: "/admin/ongoing-treatments" })}
                           className="text-xs font-bold uppercase tracking-wider text-teal-600 hover:text-teal-700 shrink-0 hover:underline transition-colors"
                         >
                           Update Case
