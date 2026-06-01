@@ -29,8 +29,8 @@ export function ToothChart({
     size === "lg"
       ? "flex h-14 w-11 flex-col items-center justify-center rounded-md border bg-card text-[10px] font-medium transition hover:border-primary"
       : size === "sm"
-      ? "flex h-11 w-8 flex-col items-center justify-center rounded-md border bg-card text-[10px] font-medium transition hover:border-primary"
-      : "flex h-12 w-9 flex-col items-center justify-center rounded-md border bg-card text-[10px] font-medium transition hover:border-primary";
+        ? "flex h-11 w-8 flex-col items-center justify-center rounded-md border bg-card text-[10px] font-medium transition hover:border-primary"
+        : "flex h-12 w-9 flex-col items-center justify-center rounded-md border bg-card text-[10px] font-medium transition hover:border-primary";
   const iconClass = size === "lg" ? "text-lg" : size === "sm" ? "text-sm" : "text-base";
 
   const Row = ({ teeth }: { teeth: number[] }) => (

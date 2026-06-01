@@ -252,13 +252,12 @@ interface FamilyMember {
   id: string;
   fullName: string;
   relation: string;
-  phone: string;
-  isEmergencyLink: boolean;
 }
 
 interface ReferralNetwork {
   referredBy: { name: string; id?: string } | null;
   referredPatients: Array<{ name: string; id: string }>;
+  trackingNotes?: string;
 }
 
 interface CompletePatientState {
@@ -401,20 +400,17 @@ const MOCK_PATIENT_ECOSYSTEM: Record<string, CompletePatientState> = {
         id: "P-1102",
         fullName: "Thomas Vance",
         relation: "Spouse",
-        phone: "(555) 901-4433",
-        isEmergencyLink: true,
       },
       {
         id: "P-4591",
         fullName: "Lily Vance",
         relation: "Child",
-        phone: "(555) 432-1098",
-        isEmergencyLink: false,
       },
     ],
     referrals: {
       referredBy: { name: "Dr. Marcus Sterling", id: "REF-039" },
       referredPatients: [{ name: "Julianne Moore", id: "P-7721" }],
+      trackingNotes: "Outbound chart created for coordinated referrals.",
     },
   },
 };
@@ -679,6 +675,93 @@ export default function AdminPatientDetailsPage() {
     conditions: patientData.profile.medicalProfile.conditions.join(", "),
   });
 
+  const [isMedicalEditing, setIsMedicalEditing] = useState(false);
+
+  const [isNetworkEditing, setIsNetworkEditing] = useState(false);
+  const [editableNetwork, setEditableNetwork] = useState({
+    family: patientData.family.map((member) => ({ ...member })),
+    emergencyContact: { ...patientData.profile.emergencyContact },
+    referralName: patientData.referrals.referredBy?.name || "",
+    trackingNotes: patientData.referrals.trackingNotes || "",
+  });
+
+  const handleStartNetworkEditing = () => {
+    setEditableNetwork({
+      family: patientData.family.map((member) => ({ ...member })),
+      emergencyContact: { ...patientData.profile.emergencyContact },
+      referralName: patientData.referrals.referredBy?.name || "",
+      trackingNotes: patientData.referrals.trackingNotes || "",
+    });
+    setIsNetworkEditing(true);
+  };
+
+  const handleSaveNetwork = () => {
+    setPatientData((prev) => ({
+      ...prev,
+      family: editableNetwork.family.map((member) => ({ ...member })),
+      profile: {
+        ...prev.profile,
+        emergencyContact: { ...editableNetwork.emergencyContact },
+      },
+      referrals: {
+        ...prev.referrals,
+        referredBy: editableNetwork.referralName
+          ? { ...(prev.referrals.referredBy ?? {}), name: editableNetwork.referralName }
+          : null,
+        trackingNotes: editableNetwork.trackingNotes,
+      },
+    }));
+    setIsNetworkEditing(false);
+  };
+
+  const handleCancelNetwork = () => {
+    setIsNetworkEditing(false);
+  };
+
+  // Header collapse state for compacting hero on scroll
+  const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(false);
+
+  useEffect(() => {
+    const onScroll = () => {
+      const shouldCollapse = window.scrollY > 120;
+      setIsHeaderCollapsed(shouldCollapse);
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  // Active tab state for section navigation (visual only)
+  const [activeTab, setActiveTab] = useState<string>(
+    typeof window !== "undefined" && window.location.hash ? window.location.hash : "#overview",
+  );
+
+  useEffect(() => {
+    const onHashChange = () => setActiveTab(window.location.hash || "#overview");
+    window.addEventListener("hashchange", onHashChange);
+    return () => window.removeEventListener("hashchange", onHashChange);
+  }, []);
+
+  const handleAddFamilyLink = () => {
+    setEditableNetwork((prev) => ({
+      ...prev,
+      family: [
+        ...prev.family,
+        {
+          id: crypto.randomUUID?.() ?? `family-${Date.now()}`,
+          fullName: "",
+          relation: "",
+        },
+      ],
+    }));
+  };
+
+  const handleDeleteFamilyLink = (id: string) => {
+    setEditableNetwork((prev) => ({
+      ...prev,
+      family: prev.family.filter((link) => link.id !== id),
+    }));
+  };
+
   // Central Derived Balances calculations engine
   const totalBilled = patientData.billingLogs.reduce((sum, log) => sum + log.amountBilled, 0);
   const totalPaid = patientData.billingLogs.reduce((sum, log) => sum + log.amountPaid, 0);
@@ -726,6 +809,43 @@ export default function AdminPatientDetailsPage() {
       },
     }));
     setIsProfileEditing(false);
+  };
+
+  const handleSaveMedicalHistory = () => {
+    setPatientData((prev) => ({
+      ...prev,
+      profile: {
+        ...prev.profile,
+        emergencyContact: { ...editableProfile.emergencyContact },
+        medicalProfile: {
+          allergies: editableMedicalStrings.allergies
+            .split(",")
+            .map((s) => s.trim())
+            .filter((s) => s),
+          medications: editableMedicalStrings.medications
+            .split(",")
+            .map((s) => s.trim())
+            .filter((s) => s),
+          conditions: editableMedicalStrings.conditions
+            .split(",")
+            .map((s) => s.trim())
+            .filter((s) => s),
+          notes: editableProfile.medicalProfile.notes,
+          familyHistory: editableProfile.medicalProfile.familyHistory || "",
+        },
+      },
+    }));
+    setIsMedicalEditing(false);
+  };
+
+  const handleCancelMedicalHistory = () => {
+    setEditableProfile({ ...patientData.profile });
+    setEditableMedicalStrings({
+      allergies: patientData.profile.medicalProfile.allergies.join(", "),
+      medications: patientData.profile.medicalProfile.medications.join(", "),
+      conditions: patientData.profile.medicalProfile.conditions.join(", "),
+    });
+    setIsMedicalEditing(false);
   };
 
   const handleAddLedgerEntry = (e: React.FormEvent) => {
@@ -1355,7 +1475,7 @@ export default function AdminPatientDetailsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-800 antialiased font-sans flex flex-col">
+    <div className="min-h-screen bg-slate-50 text-slate-800 antialiased font-sans flex flex-col scroll-smooth">
       {/* STANDARD NAVIGATION HEADER */}
       <header className="h-14 bg-white border-b border-slate-200 px-4 sm:px-6 flex items-center justify-between sticky top-0 z-30 shrink-0">
         <div className="flex items-center gap-3">
@@ -1378,77 +1498,200 @@ export default function AdminPatientDetailsPage() {
       </header>
 
       {/* ==========================================
-          REFINED PREMIUM IDENTITY HEADER BANNER
+          COMPACTABLE PATIENT IDENTITY HEADER
          ========================================== */}
-      <div className="sticky top-14 z-20 bg-white border-b border-slate-200 shadow-xs px-4 sm:px-8 py-6 sm:py-7 flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div className="flex items-center gap-5">
-          <div className="w-16 h-16 rounded-2xl bg-teal-600 shadow-sm flex items-center justify-center text-white text-xl font-bold tracking-wider">
-            {patientData.profile.fullName
-              .split(" ")
-              .map((n) => n[0])
-              .join("")}
-          </div>
-          <div className="space-y-2">
-            <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight leading-none">
-              {patientData.profile.fullName}
-            </h2>
-            <div className="text-xs text-slate-500 font-medium flex flex-wrap items-center gap-x-3 gap-y-1">
-              <span className="bg-slate-100 text-slate-700 px-2 py-1 rounded font-semibold">
-                {patientData.profile.age} Yrs •{" "}
-                {patientData.profile.sex || patientData.profile.gender}
-              </span>
+      <div
+        className={`sticky top-14 z-20 bg-white border-b border-slate-200 shadow-xs px-4 sm:px-8 transition-all duration-300 ${
+          isHeaderCollapsed ? "py-2" : "py-4 sm:py-5"
+        } flex flex-col`}
+      >
+        <div
+          className={`flex items-center justify-between w-full transition-all duration-300 ${isHeaderCollapsed ? "gap-2" : "gap-4"}`}
+        >
+          <div className="flex items-center gap-6">
+            <div
+              className={`rounded-2xl bg-teal-600 shadow-sm flex items-center justify-center text-white font-bold tracking-wider transition-all duration-300 ${
+                isHeaderCollapsed ? "w-13 h-13 text-sm" : "w-15 h-15 text-xl"
+              }`}
+            >
+              {patientData.profile.fullName
+                .split(" ")
+                .map((n) => n[0])
+                .join("")}
+            </div>
+            <div className={`${isHeaderCollapsed ? "" : "space-y-1"}`}>
+              <h2
+                className={`text-slate-900 tracking-tight leading-none transition-all duration-300 ${
+                  isHeaderCollapsed
+                    ? "text-sm sm:text-base font-semibold"
+                    : "text-lg sm:text-xl font-bold"
+                }`}
+              >
+                {patientData.profile.fullName}
+              </h2>
+              {!isHeaderCollapsed && (
+                <div className="text-xs text-slate-500 font-medium flex flex-wrap items-center gap-x-2 gap-y-1">
+                  <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded font-semibold text-[11px]">
+                    {patientData.profile.age} Yrs •{" "}
+                    {patientData.profile.sex || patientData.profile.gender}
+                  </span>
 
-              <span className="text-xs uppercase tracking-[0.16em] text-slate-400 font-medium">
-                Patient ID {patientData.id}
+                  <span className="text-xs uppercase tracking-[0.12em] text-slate-400 font-medium">
+                    Patient ID {patientData.id}
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* METRICS VIEWPORTS GRID - stays right aligned and becomes compact */}
+          <div
+            className={`grid grid-cols-3 gap-3 bg-slate-50 rounded-2xl border border-slate-200/60 transition-all duration-300 ${
+              isHeaderCollapsed
+                ? "p-1 text-sm min-w-[240px]"
+                : "gap-3 p-2.5 min-w-full md:min-w-[300px]"
+            }`}
+          >
+            <div className="px-2">
+              <span className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider block mb-0.5">
+                Total Gross Billed
+              </span>
+              <span
+                className={`font-bold text-slate-800 ${isHeaderCollapsed ? "text-xs" : "text-base sm:text-lg"}`}
+              >
+                ${totalBilled.toFixed(2)}
+              </span>
+            </div>
+            <div className="px-1 border-l border-slate-200">
+              <span className="text-xs font-extrabold text-slate-400 uppercase tracking-wider block mb-0.5">
+                Cleared Credits
+              </span>
+              <span
+                className={`font-bold text-emerald-600 ${isHeaderCollapsed ? "text-xs" : "text-sm sm:text-base"}`}
+              >
+                ${totalPaid.toFixed(2)}
+              </span>
+            </div>
+            <div
+              className={`px-2 py-1 rounded-lg border -my-1 ${outstandingDue > 0 ? "bg-rose-50/80 border-rose-100" : "bg-emerald-50/80 border-emerald-100"}`}
+            >
+              <span
+                className={`text-xs font-extrabold uppercase tracking-wider block ${outstandingDue > 0 ? "text-rose-500" : "text-emerald-500"}`}
+              >
+                {outstandingDue > 0 ? "Balance Liability" : "Settled Asset"}
+              </span>
+              <span
+                className={`font-black ${isHeaderCollapsed ? "text-xs" : "text-sm sm:text-base"} ${outstandingDue > 0 ? "text-rose-700" : "text-emerald-700"}`}
+              >
+                ${outstandingDue.toFixed(2)}
               </span>
             </div>
           </div>
         </div>
 
-        {/* METRICS VIEWPORTS GRID */}
-        <div className="grid grid-cols-3 gap-4 sm:gap-6 bg-slate-50 p-4 sm:p-5 rounded-2xl border border-slate-200/60 min-w-full md:min-w-[420px]">
-          <div className="px-2">
-            <span className="text-xs font-extrabold text-slate-400 uppercase tracking-wider block mb-0.5">
-              Total Gross Billed
-            </span>
-            <span className="text-xl sm:text-2xl font-bold text-slate-800">
-              ${totalBilled.toFixed(2)}
-            </span>
-          </div>
-          <div className="px-1 border-l border-slate-200">
-            <span className="text-xs font-extrabold text-slate-400 uppercase tracking-wider block mb-0.5">
-              Cleared Credits
-            </span>
-            <span className="text-xl sm:text-2xl font-bold text-emerald-600">
-              ${totalPaid.toFixed(2)}
-            </span>
-          </div>
-          <div
-            className={`px-2 py-1 rounded-lg border -my-1 ${outstandingDue > 0 ? "bg-rose-50/80 border-rose-100" : "bg-emerald-50/80 border-emerald-100"}`}
-          >
-            <span
-              className={`text-xs font-extrabold uppercase tracking-wider block ${outstandingDue > 0 ? "text-rose-500" : "text-emerald-500"}`}
+        <div className={`overflow-x-auto ${isHeaderCollapsed ? "mt-4" : "mt-8"}`}>
+          <nav className="flex min-w-[720px] gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm">
+            <a
+              href="#overview"
+              onClick={() => setActiveTab("#overview")}
+              aria-current={activeTab === "#overview" ? "page" : undefined}
+              className={`inline-flex items-center whitespace-nowrap rounded-full px-3 sm:px-4 py-1.5 transition-all duration-200 ${
+                activeTab === "#overview"
+                  ? "bg-teal-50 text-teal-700 border border-teal-100 shadow-sm"
+                  : "bg-white text-slate-800 hover:bg-slate-100 hover:text-teal-700"
+              }`}
             >
-              {outstandingDue > 0 ? "Balance Liability" : "Settled Asset"}
-            </span>
-            <span
-              className={`text-xl sm:text-2xl font-black ${outstandingDue > 0 ? "text-rose-700" : "text-emerald-700"}`}
+              Overview
+            </a>
+            <a
+              href="#medical"
+              onClick={() => setActiveTab("#medical")}
+              aria-current={activeTab === "#medical" ? "page" : undefined}
+              className={`inline-flex items-center whitespace-nowrap rounded-full px-3 sm:px-4 py-1.5 transition-all duration-200 ${
+                activeTab === "#medical"
+                  ? "bg-teal-50 text-teal-700 border border-teal-100 shadow-sm"
+                  : "bg-white text-slate-800 hover:bg-slate-100 hover:text-teal-700"
+              }`}
             >
-              ${outstandingDue.toFixed(2)}
-            </span>
-          </div>
+              Medical
+            </a>
+            <a
+              href="#billing"
+              onClick={() => setActiveTab("#billing")}
+              aria-current={activeTab === "#billing" ? "page" : undefined}
+              className={`inline-flex items-center whitespace-nowrap rounded-full px-3 sm:px-4 py-1.5 transition-all duration-200 ${
+                activeTab === "#billing"
+                  ? "bg-teal-50 text-teal-700 border border-teal-100 shadow-sm"
+                  : "bg-white text-slate-800 hover:bg-slate-100 hover:text-teal-700"
+              }`}
+            >
+              Billing
+            </a>
+            <a
+              href="#treatments"
+              onClick={() => setActiveTab("#treatments")}
+              aria-current={activeTab === "#treatments" ? "page" : undefined}
+              className={`inline-flex items-center whitespace-nowrap rounded-full px-3 sm:px-4 py-1.5 transition-all duration-200 ${
+                activeTab === "#treatments"
+                  ? "bg-teal-50 text-teal-700 border border-teal-100 shadow-sm"
+                  : "bg-white text-slate-800 hover:bg-slate-100 hover:text-teal-700"
+              }`}
+            >
+              Treatments
+            </a>
+            <a
+              href="#scheduler"
+              onClick={() => setActiveTab("#scheduler")}
+              aria-current={activeTab === "#scheduler" ? "page" : undefined}
+              className={`inline-flex items-center whitespace-nowrap rounded-full px-3 sm:px-4 py-1.5 transition-all duration-200 ${
+                activeTab === "#scheduler"
+                  ? "bg-teal-50 text-teal-700 border border-teal-100 shadow-sm"
+                  : "bg-white text-slate-800 hover:bg-slate-100 hover:text-teal-700"
+              }`}
+            >
+              Scheduler
+            </a>
+            <a
+              href="#tooth-chart"
+              onClick={() => setActiveTab("#tooth-chart")}
+              aria-current={activeTab === "#tooth-chart" ? "page" : undefined}
+              className={`inline-flex items-center whitespace-nowrap rounded-full px-3 sm:px-4 py-1.5 transition-all duration-200 ${
+                activeTab === "#tooth-chart"
+                  ? "bg-teal-50 text-teal-700 border border-teal-100 shadow-sm"
+                  : "bg-white text-slate-800 hover:bg-slate-100 hover:text-teal-700"
+              }`}
+            >
+              Tooth Chart
+            </a>
+            <a
+              href="#prescriptions"
+              onClick={() => setActiveTab("#prescriptions")}
+              aria-current={activeTab === "#prescriptions" ? "page" : undefined}
+              className={`inline-flex items-center whitespace-nowrap rounded-full px-3 sm:px-4 py-1.5 transition-all duration-200 ${
+                activeTab === "#prescriptions"
+                  ? "bg-teal-50 text-teal-700 border border-teal-100 shadow-sm"
+                  : "bg-white text-slate-800 hover:bg-slate-100 hover:text-teal-700"
+              }`}
+            >
+              Prescriptions
+            </a>
+          </nav>
         </div>
       </div>
 
       {/* CORE WORKSPACE CONTENT GRID CONTAINER */}
-      <div className="flex-1 p-4 sm:p-6 max-w-[1600px] w-full mx-auto space-y-6">
+      <div className="flex-1 p-3 sm:p-4 max-w-[1600px] w-full mx-auto space-y-4">
         {/* ==========================================
             EDITABLE PATIENT PROFILE MATRIX SECTION
            ========================================== */}
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
-          <div className="px-4 sm:px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
+        <div
+          id="overview"
+          className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden scroll-mt-[160px]"
+        >
+          <div className="px-3 sm:px-4 py-3 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
             <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-              <User className="w-4 h-4 text-teal-600" /> Patient Profile Matrix &amp; Ecosystem Records
+              <User className="w-4 h-4 text-teal-600" /> Patient Profile Matrix &amp; Ecosystem
+              Records
             </h3>
             {!isProfileEditing ? (
               <button
@@ -1486,7 +1729,7 @@ export default function AdminPatientDetailsPage() {
             )}
           </div>
 
-          <div className="p-4 sm:p-6">
+          <div className="p-3 sm:p-4">
             {isProfileEditing ? (
               <form onSubmit={handleSaveProfile} className="space-y-5 text-sm">
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-5">
@@ -1593,7 +1836,7 @@ export default function AdminPatientDetailsPage() {
                   </div>
                 </div>
 
-                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-150 space-y-3">
+                <div className="p-3 bg-slate-50 rounded-2xl border border-slate-150 space-y-3">
                   <span className="text-[10px] uppercase font-semibold text-slate-500 block tracking-wider">
                     Demographic Anchor Bounds
                   </span>
@@ -1642,186 +1885,15 @@ export default function AdminPatientDetailsPage() {
                     </div>
                   </div>
                 </div>
-
-                <div className="p-4 bg-rose-50 rounded-2xl border border-rose-100 space-y-4">
-                  <div>
-                    <span className="text-[10px] uppercase font-semibold text-rose-500 block tracking-wider">
-                      Medical History &amp; Risk Disclosures
-                    </span>
-                    <p className="text-sm text-slate-600 mt-1 max-w-2xl">
-                      Emergency contact details and medical risk disclosures are grouped for quick review and compact editing.
-                    </p>
-                  </div>
-                  <div className="grid grid-cols-1 xl:grid-cols-[280px_1fr] gap-4">
-                    <div className="bg-white rounded-2xl border border-slate-200 p-4 space-y-4">
-                      <span className="text-[10px] uppercase font-semibold text-slate-500 block tracking-wider">
-                        Emergency Contact
-                      </span>
-                      <div>
-                        <label className="block text-slate-500 font-medium mb-2 uppercase tracking-[0.14em] text-[11px]">
-                          Name
-                        </label>
-                        <input
-                          type="text"
-                          placeholder="Contact name"
-                          value={editableProfile.emergencyContact.name}
-                          onChange={(e) =>
-                            setEditableProfile({
-                              ...editableProfile,
-                              emergencyContact: {
-                                ...editableProfile.emergencyContact,
-                                name: e.target.value,
-                              },
-                            })
-                          }
-                          className="w-full p-3 bg-white border border-slate-200 rounded-2xl font-medium text-slate-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-teal-100"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-slate-500 font-medium mb-2 uppercase tracking-[0.14em] text-[11px]">
-                          Relation
-                        </label>
-                        <input
-                          type="text"
-                          placeholder="e.g. Spouse, Parent"
-                          value={editableProfile.emergencyContact.relation}
-                          onChange={(e) =>
-                            setEditableProfile({
-                              ...editableProfile,
-                              emergencyContact: {
-                                ...editableProfile.emergencyContact,
-                                relation: e.target.value,
-                              },
-                            })
-                          }
-                          className="w-full p-3 bg-white border border-slate-200 rounded-2xl font-medium text-slate-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-teal-100"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-slate-500 font-medium mb-2 uppercase tracking-[0.14em] text-[11px]">
-                          Phone
-                        </label>
-                        <input
-                          type="text"
-                          placeholder="(555) 000-0000"
-                          value={editableProfile.emergencyContact.phone}
-                          onChange={(e) =>
-                            setEditableProfile({
-                              ...editableProfile,
-                              emergencyContact: {
-                                ...editableProfile.emergencyContact,
-                                phone: e.target.value,
-                              },
-                            })
-                          }
-                          className="w-full p-3 bg-white border border-slate-200 rounded-2xl font-medium text-slate-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-teal-100"
-                        />
-                      </div>
-                    </div>
-                    <div className="space-y-4">
-                      <div>
-                        <label className="block text-slate-500 font-medium mb-2 uppercase tracking-[0.14em] text-[11px]">
-                          Allergies (comma-separated)
-                        </label>
-                        <input
-                          type="text"
-                          placeholder="e.g. Penicillin, Latex"
-                          value={editableMedicalStrings.allergies}
-                          onChange={(e) =>
-                            setEditableMedicalStrings({
-                              ...editableMedicalStrings,
-                              allergies: e.target.value,
-                            })
-                          }
-                          className="w-full p-3 bg-white border border-rose-200 rounded-2xl font-medium text-slate-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-rose-100"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-slate-500 font-medium mb-2 uppercase tracking-[0.14em] text-[11px]">
-                          Medications (comma-separated)
-                        </label>
-                        <input
-                          type="text"
-                          placeholder="e.g. Multivitamin Daily, Aspirin"
-                          value={editableMedicalStrings.medications}
-                          onChange={(e) =>
-                            setEditableMedicalStrings({
-                              ...editableMedicalStrings,
-                              medications: e.target.value,
-                            })
-                          }
-                          className="w-full p-3 bg-white border border-rose-200 rounded-2xl font-medium text-slate-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-rose-100"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-slate-500 font-medium mb-2 uppercase tracking-[0.14em] text-[11px]">
-                          Conditions (comma-separated)
-                        </label>
-                        <input
-                          type="text"
-                          placeholder="e.g. Mitral Valve Prolapse, Diabetes"
-                          value={editableMedicalStrings.conditions}
-                          onChange={(e) =>
-                            setEditableMedicalStrings({
-                              ...editableMedicalStrings,
-                              conditions: e.target.value,
-                            })
-                          }
-                          className="w-full p-3 bg-white border border-rose-200 rounded-2xl font-medium text-slate-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-rose-100"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-slate-500 font-medium mb-2 uppercase tracking-[0.14em] text-[11px]">
-                          Family History
-                        </label>
-                        <textarea
-                          placeholder="e.g. Mother has hypertension; father has diabetes"
-                          value={editableProfile.medicalProfile.familyHistory}
-                          onChange={(e) =>
-                            setEditableProfile({
-                              ...editableProfile,
-                              medicalProfile: {
-                                ...editableProfile.medicalProfile,
-                                familyHistory: e.target.value,
-                              },
-                            })
-                          }
-                          className="w-full p-3 bg-white border border-rose-200 rounded-2xl font-medium text-slate-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-rose-100"
-                          rows={2}
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-slate-500 font-medium mb-2 uppercase tracking-[0.14em] text-[11px]">
-                          Clinical Notes
-                        </label>
-                        <textarea
-                          placeholder="Additional clinical notes and observations..."
-                          value={editableProfile.medicalProfile.notes}
-                          onChange={(e) =>
-                            setEditableProfile({
-                              ...editableProfile,
-                              medicalProfile: {
-                                ...editableProfile.medicalProfile,
-                                notes: e.target.value,
-                              },
-                            })
-                          }
-                          className="w-full p-3 bg-white border border-rose-200 rounded-2xl font-medium text-slate-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-rose-100"
-                          rows={2}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
               </form>
             ) : (
-              <div className="space-y-6">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-4 text-sm">
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-5 text-sm">
                   <div>
                     <span className="text-[10px] font-medium text-slate-400 uppercase tracking-[0.18em] block">
                       Legal Full Name
                     </span>
-                    <span className="font-semibold text-slate-900 mt-2 block leading-6 text-base">
+                    <span className="font-semibold text-slate-900 mt-3 block leading-6 text-base">
                       {patientData.profile.fullName}
                     </span>
                   </div>
@@ -1829,7 +1901,7 @@ export default function AdminPatientDetailsPage() {
                     <span className="text-[10px] font-medium text-slate-400 uppercase tracking-[0.18em] block">
                       Email Identity
                     </span>
-                    <span className="font-semibold text-slate-900 mt-2 block truncate leading-6 text-base">
+                    <span className="font-semibold text-slate-900 mt-3 block truncate leading-6 text-base">
                       {patientData.profile.email}
                     </span>
                   </div>
@@ -1837,7 +1909,7 @@ export default function AdminPatientDetailsPage() {
                     <span className="text-[10px] font-medium text-slate-400 uppercase tracking-[0.18em] block">
                       Primary Phone
                     </span>
-                    <span className="font-semibold text-slate-900 mt-2 block leading-6 text-base">
+                    <span className="font-semibold text-slate-900 mt-3 block leading-6 text-base">
                       {patientData.profile.phone}
                     </span>
                   </div>
@@ -1846,7 +1918,7 @@ export default function AdminPatientDetailsPage() {
                     <span className="text-[10px] font-medium text-slate-400 uppercase tracking-[0.18em] block">
                       Secondary Phone
                     </span>
-                    <span className="font-semibold text-slate-900 mt-2 block leading-6 text-base">
+                    <span className="font-semibold text-slate-900 mt-3 block leading-6 text-base">
                       {patientData.profile.secondaryPhone || "Not Provided"}
                     </span>
                   </div>
@@ -1854,7 +1926,7 @@ export default function AdminPatientDetailsPage() {
                     <span className="text-[10px] font-medium text-slate-400 uppercase tracking-[0.18em] block">
                       Sex
                     </span>
-                    <span className="font-semibold text-slate-900 mt-2 block leading-6 text-base">
+                    <span className="font-semibold text-slate-900 mt-3 block leading-6 text-base">
                       {patientData.profile.gender}
                     </span>
                   </div>
@@ -1863,7 +1935,7 @@ export default function AdminPatientDetailsPage() {
                     <span className="text-[10px] font-medium text-slate-400 uppercase tracking-[0.18em] block">
                       Age
                     </span>
-                    <span className="font-semibold text-slate-900 mt-2 block leading-6 text-base">
+                    <span className="font-semibold text-slate-900 mt-3 block leading-6 text-base">
                       {patientData.profile.age}
                     </span>
                   </div>
@@ -1871,7 +1943,7 @@ export default function AdminPatientDetailsPage() {
                     <span className="text-[10px] font-medium text-slate-400 uppercase tracking-[0.18em] block">
                       Occupation Sector
                     </span>
-                    <span className="font-semibold text-slate-900 mt-2 block leading-6 text-base">
+                    <span className="font-semibold text-slate-900 mt-3 block leading-6 text-base">
                       {patientData.profile.occupation}
                     </span>
                   </div>
@@ -1896,137 +1968,487 @@ export default function AdminPatientDetailsPage() {
               </div>
             )}
 
-            <div className="grid grid-cols-1 gap-6 pt-4 mt-4 border-t border-slate-100">
-              <div className="rounded-2xl border border-rose-100 bg-rose-50/30 p-4 flex flex-col h-full">
-                <div>
-                  <p className="text-[10px] uppercase tracking-wide text-rose-400 font-bold mb-3">
-                    Medical History &amp; Risk Disclosures
-                  </p>
-                  <p className="text-sm text-slate-600 max-w-2xl">
-                    Medical history details are organized for a clearer clinical risk overview.
-                  </p>
+            <div className="grid grid-cols-1 gap-4 pt-3 mt-3 border-t border-slate-100">
+              <div
+                id="medical"
+                className="rounded-2xl border border-rose-100 bg-rose-50/30 p-3 flex flex-col h-full scroll-mt-[160px]"
+              >
+                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wide text-rose-400 font-bold mb-3">
+                      Medical History &amp; Risk Disclosures
+                    </p>
+                    <p className="text-sm text-slate-600 max-w-2xl">
+                      Medical history details are organized for a clearer clinical risk overview.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {!isMedicalEditing ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditableProfile({ ...patientData.profile });
+                          setEditableMedicalStrings({
+                            allergies: patientData.profile.medicalProfile.allergies.join(", "),
+                            medications: patientData.profile.medicalProfile.medications.join(", "),
+                            conditions: patientData.profile.medicalProfile.conditions.join(", "),
+                          });
+                          setIsMedicalEditing(true);
+                        }}
+                        className="inline-flex items-center gap-2 text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 px-3 py-1.5 rounded-lg border border-rose-200 transition"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" /> Edit Medical History
+                      </button>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={handleCancelMedicalHistory}
+                          className="text-xs font-bold text-slate-500 bg-white border border-slate-200 px-3 py-1.5 rounded-lg hover:bg-slate-50 transition"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleSaveMedicalHistory}
+                          className="text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 px-3 py-1.5 rounded-lg transition"
+                        >
+                          Save
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <div className="mt-6 space-y-4 text-sm flex-1">
-                  <div className="rounded-2xl border border-rose-100 bg-white p-4">
-                    <span className="text-slate-900 font-bold text-xs uppercase tracking-wide">
-                      Allergies
-                    </span>
-                    <div className="flex flex-wrap gap-2 mt-2">
-                      {patientData.profile.medicalProfile.allergies.map((item) => (
-                        <span
-                          key={item}
-                          className="px-2 py-1 rounded-full bg-rose-100 text-rose-600 text-xs font-bold"
-                        >
-                          {item}
+                  {isMedicalEditing ? (
+                    <div className="grid grid-cols-1 xl:grid-cols-[280px_1fr] gap-4">
+                      <div className="bg-white rounded-2xl border border-slate-200 p-3 space-y-4">
+                        <span className="text-[10px] uppercase tracking-wide text-slate-500 font-bold block">
+                          Emergency Contact
                         </span>
-                      ))}
+                        <div>
+                          <label className="block text-slate-500 font-medium mb-2 uppercase tracking-[0.14em] text-[11px]">
+                            Name
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="Contact name"
+                            value={editableProfile.emergencyContact.name}
+                            onChange={(e) =>
+                              setEditableProfile({
+                                ...editableProfile,
+                                emergencyContact: {
+                                  ...editableProfile.emergencyContact,
+                                  name: e.target.value,
+                                },
+                              })
+                            }
+                            className="w-full p-3 bg-white border border-slate-200 rounded-2xl font-medium text-slate-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-teal-100"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-slate-500 font-medium mb-2 uppercase tracking-[0.14em] text-[11px]">
+                            Relation
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="e.g. Spouse, Parent"
+                            value={editableProfile.emergencyContact.relation}
+                            onChange={(e) =>
+                              setEditableProfile({
+                                ...editableProfile,
+                                emergencyContact: {
+                                  ...editableProfile.emergencyContact,
+                                  relation: e.target.value,
+                                },
+                              })
+                            }
+                            className="w-full p-3 bg-white border border-slate-200 rounded-2xl font-medium text-slate-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-teal-100"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-slate-500 font-medium mb-2 uppercase tracking-[0.14em] text-[11px]">
+                            Phone
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="(555) 000-0000"
+                            value={editableProfile.emergencyContact.phone}
+                            onChange={(e) =>
+                              setEditableProfile({
+                                ...editableProfile,
+                                emergencyContact: {
+                                  ...editableProfile.emergencyContact,
+                                  phone: e.target.value,
+                                },
+                              })
+                            }
+                            className="w-full p-3 bg-white border border-slate-200 rounded-2xl font-medium text-slate-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-teal-100"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-4">
+                        <div>
+                          <label className="block text-slate-500 font-medium mb-2 uppercase tracking-[0.14em] text-[11px]">
+                            Allergies (comma-separated)
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="e.g. Penicillin, Latex"
+                            value={editableMedicalStrings.allergies}
+                            onChange={(e) =>
+                              setEditableMedicalStrings({
+                                ...editableMedicalStrings,
+                                allergies: e.target.value,
+                              })
+                            }
+                            className="w-full p-3 bg-white border border-rose-200 rounded-2xl font-medium text-slate-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-rose-100"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-slate-500 font-medium mb-2 uppercase tracking-[0.14em] text-[11px]">
+                            Medications (comma-separated)
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="e.g. Multivitamin Daily, Aspirin"
+                            value={editableMedicalStrings.medications}
+                            onChange={(e) =>
+                              setEditableMedicalStrings({
+                                ...editableMedicalStrings,
+                                medications: e.target.value,
+                              })
+                            }
+                            className="w-full p-3 bg-white border border-rose-200 rounded-2xl font-medium text-slate-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-rose-100"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-slate-500 font-medium mb-2 uppercase tracking-[0.14em] text-[11px]">
+                            Conditions (comma-separated)
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="e.g. Mitral Valve Prolapse, Diabetes"
+                            value={editableMedicalStrings.conditions}
+                            onChange={(e) =>
+                              setEditableMedicalStrings({
+                                ...editableMedicalStrings,
+                                conditions: e.target.value,
+                              })
+                            }
+                            className="w-full p-3 bg-white border border-rose-200 rounded-2xl font-medium text-slate-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-rose-100"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-slate-500 font-medium mb-2 uppercase tracking-[0.14em] text-[11px]">
+                            Family History
+                          </label>
+                          <textarea
+                            placeholder="e.g. Mother has hypertension; father has diabetes"
+                            value={editableProfile.medicalProfile.familyHistory}
+                            onChange={(e) =>
+                              setEditableProfile({
+                                ...editableProfile,
+                                medicalProfile: {
+                                  ...editableProfile.medicalProfile,
+                                  familyHistory: e.target.value,
+                                },
+                              })
+                            }
+                            className="w-full p-3 bg-white border border-rose-200 rounded-2xl font-medium text-slate-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-rose-100"
+                            rows={2}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-slate-500 font-medium mb-2 uppercase tracking-[0.14em] text-[11px]">
+                            Clinical Notes
+                          </label>
+                          <textarea
+                            placeholder="Additional clinical notes and observations..."
+                            value={editableProfile.medicalProfile.notes}
+                            onChange={(e) =>
+                              setEditableProfile({
+                                ...editableProfile,
+                                medicalProfile: {
+                                  ...editableProfile.medicalProfile,
+                                  notes: e.target.value,
+                                },
+                              })
+                            }
+                            className="w-full p-3 bg-white border border-rose-200 rounded-2xl font-medium text-slate-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-rose-100"
+                            rows={2}
+                          />
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                  <div className="rounded-2xl border border-rose-100 bg-white p-4">
-                    <span className="text-slate-900 font-bold text-xs uppercase tracking-wide">
-                      Medications
-                    </span>
-                    <div className="bg-white/90 border border-rose-100/80 shadow-xs rounded-xl p-3 mt-1.5">
-                      <p className="text-slate-700 font-medium leading-relaxed">
-                        {patientData.profile.medicalProfile.medications.join(", ")}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="rounded-2xl border border-rose-100 bg-white p-4">
-                    <span className="text-slate-900 font-bold text-xs uppercase tracking-wide">
-                      Conditions
-                    </span>
-                    <div className="bg-white/90 border border-rose-100/80 shadow-xs rounded-xl p-3 mt-1.5">
-                      <p className="text-slate-700 font-medium leading-relaxed">
-                        {patientData.profile.medicalProfile.conditions.join(", ")}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="rounded-2xl border border-rose-100 bg-white p-4">
-                    <span className="text-slate-900 font-bold text-xs uppercase tracking-wide">
-                      Family History
-                    </span>
-                    <div className="bg-white/90 border border-rose-100/80 shadow-xs rounded-xl p-3 mt-1.5">
-                      <p className="text-slate-700 font-medium leading-relaxed">
-                        {patientData.profile.medicalProfile.familyHistory ||
-                          "No family history recorded."}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="rounded-2xl border border-rose-100 bg-white p-4">
-                    <span className="text-slate-900 font-bold text-xs uppercase tracking-wide">
-                      Clinical Notes
-                    </span>
-                    <div className="bg-white/90 border border-rose-100/80 shadow-xs rounded-xl p-3 mt-1.5">
-                      <p className="text-slate-700 font-medium leading-relaxed">
-                        {patientData.profile.medicalProfile.notes}
-                      </p>
-                    </div>
-                  </div>
+                  ) : (
+                    <>
+                      <div className="rounded-2xl border border-rose-100 bg-white p-3">
+                        <span className="text-slate-900 font-bold text-xs uppercase tracking-wide">
+                          Allergies
+                        </span>
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          {patientData.profile.medicalProfile.allergies.map((item) => (
+                            <span
+                              key={item}
+                              className="px-2 py-1 rounded-full bg-rose-100 text-rose-600 text-xs font-bold"
+                            >
+                              {item}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="rounded-2xl border border-rose-100 bg-white p-3">
+                        <span className="text-slate-900 font-bold text-xs uppercase tracking-wide">
+                          Medications
+                        </span>
+                        <div className="bg-white/90 border border-rose-100/80 shadow-xs rounded-xl p-3 mt-1.5">
+                          <p className="text-slate-700 font-medium leading-relaxed">
+                            {patientData.profile.medicalProfile.medications.join(", ")}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="rounded-2xl border border-rose-100 bg-white p-3">
+                        <span className="text-slate-900 font-bold text-xs uppercase tracking-wide">
+                          Conditions
+                        </span>
+                        <div className="bg-white/90 border border-rose-100/80 shadow-xs rounded-xl p-3 mt-1.5">
+                          <p className="text-slate-700 font-medium leading-relaxed">
+                            {patientData.profile.medicalProfile.conditions.join(", ")}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="rounded-2xl border border-rose-100 bg-white p-3">
+                        <span className="text-slate-900 font-bold text-xs uppercase tracking-wide">
+                          Family History
+                        </span>
+                        <div className="bg-white/90 border border-rose-100/80 shadow-xs rounded-xl p-3 mt-1.5">
+                          <p className="text-slate-700 font-medium leading-relaxed">
+                            {patientData.profile.medicalProfile.familyHistory ||
+                              "No family history recorded."}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="rounded-2xl border border-rose-100 bg-white p-3">
+                        <span className="text-slate-900 font-bold text-xs uppercase tracking-wide">
+                          Clinical Notes
+                        </span>
+                        <div className="bg-white/90 border border-rose-100/80 shadow-xs rounded-xl p-3 mt-1.5">
+                          <p className="text-slate-700 font-medium leading-relaxed">
+                            {patientData.profile.medicalProfile.notes}
+                          </p>
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
             </div>
 
-            <div className="mt-6 grid grid-cols-1 xl:grid-cols-[1.25fr_0.95fr] gap-6 items-stretch">
-              <div className="grid grid-cols-1 gap-4">
-                <div className="p-3 bg-slate-50/70 border border-slate-200/70 rounded-xl space-y-1.5 text-xs">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
-                    <Users className="w-3.5 h-3.5 text-slate-400" /> Linked Family Networks
-                  </span>
-                  <div className="space-y-2">
-                    {patientData.family.map((f) => (
-                      <div
-                        key={f.id}
-                        className="flex justify-between items-center bg-white p-2 rounded-xl border border-slate-200 text-sm"
-                      >
-                        <span className="font-semibold text-slate-800">
-                          {f.fullName} <span className="font-normal text-slate-400">({f.relation})</span>
-                        </span>
-                        {f.isEmergencyLink && (
-                          <span className="bg-rose-50 text-rose-600 font-bold px-2 rounded-full text-[10px] border border-rose-100">
-                            Kin
-                          </span>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="rounded-2xl border border-slate-200 bg-white p-4 space-y-3">
-                  <p className="text-[10px] uppercase tracking-wide text-slate-400 font-bold">
-                    Emergency Contact
+            <div className="mt-6 space-y-4">
+              <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-slate-400 font-bold">
+                    Patient Networks &amp; Referral Workflow
                   </p>
-                  <div>
-                    <h4 className="text-base font-semibold text-slate-900">
-                      {patientData.profile.emergencyContact.name}
-                    </h4>
-                    <p className="text-xs uppercase tracking-wide text-slate-400 mt-1">
-                      {patientData.profile.emergencyContact.relation}
-                    </p>
-                    <p className="text-sm font-semibold text-teal-600 mt-2">
-                      {patientData.profile.emergencyContact.phone}
-                    </p>
-                  </div>
+                  <h3 className="text-base font-semibold text-slate-900">
+                    Family Linking &amp; Smart Recall
+                  </h3>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  {isNetworkEditing ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={handleAddFamilyLink}
+                        className="text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 px-3 py-2 rounded-lg transition"
+                      >
+                        Add Family Link
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleCancelNetwork}
+                        className="text-sm font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 px-3 py-2 rounded-lg transition"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleSaveNetwork}
+                        className="text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 px-3 py-2 rounded-lg transition"
+                      >
+                        Save Changes
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleStartNetworkEditing}
+                      className="text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 px-3 py-2 rounded-lg transition"
+                    >
+                      Edit Family Linking
+                    </button>
+                  )}
                 </div>
               </div>
 
               <div className="grid grid-cols-1 gap-4">
-                <div className="p-3 bg-slate-50/70 border border-slate-200/70 rounded-xl text-xs flex flex-col justify-center">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
-                    Referral Origin Channel
-                  </span>
-                  <p className="font-semibold text-slate-800 text-[12px]">
-                    {patientData.referrals.referredBy?.name || "Direct Organic Entry Walk-in"}
-                  </p>
+                <div className="grid grid-cols-1 gap-4">
+                  <div className="p-3 bg-slate-50/70 border border-slate-200/70 rounded-xl space-y-3 text-xs">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
+                        <Users className="w-3.5 h-3.5 text-slate-400" /> Family Linking &amp; Smart
+                        Recall
+                      </span>
+                      {!isNetworkEditing && (
+                        <span className="text-[10px] text-slate-500">
+                          Doctor/admin only workflow
+                        </span>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      {isNetworkEditing ? (
+                        editableNetwork.family.map((f, index) => (
+                          <div
+                            key={f.id}
+                            className="rounded-2xl border border-slate-200 bg-white p-3 space-y-3"
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <h4 className="text-sm font-semibold text-slate-900">
+                                Family Link {index + 1}
+                              </h4>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteFamilyLink(f.id)}
+                                className="text-xs font-semibold text-rose-600 hover:text-rose-700"
+                              >
+                                Delete
+                              </button>
+                            </div>
+                            <div className="grid grid-cols-1 gap-3">
+                              <label className="text-xs font-semibold text-slate-600">
+                                Linked Person Name
+                                <input
+                                  type="text"
+                                  value={f.fullName}
+                                  onChange={(event) => {
+                                    const next = [...editableNetwork.family];
+                                    next[index] = { ...next[index], fullName: event.target.value };
+                                    setEditableNetwork((prev) => ({ ...prev, family: next }));
+                                  }}
+                                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900"
+                                />
+                              </label>
+                              <label className="text-xs font-semibold text-slate-600">
+                                Relationship
+                                <input
+                                  type="text"
+                                  value={f.relation}
+                                  onChange={(event) => {
+                                    const next = [...editableNetwork.family];
+                                    next[index] = { ...next[index], relation: event.target.value };
+                                    setEditableNetwork((prev) => ({ ...prev, family: next }));
+                                  }}
+                                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900"
+                                />
+                              </label>
+                            </div>
+                          </div>
+                        ))
+                      ) : patientData.family.length > 0 ? (
+                        patientData.family.map((f) => (
+                          <div
+                            key={f.id}
+                            className="rounded-2xl border border-slate-200 bg-white p-3"
+                          >
+                            <div className="text-sm font-semibold text-slate-900">{f.fullName}</div>
+                            <div className="text-xs text-slate-500">{f.relation}</div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="rounded-2xl border border-slate-200 bg-white p-3 text-sm text-slate-500">
+                          No family recall links added yet.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border border-slate-200 bg-white p-3 space-y-3">
+                    <p className="text-[10px] uppercase tracking-wide text-slate-400 font-bold">
+                      Emergency Contact
+                    </p>
+                    {isNetworkEditing ? (
+                      <div className="space-y-3">
+                        <label className="block text-sm font-medium text-slate-700">
+                          Name
+                          <input
+                            type="text"
+                            value={editableNetwork.emergencyContact.name}
+                            onChange={(event) =>
+                              setEditableNetwork((prev) => ({
+                                ...prev,
+                                emergencyContact: {
+                                  ...prev.emergencyContact,
+                                  name: event.target.value,
+                                },
+                              }))
+                            }
+                            className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900"
+                          />
+                        </label>
+                        <label className="block text-sm font-medium text-slate-700">
+                          Relation
+                          <input
+                            type="text"
+                            value={editableNetwork.emergencyContact.relation}
+                            onChange={(event) =>
+                              setEditableNetwork((prev) => ({
+                                ...prev,
+                                emergencyContact: {
+                                  ...prev.emergencyContact,
+                                  relation: event.target.value,
+                                },
+                              }))
+                            }
+                            className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900"
+                          />
+                        </label>
+                        <label className="block text-sm font-medium text-slate-700">
+                          Phone
+                          <input
+                            type="text"
+                            value={editableNetwork.emergencyContact.phone}
+                            onChange={(event) =>
+                              setEditableNetwork((prev) => ({
+                                ...prev,
+                                emergencyContact: {
+                                  ...prev.emergencyContact,
+                                  phone: event.target.value,
+                                },
+                              }))
+                            }
+                            className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900"
+                          />
+                        </label>
+                      </div>
+                    ) : (
+                      <div>
+                        <h4 className="text-base font-semibold text-slate-900">
+                          {patientData.profile.emergencyContact.name}
+                        </h4>
+                        <p className="text-xs uppercase tracking-wide text-slate-400 mt-1">
+                          {patientData.profile.emergencyContact.relation}
+                        </p>
+                        <p className="text-sm font-semibold text-teal-600 mt-2">
+                          {patientData.profile.emergencyContact.phone}
+                        </p>
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <div className="p-3 bg-slate-50/70 border border-slate-200/70 rounded-xl text-xs flex flex-col justify-center">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
-                    Generated Outbound Charts
-                  </span>
-                  <p className="font-semibold text-slate-800 text-[12px]">
-                    {patientData.referrals.referredPatients.length} external matches tracked.
-                  </p>
-                </div>
+
+                <div className="grid grid-cols-1 gap-4"></div>
               </div>
             </div>
           </div>
@@ -2035,10 +2457,14 @@ export default function AdminPatientDetailsPage() {
         {/* ==========================================
             REFINED OPERATIONAL ACCOUNTING LEDGER
            ========================================== */}
-        <div className="bg-white rounded-2xl border border-slate-200 border-l-4 border-l-emerald-500 shadow-xs overflow-hidden">
-          <div className="px-4 sm:px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
+        <div
+          id="billing"
+          className="bg-white rounded-2xl border border-slate-200 border-l-4 border-l-emerald-500 shadow-xs overflow-hidden scroll-mt-[160px]"
+        >
+          <div className="px-3 sm:px-4 py-3 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
             <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-              <CreditCard className="w-4 h-4 text-emerald-600" /> Operational Ledger &amp; Billing Files
+              <CreditCard className="w-4 h-4 text-emerald-600" /> Operational Ledger &amp; Billing
+              Files
             </h3>
             <button
               onClick={() => setIsAddingLedger(!isAddingLedger)}
@@ -2048,7 +2474,7 @@ export default function AdminPatientDetailsPage() {
             </button>
           </div>
 
-          <div className="p-4 sm:p-6 space-y-4">
+          <div className="p-3 sm:p-4 space-y-3">
             {/* UPDATED DATED LEDGER DISPATCH INPUT SUB-SYSTEM */}
             <AnimatePresence>
               {isAddingLedger && (
@@ -2057,7 +2483,7 @@ export default function AdminPatientDetailsPage() {
                   animate={{ opacity: 1, height: "auto" }}
                   exit={{ opacity: 0, height: 0 }}
                   onSubmit={handleAddLedgerEntry}
-                  className="border border-emerald-100 bg-emerald-50/10 rounded-xl p-4 text-xs space-y-4 shadow-inner"
+                  className="border border-emerald-100 bg-emerald-50/10 rounded-xl p-3 text-xs space-y-4 shadow-inner"
                 >
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3.5">
                     <div className="sm:col-span-2 md:col-span-1">
@@ -2208,13 +2634,17 @@ export default function AdminPatientDetailsPage() {
         {/* ==========================================
             CLINIC LAYOUT RESPONSTRUCT BLOCK (2-COLUMN GRID)
            ========================================== */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {/* TREATMENT CARD RECORD MODULE */}
-          <div className="bg-white rounded-2xl border border-slate-200 border-l-4 border-l-cyan-500 shadow-xs flex flex-col justify-between overflow-hidden">
+          <div
+            id="treatments"
+            className="bg-white rounded-2xl border border-slate-200 border-l-4 border-l-cyan-500 shadow-xs flex flex-col justify-between overflow-hidden scroll-mt-[160px]"
+          >
             <div>
               <div className="px-4 sm:px-5 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
                 <h3 className="text-xs sm:text-sm font-bold text-slate-900 flex items-center gap-2">
-                  <FileText className="w-4 h-4 text-cyan-600" /> Treatment Tracking &amp; Diagnostics
+                  <FileText className="w-4 h-4 text-cyan-600" /> Treatment Tracking &amp;
+                  Diagnostics
                 </h3>
                 <button
                   type="button"
@@ -2308,7 +2738,7 @@ export default function AdminPatientDetailsPage() {
                       </div>
 
                       {treatmentForm.procedure === "Other" && (
-                        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 space-y-4">
+                        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 space-y-4">
                           <div>
                             <label className="block text-slate-400 font-bold mb-0.5">
                               Custom Treatment Name
@@ -2668,7 +3098,10 @@ export default function AdminPatientDetailsPage() {
           {/* ==========================================
               SIMPLIFIED CLINIC APPOINTMENT SCHEDULER MATRIX
              ========================================== */}
-          <div className="bg-white rounded-2xl border border-slate-200 border-l-4 border-l-rose-200 shadow-xs overflow-hidden flex flex-col justify-between">
+          <div
+            id="scheduler"
+            className="bg-white rounded-2xl border border-slate-200 border-l-4 border-l-rose-200 shadow-xs overflow-hidden flex flex-col justify-between scroll-mt-[160px]"
+          >
             <div>
               <div className="px-4 sm:px-5 py-4 border-b border-slate-100 bg-slate-50/50">
                 <h3 className="text-xs sm:text-sm font-bold text-slate-900 flex items-center gap-2">
@@ -2750,10 +3183,13 @@ export default function AdminPatientDetailsPage() {
         </div>
 
         {/* ==========================================
-            INTERACTIVE TOOTH CHART
+            SIMPLIFIED CLINIC APPOINTMENT SCHEDULER MATRIX
            ========================================== */}
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
-          <div className="px-4 sm:px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
+        <div
+          id="tooth-chart"
+          className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden scroll-mt-[160px]"
+        >
+          <div className="px-3 sm:px-4 py-3 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
             <div>
               <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
                 <FileText className="w-4 h-4 text-emerald-600" /> Interactive Tooth Chart
@@ -2788,8 +3224,11 @@ export default function AdminPatientDetailsPage() {
         {/* ==========================================
             PRESCRIPTION MANAGEMENT & AUTHORING WORKFLOW
            ========================================== */}
-        <div className="bg-white rounded-2xl border border-slate-200 border-l-4 border-l-violet-500 shadow-xs overflow-hidden">
-          <div className="px-4 sm:px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div
+          id="prescriptions"
+          className="bg-white rounded-2xl border border-slate-200 border-l-4 border-l-violet-500 shadow-xs overflow-hidden scroll-mt-[160px]"
+        >
+          <div className="px-3 sm:px-4 py-3 border-b border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
               <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
                 <Pill className="w-4 h-4 text-violet-600" /> Prescription Management Workflow
@@ -2817,9 +3256,9 @@ export default function AdminPatientDetailsPage() {
             </div>
           </div>
 
-          <div className="p-4 sm:p-6 space-y-4">
+          <div className="p-3 sm:p-4 space-y-3">
             <div className="grid grid-cols-1 xl:grid-cols-[1.2fr_0.8fr] gap-4">
-              <div className="rounded-2xl bg-slate-50 border border-slate-200 p-4">
+              <div className="rounded-2xl bg-slate-50 border border-slate-200 p-3">
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="text-[10px] uppercase tracking-wide text-slate-400 font-bold">
@@ -2857,7 +3296,7 @@ export default function AdminPatientDetailsPage() {
                       </div>
                     </div>
 
-                    <div className="rounded-2xl border border-slate-200 bg-white p-4 space-y-3">
+                    <div className="rounded-2xl border border-slate-200 bg-white p-3 space-y-3">
                       <div className="flex items-center justify-between gap-3">
                         <span className="text-xs uppercase tracking-wide text-slate-400">
                           Medicine list
@@ -2888,7 +3327,7 @@ export default function AdminPatientDetailsPage() {
                       </div>
                     </div>
 
-                    <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                    <div className="rounded-2xl border border-slate-200 bg-white p-3">
                       <p className="text-[10px] uppercase tracking-wide text-slate-400">
                         Notes / Instructions
                       </p>
@@ -2898,14 +3337,14 @@ export default function AdminPatientDetailsPage() {
                     </div>
                   </div>
                 ) : (
-                  <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
+                  <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-3 text-sm text-slate-500">
                     No prescription has been created for this patient yet. Use Create Prescription
                     to add the first entry.
                   </div>
                 )}
               </div>
 
-              <div className="rounded-2xl border border-slate-200 p-4 bg-white space-y-4">
+              <div className="rounded-2xl border border-slate-200 p-3 bg-white space-y-4">
                 <div className="space-y-2">
                   <p className="text-[10px] uppercase tracking-wide text-slate-400 font-bold">
                     Quick Actions
@@ -2948,7 +3387,7 @@ export default function AdminPatientDetailsPage() {
 
           <AnimatePresence>
             {prescriptionModal && (
-              <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-3">
                 <motion.div
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
@@ -3052,7 +3491,7 @@ export default function AdminPatientDetailsPage() {
                           {prescriptionRows.map((row, rowIndex) => (
                             <div
                               key={rowIndex}
-                              className="rounded-2xl border border-slate-200 bg-slate-50 p-4"
+                              className="rounded-2xl border border-slate-200 bg-slate-50 p-3"
                             >
                               <div className="flex items-center justify-between gap-3 mb-3">
                                 <span className="text-xs uppercase tracking-wide text-slate-400 font-bold">
@@ -3176,7 +3615,7 @@ export default function AdminPatientDetailsPage() {
                     ) : (
                       <div className="space-y-4">
                         {patientData.prescriptions.length === 0 ? (
-                          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
+                          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-500">
                             No historical prescriptions are available for this patient.
                           </div>
                         ) : (
@@ -3218,7 +3657,7 @@ export default function AdminPatientDetailsPage() {
                                 {isExpanded ? (
                                   <div className="px-5 pb-5 pt-4 space-y-3 text-sm text-slate-700">
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                      <div className="rounded-2xl bg-white border border-slate-200 p-4">
+                                      <div className="rounded-2xl bg-white border border-slate-200 p-3">
                                         <p className="text-[10px] uppercase tracking-wide text-slate-400 font-bold mb-2">
                                           Medicines
                                         </p>
@@ -3239,7 +3678,7 @@ export default function AdminPatientDetailsPage() {
                                           ))}
                                         </div>
                                       </div>
-                                      <div className="rounded-2xl bg-white border border-slate-200 p-4">
+                                      <div className="rounded-2xl bg-white border border-slate-200 p-3">
                                         <p className="text-[10px] uppercase tracking-wide text-slate-400 font-bold mb-2">
                                           Directions
                                         </p>
@@ -3294,7 +3733,7 @@ export default function AdminPatientDetailsPage() {
       {/* TOOTH CHART MODAL */}
       <AnimatePresence>
         {isToothModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3">
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -3522,7 +3961,7 @@ export default function AdminPatientDetailsPage() {
       {/* INDEPENDENT PREMIUM INTERACTIVE MODAL POPOVER DISPATCH AREA */}
       <AnimatePresence>
         {selectedAppointment && (
-          <div className="fixed inset-0 z-50 overflow-hidden flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-50 overflow-hidden flex items-center justify-center p-3">
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
