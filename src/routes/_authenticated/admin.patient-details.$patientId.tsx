@@ -1380,57 +1380,46 @@ export default function AdminPatientDetailsPage() {
       {/* ==========================================
           REFINED PREMIUM IDENTITY HEADER BANNER
          ========================================== */}
-      <div className="sticky top-14 z-20 bg-white border-b border-slate-200 shadow-xs px-4 sm:px-8 py-5 flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div className="flex items-center gap-4">
-          <div className="w-14 h-14 rounded-2xl bg-teal-600 shadow-sm flex items-center justify-center text-white text-lg font-bold tracking-wider">
+      <div className="sticky top-14 z-20 bg-white border-b border-slate-200 shadow-xs px-4 sm:px-8 py-6 sm:py-7 flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div className="flex items-center gap-5">
+          <div className="w-16 h-16 rounded-2xl bg-teal-600 shadow-sm flex items-center justify-center text-white text-xl font-bold tracking-wider">
             {patientData.profile.fullName
               .split(" ")
               .map((n) => n[0])
               .join("")}
           </div>
-          <div className="space-y-1">
-            <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight leading-none">
+          <div className="space-y-2">
+            <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight leading-none">
               {patientData.profile.fullName}
             </h2>
             <div className="text-xs text-slate-500 font-medium flex flex-wrap items-center gap-x-3 gap-y-1">
-              <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded font-semibold">
+              <span className="bg-slate-100 text-slate-700 px-2 py-1 rounded font-semibold">
                 {patientData.profile.age} Yrs •{" "}
                 {patientData.profile.sex || patientData.profile.gender}
               </span>
-              <span>•</span>
-              <span className="font-semibold text-slate-700 flex items-center gap-1">
-                <Phone className="w-3 h-3 text-slate-400" /> {patientData.profile.phone}
+
+              <span className="text-xs uppercase tracking-[0.16em] text-slate-400 font-medium">
+                Patient ID {patientData.id}
               </span>
-              {patientData.profile.secondaryPhone ? (
-                <>
-                  <span>•</span>
-                  <span className="font-semibold text-slate-700 flex items-center gap-1">
-                    <Phone className="w-3 h-3 text-slate-400" />{" "}
-                    {patientData.profile.secondaryPhone}
-                  </span>
-                </>
-              ) : null}
-              <span>•</span>
-              <span className="text-slate-400 font-mono truncate">{patientData.profile.email}</span>
             </div>
           </div>
         </div>
 
         {/* METRICS VIEWPORTS GRID */}
-        <div className="grid grid-cols-3 gap-3 sm:gap-6 bg-slate-50 p-3 rounded-xl border border-slate-200/60 min-w-full md:min-w-[420px]">
-          <div className="px-1">
-            <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-wider block mb-0.5">
+        <div className="grid grid-cols-3 gap-4 sm:gap-6 bg-slate-50 p-4 sm:p-5 rounded-2xl border border-slate-200/60 min-w-full md:min-w-[420px]">
+          <div className="px-2">
+            <span className="text-xs font-extrabold text-slate-400 uppercase tracking-wider block mb-0.5">
               Total Gross Billed
             </span>
-            <span className="text-sm sm:text-base font-bold text-slate-800">
+            <span className="text-xl sm:text-2xl font-bold text-slate-800">
               ${totalBilled.toFixed(2)}
             </span>
           </div>
           <div className="px-1 border-l border-slate-200">
-            <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-wider block mb-0.5">
+            <span className="text-xs font-extrabold text-slate-400 uppercase tracking-wider block mb-0.5">
               Cleared Credits
             </span>
-            <span className="text-sm sm:text-base font-bold text-emerald-600">
+            <span className="text-xl sm:text-2xl font-bold text-emerald-600">
               ${totalPaid.toFixed(2)}
             </span>
           </div>
@@ -1438,12 +1427,12 @@ export default function AdminPatientDetailsPage() {
             className={`px-2 py-1 rounded-lg border -my-1 ${outstandingDue > 0 ? "bg-rose-50/80 border-rose-100" : "bg-emerald-50/80 border-emerald-100"}`}
           >
             <span
-              className={`text-[9px] font-extrabold uppercase tracking-wider block ${outstandingDue > 0 ? "text-rose-500" : "text-emerald-500"}`}
+              className={`text-xs font-extrabold uppercase tracking-wider block ${outstandingDue > 0 ? "text-rose-500" : "text-emerald-500"}`}
             >
               {outstandingDue > 0 ? "Balance Liability" : "Settled Asset"}
             </span>
             <span
-              className={`text-sm sm:text-base font-black ${outstandingDue > 0 ? "text-rose-700" : "text-emerald-700"}`}
+              className={`text-xl sm:text-2xl font-black ${outstandingDue > 0 ? "text-rose-700" : "text-emerald-700"}`}
             >
               ${outstandingDue.toFixed(2)}
             </span>
@@ -1459,7 +1448,7 @@ export default function AdminPatientDetailsPage() {
         <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
           <div className="px-4 sm:px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
             <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-              <User className="w-4 h-4 text-teal-600" /> Patient Profile Matrix & Ecosystem Records
+              <User className="w-4 h-4 text-teal-600" /> Patient Profile Matrix &amp; Ecosystem Records
             </h3>
             {!isProfileEditing ? (
               <button
@@ -1499,21 +1488,25 @@ export default function AdminPatientDetailsPage() {
 
           <div className="p-4 sm:p-6">
             {isProfileEditing ? (
-              <form onSubmit={handleSaveProfile} className="space-y-4 text-xs">
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+              <form onSubmit={handleSaveProfile} className="space-y-5 text-sm">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-5">
                   <div>
-                    <label className="block text-slate-400 font-bold mb-1">Legal Name</label>
+                    <label className="block text-slate-500 font-medium mb-2 uppercase tracking-[0.14em] text-[11px]">
+                      Legal Name
+                    </label>
                     <input
                       type="text"
                       value={editableProfile.fullName}
                       onChange={(e) =>
                         setEditableProfile({ ...editableProfile, fullName: e.target.value })
                       }
-                      className="w-full p-2 border border-slate-200 rounded-lg font-semibold"
+                      className="w-full p-3 border border-slate-200 rounded-2xl font-semibold text-slate-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-teal-100"
                     />
                   </div>
                   <div>
-                    <label className="block text-slate-400 font-bold mb-1">Age Mapping</label>
+                    <label className="block text-slate-500 font-medium mb-2 uppercase tracking-[0.14em] text-[11px]">
+                      Age Mapping
+                    </label>
                     <input
                       type="number"
                       value={editableProfile.age}
@@ -1523,11 +1516,13 @@ export default function AdminPatientDetailsPage() {
                           age: parseInt(e.target.value) || 0,
                         })
                       }
-                      className="w-full p-2 border border-slate-200 rounded-lg font-semibold"
+                      className="w-full p-3 border border-slate-200 rounded-2xl font-semibold text-slate-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-teal-100"
                     />
                   </div>
                   <div>
-                    <label className="block text-slate-400 font-bold mb-1">Sex</label>
+                    <label className="block text-slate-500 font-medium mb-2 uppercase tracking-[0.14em] text-[11px]">
+                      Sex
+                    </label>
                     <input
                       type="text"
                       value={editableProfile.sex || editableProfile.gender}
@@ -1538,63 +1533,71 @@ export default function AdminPatientDetailsPage() {
                           gender: e.target.value,
                         })
                       }
-                      className="w-full p-2 border border-slate-200 rounded-lg font-semibold"
+                      className="w-full p-3 border border-slate-200 rounded-2xl font-semibold text-slate-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-teal-100"
                     />
                   </div>
                   <div>
-                    <label className="block text-slate-400 font-bold mb-1">Blood Registry</label>
+                    <label className="block text-slate-500 font-medium mb-2 uppercase tracking-[0.14em] text-[11px]">
+                      Blood Registry
+                    </label>
                     <input
                       type="text"
                       value={editableProfile.bloodGroup}
                       onChange={(e) =>
                         setEditableProfile({ ...editableProfile, bloodGroup: e.target.value })
                       }
-                      className="w-full p-2 border border-slate-200 rounded-lg font-mono font-bold text-teal-700 bg-teal-50/50"
+                      className="w-full p-3 border border-slate-200 rounded-2xl font-mono font-bold text-teal-700 bg-teal-50/50 shadow-sm focus:outline-none focus:ring-2 focus:ring-teal-100"
                     />
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
                   <div>
-                    <label className="block text-slate-400 font-bold mb-1">Primary Phone</label>
+                    <label className="block text-slate-500 font-medium mb-2 uppercase tracking-[0.14em] text-[11px]">
+                      Primary Phone
+                    </label>
                     <input
                       type="text"
                       value={editableProfile.phone}
                       onChange={(e) =>
                         setEditableProfile({ ...editableProfile, phone: e.target.value })
                       }
-                      className="w-full p-2 border border-slate-200 rounded-lg font-semibold"
+                      className="w-full p-3 border border-slate-200 rounded-2xl font-semibold text-slate-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-teal-100"
                     />
                   </div>
                   <div>
-                    <label className="block text-slate-400 font-bold mb-1">Secondary Phone</label>
+                    <label className="block text-slate-500 font-medium mb-2 uppercase tracking-[0.14em] text-[11px]">
+                      Secondary Phone
+                    </label>
                     <input
                       type="text"
                       value={editableProfile.secondaryPhone}
                       onChange={(e) =>
                         setEditableProfile({ ...editableProfile, secondaryPhone: e.target.value })
                       }
-                      className="w-full p-2 border border-slate-200 rounded-lg font-semibold"
+                      className="w-full p-3 border border-slate-200 rounded-2xl font-semibold text-slate-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-teal-100"
                     />
                   </div>
                   <div>
-                    <label className="block text-slate-400 font-bold mb-1">Secure Email</label>
+                    <label className="block text-slate-500 font-medium mb-2 uppercase tracking-[0.14em] text-[11px]">
+                      Secure Email
+                    </label>
                     <input
                       type="email"
                       value={editableProfile.email}
                       onChange={(e) =>
                         setEditableProfile({ ...editableProfile, email: e.target.value })
                       }
-                      className="w-full p-2 border border-slate-200 rounded-lg font-semibold"
+                      className="w-full p-3 border border-slate-200 rounded-2xl font-semibold text-slate-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-teal-100"
                     />
                   </div>
                 </div>
 
-                <div className="p-3 bg-slate-50 rounded-xl border border-slate-150 space-y-2">
-                  <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">
+                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-150 space-y-3">
+                  <span className="text-[10px] uppercase font-semibold text-slate-500 block tracking-wider">
                     Demographic Anchor Bounds
                   </span>
-                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
                     <div className="sm:col-span-2">
                       <input
                         type="text"
@@ -1606,7 +1609,7 @@ export default function AdminPatientDetailsPage() {
                             address: { ...editableProfile.address, street: e.target.value },
                           })
                         }
-                        className="w-full p-2 bg-white border border-slate-200 rounded-md font-medium"
+                        className="w-full p-3 bg-white border border-slate-200 rounded-2xl font-medium text-slate-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-teal-100"
                       />
                     </div>
                     <div>
@@ -1620,7 +1623,7 @@ export default function AdminPatientDetailsPage() {
                             address: { ...editableProfile.address, city: e.target.value },
                           })
                         }
-                        className="w-full p-2 bg-white border border-slate-200 rounded-md font-medium"
+                        className="w-full p-3 bg-white border border-slate-200 rounded-2xl font-medium text-slate-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-teal-100"
                       />
                     </div>
                     <div>
@@ -1634,256 +1637,258 @@ export default function AdminPatientDetailsPage() {
                             address: { ...editableProfile.address, zipCode: e.target.value },
                           })
                         }
-                        className="w-full p-2 bg-white border border-slate-200 rounded-md font-medium"
+                        className="w-full p-3 bg-white border border-slate-200 rounded-2xl font-medium text-slate-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-teal-100"
                       />
                     </div>
                   </div>
                 </div>
 
-                {/* Emergency Contact Editable Section */}
-                <div className="p-3 bg-slate-50 rounded-xl border border-slate-150 space-y-2">
-                  <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">
-                    Emergency Contact Details
-                  </span>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                    <div>
-                      <label className="block text-slate-400 font-bold mb-1 text-[10px]">
-                        Name
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="Contact name"
-                        value={editableProfile.emergencyContact.name}
-                        onChange={(e) =>
-                          setEditableProfile({
-                            ...editableProfile,
-                            emergencyContact: {
-                              ...editableProfile.emergencyContact,
-                              name: e.target.value,
-                            },
-                          })
-                        }
-                        className="w-full p-2 bg-white border border-slate-200 rounded-md font-medium"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-slate-400 font-bold mb-1 text-[10px]">
-                        Relation
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="e.g. Spouse, Parent"
-                        value={editableProfile.emergencyContact.relation}
-                        onChange={(e) =>
-                          setEditableProfile({
-                            ...editableProfile,
-                            emergencyContact: {
-                              ...editableProfile.emergencyContact,
-                              relation: e.target.value,
-                            },
-                          })
-                        }
-                        className="w-full p-2 bg-white border border-slate-200 rounded-md font-medium"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-slate-400 font-bold mb-1 text-[10px]">
-                        Phone
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="(555) 000-0000"
-                        value={editableProfile.emergencyContact.phone}
-                        onChange={(e) =>
-                          setEditableProfile({
-                            ...editableProfile,
-                            emergencyContact: {
-                              ...editableProfile.emergencyContact,
-                              phone: e.target.value,
-                            },
-                          })
-                        }
-                        className="w-full p-2 bg-white border border-slate-200 rounded-md font-medium"
-                      />
-                    </div>
+                <div className="p-4 bg-rose-50 rounded-2xl border border-rose-100 space-y-4">
+                  <div>
+                    <span className="text-[10px] uppercase font-semibold text-rose-500 block tracking-wider">
+                      Medical History &amp; Risk Disclosures
+                    </span>
+                    <p className="text-sm text-slate-600 mt-1 max-w-2xl">
+                      Emergency contact details and medical risk disclosures are grouped for quick review and compact editing.
+                    </p>
                   </div>
-                </div>
-
-                {/* Medical History Editable Section */}
-                <div className="p-3 bg-rose-50 rounded-xl border border-rose-100 space-y-2">
-                  <span className="text-[10px] uppercase font-bold text-rose-400 block tracking-wider">
-                    Medical History & Risk Disclosures
-                  </span>
-                  <div className="space-y-2">
-                    <div>
-                      <label className="block text-slate-400 font-bold mb-1 text-[10px]">
-                        Allergies (comma-separated)
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="e.g. Penicillin, Latex"
-                        value={editableMedicalStrings.allergies}
-                        onChange={(e) =>
-                          setEditableMedicalStrings({
-                            ...editableMedicalStrings,
-                            allergies: e.target.value,
-                          })
-                        }
-                        className="w-full p-2 bg-white border border-rose-200 rounded-md font-medium"
-                      />
+                  <div className="grid grid-cols-1 xl:grid-cols-[280px_1fr] gap-4">
+                    <div className="bg-white rounded-2xl border border-slate-200 p-4 space-y-4">
+                      <span className="text-[10px] uppercase font-semibold text-slate-500 block tracking-wider">
+                        Emergency Contact
+                      </span>
+                      <div>
+                        <label className="block text-slate-500 font-medium mb-2 uppercase tracking-[0.14em] text-[11px]">
+                          Name
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="Contact name"
+                          value={editableProfile.emergencyContact.name}
+                          onChange={(e) =>
+                            setEditableProfile({
+                              ...editableProfile,
+                              emergencyContact: {
+                                ...editableProfile.emergencyContact,
+                                name: e.target.value,
+                              },
+                            })
+                          }
+                          className="w-full p-3 bg-white border border-slate-200 rounded-2xl font-medium text-slate-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-teal-100"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-slate-500 font-medium mb-2 uppercase tracking-[0.14em] text-[11px]">
+                          Relation
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="e.g. Spouse, Parent"
+                          value={editableProfile.emergencyContact.relation}
+                          onChange={(e) =>
+                            setEditableProfile({
+                              ...editableProfile,
+                              emergencyContact: {
+                                ...editableProfile.emergencyContact,
+                                relation: e.target.value,
+                              },
+                            })
+                          }
+                          className="w-full p-3 bg-white border border-slate-200 rounded-2xl font-medium text-slate-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-teal-100"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-slate-500 font-medium mb-2 uppercase tracking-[0.14em] text-[11px]">
+                          Phone
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="(555) 000-0000"
+                          value={editableProfile.emergencyContact.phone}
+                          onChange={(e) =>
+                            setEditableProfile({
+                              ...editableProfile,
+                              emergencyContact: {
+                                ...editableProfile.emergencyContact,
+                                phone: e.target.value,
+                              },
+                            })
+                          }
+                          className="w-full p-3 bg-white border border-slate-200 rounded-2xl font-medium text-slate-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-teal-100"
+                        />
+                      </div>
                     </div>
-                    <div>
-                      <label className="block text-slate-400 font-bold mb-1 text-[10px]">
-                        Medications (comma-separated)
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="e.g. Multivitamin Daily, Aspirin"
-                        value={editableMedicalStrings.medications}
-                        onChange={(e) =>
-                          setEditableMedicalStrings({
-                            ...editableMedicalStrings,
-                            medications: e.target.value,
-                          })
-                        }
-                        className="w-full p-2 bg-white border border-rose-200 rounded-md font-medium"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-slate-400 font-bold mb-1 text-[10px]">
-                        Conditions (comma-separated)
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="e.g. Mitral Valve Prolapse, Diabetes"
-                        value={editableMedicalStrings.conditions}
-                        onChange={(e) =>
-                          setEditableMedicalStrings({
-                            ...editableMedicalStrings,
-                            conditions: e.target.value,
-                          })
-                        }
-                        className="w-full p-2 bg-white border border-rose-200 rounded-md font-medium"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-slate-400 font-bold mb-1 text-[10px]">
-                        Family History
-                      </label>
-                      <textarea
-                        placeholder="e.g. Mother has hypertension; father has diabetes"
-                        value={editableProfile.medicalProfile.familyHistory}
-                        onChange={(e) =>
-                          setEditableProfile({
-                            ...editableProfile,
-                            medicalProfile: {
-                              ...editableProfile.medicalProfile,
-                              familyHistory: e.target.value,
-                            },
-                          })
-                        }
-                        className="w-full p-2 bg-white border border-rose-200 rounded-md font-medium"
-                        rows={2}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-slate-400 font-bold mb-1 text-[10px]">
-                        Clinical Notes
-                      </label>
-                      <textarea
-                        placeholder="Additional clinical notes and observations..."
-                        value={editableProfile.medicalProfile.notes}
-                        onChange={(e) =>
-                          setEditableProfile({
-                            ...editableProfile,
-                            medicalProfile: {
-                              ...editableProfile.medicalProfile,
-                              notes: e.target.value,
-                            },
-                          })
-                        }
-                        className="w-full p-2 bg-white border border-rose-200 rounded-md font-medium"
-                        rows={2}
-                      />
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-slate-500 font-medium mb-2 uppercase tracking-[0.14em] text-[11px]">
+                          Allergies (comma-separated)
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="e.g. Penicillin, Latex"
+                          value={editableMedicalStrings.allergies}
+                          onChange={(e) =>
+                            setEditableMedicalStrings({
+                              ...editableMedicalStrings,
+                              allergies: e.target.value,
+                            })
+                          }
+                          className="w-full p-3 bg-white border border-rose-200 rounded-2xl font-medium text-slate-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-rose-100"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-slate-500 font-medium mb-2 uppercase tracking-[0.14em] text-[11px]">
+                          Medications (comma-separated)
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="e.g. Multivitamin Daily, Aspirin"
+                          value={editableMedicalStrings.medications}
+                          onChange={(e) =>
+                            setEditableMedicalStrings({
+                              ...editableMedicalStrings,
+                              medications: e.target.value,
+                            })
+                          }
+                          className="w-full p-3 bg-white border border-rose-200 rounded-2xl font-medium text-slate-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-rose-100"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-slate-500 font-medium mb-2 uppercase tracking-[0.14em] text-[11px]">
+                          Conditions (comma-separated)
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="e.g. Mitral Valve Prolapse, Diabetes"
+                          value={editableMedicalStrings.conditions}
+                          onChange={(e) =>
+                            setEditableMedicalStrings({
+                              ...editableMedicalStrings,
+                              conditions: e.target.value,
+                            })
+                          }
+                          className="w-full p-3 bg-white border border-rose-200 rounded-2xl font-medium text-slate-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-rose-100"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-slate-500 font-medium mb-2 uppercase tracking-[0.14em] text-[11px]">
+                          Family History
+                        </label>
+                        <textarea
+                          placeholder="e.g. Mother has hypertension; father has diabetes"
+                          value={editableProfile.medicalProfile.familyHistory}
+                          onChange={(e) =>
+                            setEditableProfile({
+                              ...editableProfile,
+                              medicalProfile: {
+                                ...editableProfile.medicalProfile,
+                                familyHistory: e.target.value,
+                              },
+                            })
+                          }
+                          className="w-full p-3 bg-white border border-rose-200 rounded-2xl font-medium text-slate-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-rose-100"
+                          rows={2}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-slate-500 font-medium mb-2 uppercase tracking-[0.14em] text-[11px]">
+                          Clinical Notes
+                        </label>
+                        <textarea
+                          placeholder="Additional clinical notes and observations..."
+                          value={editableProfile.medicalProfile.notes}
+                          onChange={(e) =>
+                            setEditableProfile({
+                              ...editableProfile,
+                              medicalProfile: {
+                                ...editableProfile.medicalProfile,
+                                notes: e.target.value,
+                              },
+                            })
+                          }
+                          className="w-full p-3 bg-white border border-rose-200 rounded-2xl font-medium text-slate-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-rose-100"
+                          rows={2}
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>
               </form>
             ) : (
               <div className="space-y-6">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs sm:text-sm">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-4 text-sm">
                   <div>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block">
+                    <span className="text-[10px] font-medium text-slate-400 uppercase tracking-[0.18em] block">
                       Legal Full Name
                     </span>
-                    <span className="font-bold text-slate-800 mt-1 block">
+                    <span className="font-semibold text-slate-900 mt-2 block leading-6 text-base">
                       {patientData.profile.fullName}
                     </span>
                   </div>
                   <div>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block">
+                    <span className="text-[10px] font-medium text-slate-400 uppercase tracking-[0.18em] block">
                       Email Identity
                     </span>
-                    <span className="font-semibold text-slate-700 mt-1 block truncate">
+                    <span className="font-semibold text-slate-900 mt-2 block truncate leading-6 text-base">
                       {patientData.profile.email}
                     </span>
                   </div>
                   <div>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block">
+                    <span className="text-[10px] font-medium text-slate-400 uppercase tracking-[0.18em] block">
                       Primary Phone
                     </span>
-                    <span className="font-semibold text-slate-700 mt-1 block">
+                    <span className="font-semibold text-slate-900 mt-2 block leading-6 text-base">
                       {patientData.profile.phone}
                     </span>
                   </div>
 
                   <div>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block">
+                    <span className="text-[10px] font-medium text-slate-400 uppercase tracking-[0.18em] block">
                       Secondary Phone
                     </span>
-                    <span className="font-semibold text-slate-700 mt-1 block">
+                    <span className="font-semibold text-slate-900 mt-2 block leading-6 text-base">
                       {patientData.profile.secondaryPhone || "Not Provided"}
                     </span>
                   </div>
                   <div>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block">
-                    Sex
-                  </span>
-                  <span className="font-semibold text-slate-700 mt-1 block">
-                    {patientData.profile.gender}
-                  </span>
-                </div>
+                    <span className="text-[10px] font-medium text-slate-400 uppercase tracking-[0.18em] block">
+                      Sex
+                    </span>
+                    <span className="font-semibold text-slate-900 mt-2 block leading-6 text-base">
+                      {patientData.profile.gender}
+                    </span>
+                  </div>
 
-                <div>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block">
-                    Age
-                  </span>
-                  <span className="font-semibold text-slate-700 mt-1 block">
-                    {patientData.profile.age}
-                  </span>
-                </div>
                   <div>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block">
+                    <span className="text-[10px] font-medium text-slate-400 uppercase tracking-[0.18em] block">
+                      Age
+                    </span>
+                    <span className="font-semibold text-slate-900 mt-2 block leading-6 text-base">
+                      {patientData.profile.age}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-medium text-slate-400 uppercase tracking-[0.18em] block">
                       Occupation Sector
                     </span>
-                    <span className="font-medium text-slate-700 mt-1 block">
+                    <span className="font-semibold text-slate-900 mt-2 block leading-6 text-base">
                       {patientData.profile.occupation}
                     </span>
                   </div>
                   <div>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block">
+                    <span className="text-[10px] font-medium text-slate-400 uppercase tracking-[0.18em] block">
                       Blood Matrix Type
                     </span>
-                    <span className="font-mono font-bold text-teal-700 bg-teal-50 border border-teal-100 px-2 py-0.5 rounded text-xs w-max mt-1 block">
+                    <span className="font-mono font-bold text-teal-700 bg-teal-50 border border-teal-100 px-2 py-1 rounded-xl text-xs w-max mt-2 block">
                       {patientData.profile.bloodGroup}
                     </span>
                   </div>
                 </div>
-                <div className="text-xs border-t border-slate-100 pt-3">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block mb-1">
+                <div className="border-t border-slate-100 pt-4">
+                  <span className="text-[10px] font-medium text-slate-400 uppercase tracking-[0.18em] block mb-2">
                     Residential Boundary Reference
                   </span>
-                  <p className="font-semibold text-slate-800">
+                  <p className="font-semibold text-slate-900 leading-6 text-base">
                     {patientData.profile.address.street}, {patientData.profile.address.city},{" "}
                     {patientData.profile.address.state} {patientData.profile.address.zipCode}
                   </p>
@@ -1891,82 +1896,21 @@ export default function AdminPatientDetailsPage() {
               </div>
             )}
 
-            {/* INTEGRATED FAMILY CONNECTIONS FOOTER ROW */}
-            <div className="pt-4 mt-4 border-t border-slate-100 grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="p-3 bg-slate-50/70 border border-slate-200/70 rounded-xl space-y-1.5 text-xs">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
-                  <Users className="w-3.5 h-3.5 text-slate-400" /> Linked Family Networks
-                </span>
-                <div className="space-y-1">
-                  {patientData.family.map((f) => (
-                    <div
-                      key={f.id}
-                      className="flex justify-between items-center bg-white p-1.5 rounded border border-slate-200 text-[11px]"
-                    >
-                      <span className="font-bold text-slate-800">
-                        {f.fullName}{" "}
-                        <span className="font-normal text-slate-400">({f.relation})</span>
-                      </span>
-                      {f.isEmergencyLink && (
-                        <span className="bg-rose-50 text-rose-600 font-bold px-1 rounded text-[9px] border border-rose-100">
-                          Kin
-                        </span>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-              <div className="p-3 bg-slate-50/70 border border-slate-200/70 rounded-xl text-xs flex flex-col justify-center">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
-                  Referral Origin Channel
-                </span>
-                <p className="font-bold text-slate-800 text-[11px]">
-                  {patientData.referrals.referredBy?.name || "Direct Organic Entry Walk-in"}
-                </p>
-              </div>
-              <div className="p-3 bg-slate-50/70 border border-slate-200/70 rounded-xl text-xs flex flex-col justify-center">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
-                  Generated Outbound Charts
-                </span>
-                <p className="font-medium text-slate-600 text-[11px]">
-                  {patientData.referrals.referredPatients.length} external matches tracked.
-                </p>
-              </div>
-            </div>
-
-            {/* EMERGENCY CONTACT & MEDICAL HISTORY ROW */}
-            <div className="grid grid-cols-1 md:grid-cols-[260px_1fr] gap-4 mt-6">
-              {/* Emergency Contact */}
-              <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                <p className="text-[10px] uppercase tracking-wide text-slate-400 font-bold mb-3">
-                  Emergency Contact
-                </p>
-
-                <div className="space-y-2">
-                  <h4 className="text-sm font-bold text-slate-800">
-                    {patientData.profile.emergencyContact.name}
-                  </h4>
-
-                  <p className="text-sm text-slate-500">
-                    {patientData.profile.emergencyContact.relation}
+            <div className="grid grid-cols-1 gap-6 pt-4 mt-4 border-t border-slate-100">
+              <div className="rounded-2xl border border-rose-100 bg-rose-50/30 p-4 flex flex-col h-full">
+                <div>
+                  <p className="text-[10px] uppercase tracking-wide text-rose-400 font-bold mb-3">
+                    Medical History &amp; Risk Disclosures
                   </p>
-
-                  <p className="text-sm font-semibold text-teal-600">
-                    {patientData.profile.emergencyContact.phone}
+                  <p className="text-sm text-slate-600 max-w-2xl">
+                    Medical history details are organized for a clearer clinical risk overview.
                   </p>
                 </div>
-              </div>
-
-              {/* Medical History */}
-              <div className="rounded-2xl border border-rose-100 bg-rose-50/30 p-4">
-                <p className="text-[10px] uppercase tracking-wide text-rose-400 font-bold mb-3">
-                  Medical History & Risk Disclosures
-                </p>
-
-                <div className="space-y-3 text-sm">
-                  <div>
-                    <span className="font-semibold text-slate-700">Allergies:</span>
-
+                <div className="mt-6 space-y-4 text-sm flex-1">
+                  <div className="rounded-2xl border border-rose-100 bg-white p-4">
+                    <span className="text-slate-900 font-bold text-xs uppercase tracking-wide">
+                      Allergies
+                    </span>
                     <div className="flex flex-wrap gap-2 mt-2">
                       {patientData.profile.medicalProfile.allergies.map((item) => (
                         <span
@@ -1978,39 +1922,110 @@ export default function AdminPatientDetailsPage() {
                       ))}
                     </div>
                   </div>
+                  <div className="rounded-2xl border border-rose-100 bg-white p-4">
+                    <span className="text-slate-900 font-bold text-xs uppercase tracking-wide">
+                      Medications
+                    </span>
+                    <div className="bg-white/90 border border-rose-100/80 shadow-xs rounded-xl p-3 mt-1.5">
+                      <p className="text-slate-700 font-medium leading-relaxed">
+                        {patientData.profile.medicalProfile.medications.join(", ")}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="rounded-2xl border border-rose-100 bg-white p-4">
+                    <span className="text-slate-900 font-bold text-xs uppercase tracking-wide">
+                      Conditions
+                    </span>
+                    <div className="bg-white/90 border border-rose-100/80 shadow-xs rounded-xl p-3 mt-1.5">
+                      <p className="text-slate-700 font-medium leading-relaxed">
+                        {patientData.profile.medicalProfile.conditions.join(", ")}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="rounded-2xl border border-rose-100 bg-white p-4">
+                    <span className="text-slate-900 font-bold text-xs uppercase tracking-wide">
+                      Family History
+                    </span>
+                    <div className="bg-white/90 border border-rose-100/80 shadow-xs rounded-xl p-3 mt-1.5">
+                      <p className="text-slate-700 font-medium leading-relaxed">
+                        {patientData.profile.medicalProfile.familyHistory ||
+                          "No family history recorded."}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="rounded-2xl border border-rose-100 bg-white p-4">
+                    <span className="text-slate-900 font-bold text-xs uppercase tracking-wide">
+                      Clinical Notes
+                    </span>
+                    <div className="bg-white/90 border border-rose-100/80 shadow-xs rounded-xl p-3 mt-1.5">
+                      <p className="text-slate-700 font-medium leading-relaxed">
+                        {patientData.profile.medicalProfile.notes}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
 
+            <div className="mt-6 grid grid-cols-1 xl:grid-cols-[1.25fr_0.95fr] gap-6 items-stretch">
+              <div className="grid grid-cols-1 gap-4">
+                <div className="p-3 bg-slate-50/70 border border-slate-200/70 rounded-xl space-y-1.5 text-xs">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
+                    <Users className="w-3.5 h-3.5 text-slate-400" /> Linked Family Networks
+                  </span>
+                  <div className="space-y-2">
+                    {patientData.family.map((f) => (
+                      <div
+                        key={f.id}
+                        className="flex justify-between items-center bg-white p-2 rounded-xl border border-slate-200 text-sm"
+                      >
+                        <span className="font-semibold text-slate-800">
+                          {f.fullName} <span className="font-normal text-slate-400">({f.relation})</span>
+                        </span>
+                        {f.isEmergencyLink && (
+                          <span className="bg-rose-50 text-rose-600 font-bold px-2 rounded-full text-[10px] border border-rose-100">
+                            Kin
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 bg-white p-4 space-y-3">
+                  <p className="text-[10px] uppercase tracking-wide text-slate-400 font-bold">
+                    Emergency Contact
+                  </p>
                   <div>
-                    <span className="font-semibold text-slate-700">Medications:</span>
-
-                    <p className="text-slate-500 mt-1">
-                      {patientData.profile.medicalProfile.medications.join(", ")}
+                    <h4 className="text-base font-semibold text-slate-900">
+                      {patientData.profile.emergencyContact.name}
+                    </h4>
+                    <p className="text-xs uppercase tracking-wide text-slate-400 mt-1">
+                      {patientData.profile.emergencyContact.relation}
+                    </p>
+                    <p className="text-sm font-semibold text-teal-600 mt-2">
+                      {patientData.profile.emergencyContact.phone}
                     </p>
                   </div>
+                </div>
+              </div>
 
-                  <div>
-                    <span className="font-semibold text-slate-700">Conditions:</span>
-
-                    <p className="text-slate-500 mt-1">
-                      {patientData.profile.medicalProfile.conditions.join(", ")}
-                    </p>
-                  </div>
-
-                  <div>
-                    <span className="font-semibold text-slate-700">Family History:</span>
-
-                    <p className="text-slate-500 mt-1">
-                      {patientData.profile.medicalProfile.familyHistory ||
-                        "No family history recorded."}
-                    </p>
-                  </div>
-
-                  <div>
-                    <span className="font-semibold text-slate-700">Clinical Notes:</span>
-
-                    <p className="text-slate-500 mt-1">
-                      {patientData.profile.medicalProfile.notes}
-                    </p>
-                  </div>
+              <div className="grid grid-cols-1 gap-4">
+                <div className="p-3 bg-slate-50/70 border border-slate-200/70 rounded-xl text-xs flex flex-col justify-center">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                    Referral Origin Channel
+                  </span>
+                  <p className="font-semibold text-slate-800 text-[12px]">
+                    {patientData.referrals.referredBy?.name || "Direct Organic Entry Walk-in"}
+                  </p>
+                </div>
+                <div className="p-3 bg-slate-50/70 border border-slate-200/70 rounded-xl text-xs flex flex-col justify-center">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                    Generated Outbound Charts
+                  </span>
+                  <p className="font-semibold text-slate-800 text-[12px]">
+                    {patientData.referrals.referredPatients.length} external matches tracked.
+                  </p>
                 </div>
               </div>
             </div>
@@ -2023,7 +2038,7 @@ export default function AdminPatientDetailsPage() {
         <div className="bg-white rounded-2xl border border-slate-200 border-l-4 border-l-emerald-500 shadow-xs overflow-hidden">
           <div className="px-4 sm:px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
             <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-              <CreditCard className="w-4 h-4 text-emerald-600" /> Operational Ledger & Billing Files
+              <CreditCard className="w-4 h-4 text-emerald-600" /> Operational Ledger &amp; Billing Files
             </h3>
             <button
               onClick={() => setIsAddingLedger(!isAddingLedger)}
@@ -2199,7 +2214,7 @@ export default function AdminPatientDetailsPage() {
             <div>
               <div className="px-4 sm:px-5 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
                 <h3 className="text-xs sm:text-sm font-bold text-slate-900 flex items-center gap-2">
-                  <FileText className="w-4 h-4 text-cyan-600" /> Treatment Tracking & Diagnostics
+                  <FileText className="w-4 h-4 text-cyan-600" /> Treatment Tracking &amp; Diagnostics
                 </h3>
                 <button
                   type="button"
@@ -2759,11 +2774,12 @@ export default function AdminPatientDetailsPage() {
             </div>
           </div>
           <div className="p-5">
-            <div className="max-w-[680px] mx-auto">
+            <div className="w-full max-w-[920px] mx-auto">
               <ToothChart
                 marks={getToothMarks()}
                 selected={selectedTooth ?? null}
                 onSelect={openToothModal}
+                size="lg"
               />
             </div>
           </div>

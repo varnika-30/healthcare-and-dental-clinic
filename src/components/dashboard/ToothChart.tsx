@@ -14,16 +14,27 @@ export function ToothChart({
   marks = [],
   selected,
   onSelect,
+  size = "md",
 }: {
   marks?: ToothMark[];
   selected?: number | null;
   onSelect?: (tooth: number) => void;
+  size?: "sm" | "md" | "lg";
 }) {
   const byTooth = new Map<number, ToothMark>();
   marks.forEach((m) => byTooth.set(m.tooth_number, m));
 
+  const gapClass = size === "lg" ? "gap-2" : size === "sm" ? "gap-1" : "gap-1.5";
+  const buttonClass =
+    size === "lg"
+      ? "flex h-14 w-11 flex-col items-center justify-center rounded-md border bg-card text-[10px] font-medium transition hover:border-primary"
+      : size === "sm"
+      ? "flex h-11 w-8 flex-col items-center justify-center rounded-md border bg-card text-[10px] font-medium transition hover:border-primary"
+      : "flex h-12 w-9 flex-col items-center justify-center rounded-md border bg-card text-[10px] font-medium transition hover:border-primary";
+  const iconClass = size === "lg" ? "text-lg" : size === "sm" ? "text-sm" : "text-base";
+
   const Row = ({ teeth }: { teeth: number[] }) => (
-    <div className="flex justify-center gap-1">
+    <div className={cn("flex justify-center", gapClass)}>
       {teeth.map((t) => {
         const m = byTooth.get(t);
         const active = selected === t;
@@ -34,13 +45,13 @@ export function ToothChart({
             onClick={() => onSelect?.(t)}
             title={m ? `${m.procedure} · ${m.status}` : `Tooth ${t}`}
             className={cn(
-              "flex h-12 w-9 flex-col items-center justify-center rounded-md border bg-card text-[10px] font-medium transition hover:border-primary",
+              buttonClass,
               m && STATUS_COLORS[m.status],
               active && "ring-2 ring-primary ring-offset-2 ring-offset-background",
             )}
           >
             <span className="text-[9px] text-muted-foreground">{t}</span>
-            <span className="text-base">🦷</span>
+            <span className={iconClass}>🦷</span>
           </button>
         );
       })}
@@ -50,7 +61,7 @@ export function ToothChart({
   return (
     <div className="space-y-3">
       <Row teeth={FDI_UPPER} />
-      <div className="mx-auto h-px w-3/4 bg-border" />
+      <div className="mx-auto h-px w-[92%] max-w-[880px] bg-border" />
       <Row teeth={FDI_LOWER} />
       <div className="mt-3 flex flex-wrap justify-center gap-3 text-xs text-muted-foreground">
         <Legend color="bg-warning" label="Planned" />
