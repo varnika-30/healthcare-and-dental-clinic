@@ -1,8 +1,9 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { DashboardShell } from "@/components/dashboard/DashboardShell";
 import { motion, AnimatePresence } from "framer-motion";
 import { Search, Phone, UserPlus } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 // ==========================================
 // TANSTACK ROUTE DEFINITION
@@ -280,6 +281,39 @@ export default function PatientManagementPage() {
     notes: "",
   });
   const [patients, setPatients] = useState(INITIAL_PATIENTS);
+  useEffect(() => {
+    async function loadPatients() {
+      const { data, error } = await supabase
+        .from("patients")
+        .select("*");
+
+      console.log("PATIENTS:", data);
+      console.log("ERROR:", error);
+
+      if (data) {
+        setPatients(
+          data.map((patient) => ({
+            id: patient.id,
+            name: `${patient.first_name} ${patient.last_name}`,
+            age: 0,
+            gender: patient.gender || "Unknown",
+            phone: patient.phone || "",
+            lastTreatment: {
+              type: "No Treatment",
+              date: "",
+            },
+            upcomingAppointment: null,
+            paymentStatus: "paid",
+            balanceDue: 0,
+            category: "new",
+            joinedDate: patient.created_at,
+          }))
+        );
+      }
+    }
+
+    loadPatients();
+  }, []);
   const [showRegisterModal, setShowRegisterModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<PatientFilterStatus>("all");
@@ -539,7 +573,10 @@ export default function PatientManagementPage() {
                             },
                           };
 
-                          localStorage.setItem(`patient_ecosystem_${patient.id}`, JSON.stringify(ecosystem));
+                          localStorage.setItem(
+                            `patient_ecosystem_${patient.id}`,
+                            JSON.stringify(ecosystem),
+                          );
                         }
                       } catch (e) {
                         // eslint-disable-next-line no-console

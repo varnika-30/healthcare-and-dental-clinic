@@ -208,8 +208,6 @@ export default function PatientDashboardOverview() {
                 <span>Add Appointment</span>
               </button>
 
-              
-
               <button
                 type="button"
                 onClick={() => navigate({ to: "/admin/ongoing-treatments" })}

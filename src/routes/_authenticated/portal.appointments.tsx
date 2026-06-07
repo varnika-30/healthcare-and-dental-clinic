@@ -94,6 +94,8 @@ function PortalAppointmentsPage() {
   const [hasTimePreference, setHasTimePreference] = useState<"no" | "yes">("no");
   const [preferredTimeText, setPreferredTimeText] = useState("");
   const [notes, setNotes] = useState("");
+  const [patientStatus, setPatientStatus] = useState<"existing" | "new">("existing");
+  const [dateError, setDateError] = useState("");
 
   const AVAILABLE_SERVICES: ServiceProfile[] = [
     { id: "s1", name: "Dental Cleaning & Examination" },
@@ -112,6 +114,12 @@ function PortalAppointmentsPage() {
     setNotes("");
   };
 
+  const getMinDateString = () => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    return tomorrow.toISOString().split("T")[0];
+  };
+
   const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const phoneValidation = validatePhone(patientPhone);
@@ -125,6 +133,18 @@ function PortalAppointmentsPage() {
       return;
     }
 
+    let dError = "";
+
+    if (!appointmentDate) {
+      dError = "Preferred date is required.";
+    }
+
+    if (dError) {
+      setDateError(dError);
+      return;
+    }
+
+    setDateError("");
     setIsSubmitting(true);
 
     setTimeout(() => {
@@ -444,6 +464,37 @@ function PortalAppointmentsPage() {
 
             <form onSubmit={handleFormSubmit} className="space-y-4 pt-1">
               <div className="space-y-1.5">
+                <div className="space-y-1.5">
+                  <span className="block text-xs font-bold uppercase tracking-wider text-slate-500">
+                    Have you visited our clinic before?
+                  </span>
+
+                  <div className="grid grid-cols-2 gap-2 h-11">
+                    <button
+                      type="button"
+                      onClick={() => setPatientStatus("existing")}
+                      className={`flex items-center justify-center rounded-lg border text-xs font-semibold tracking-wide transition-all ${
+                        patientStatus === "existing"
+                          ? "border-teal-600 bg-teal-50 text-teal-700 font-bold"
+                          : "border-slate-200 text-slate-600 hover:bg-slate-50"
+                      }`}
+                    >
+                      Yes
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setPatientStatus("new")}
+                      className={`flex items-center justify-center rounded-lg border text-xs font-semibold tracking-wide transition-all ${
+                        patientStatus === "new"
+                          ? "border-teal-600 bg-teal-50 text-teal-700 font-bold"
+                          : "border-slate-200 text-slate-600 hover:bg-slate-50"
+                      }`}
+                    >
+                      No
+                    </button>
+                  </div>
+                </div>
                 <label
                   htmlFor="clinical-service"
                   className="block text-xs font-bold uppercase tracking-wider text-slate-500"
@@ -514,10 +565,24 @@ function PortalAppointmentsPage() {
                     id="preferred-date"
                     type="date"
                     required
+                    min={getMinDateString()}
                     value={appointmentDate}
-                    onChange={(e) => setAppointmentDate(e.target.value)}
-                    className="h-11 w-full rounded-lg border border-slate-200 px-3 text-sm transition-all focus:border-teal-600 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
+                    onChange={(e) => {
+                      setAppointmentDate(e.target.value);
+                      if (dateError) setDateError("");
+                    }}
+                    className={`h-11 w-full rounded-lg border px-3 text-sm transition-all focus:outline-none focus:ring-2 focus:ring-teal-500/20 ${
+                      dateError
+                        ? "border-rose-300 focus:border-rose-500"
+                        : "border-slate-200 focus:border-teal-600"
+                    }`}
                   />
+                  {dateError && (
+                    <p className="flex items-center gap-1 text-xs font-medium text-rose-500">
+                      <AlertCircle className="h-3 w-3 shrink-0" />
+                      {dateError}
+                    </p>
+                  )}
                 </div>
 
                 <div className="space-y-1.5">

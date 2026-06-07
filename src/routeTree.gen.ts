@@ -24,7 +24,6 @@ import { Route as AuthenticatedPortalRouteImport } from './routes/_authenticated
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedPortalIndexRouteImport } from './routes/_authenticated/portal.index'
 import { Route as AuthenticatedPortalTreatmentRouteImport } from './routes/_authenticated/portal.treatment'
-import { Route as AuthenticatedPortalRequestAppointmentRouteImport } from './routes/_authenticated/portal.request-appointment'
 import { Route as AuthenticatedPortalRecordsRouteImport } from './routes/_authenticated/portal.records'
 import { Route as AuthenticatedPortalProfileRouteImport } from './routes/_authenticated/portal.profile'
 import { Route as AuthenticatedPortalPrescriptionsRouteImport } from './routes/_authenticated/portal.prescriptions'
@@ -114,12 +113,6 @@ const AuthenticatedPortalTreatmentRoute =
   AuthenticatedPortalTreatmentRouteImport.update({
     id: '/treatment',
     path: '/treatment',
-    getParentRoute: () => AuthenticatedPortalRoute,
-  } as any)
-const AuthenticatedPortalRequestAppointmentRoute =
-  AuthenticatedPortalRequestAppointmentRouteImport.update({
-    id: '/request-appointment',
-    path: '/request-appointment',
     getParentRoute: () => AuthenticatedPortalRoute,
   } as any)
 const AuthenticatedPortalRecordsRoute =
@@ -233,7 +226,6 @@ export interface FileRoutesByFullPath {
   '/portal/prescriptions': typeof AuthenticatedPortalPrescriptionsRoute
   '/portal/profile': typeof AuthenticatedPortalProfileRoute
   '/portal/records': typeof AuthenticatedPortalRecordsRoute
-  '/portal/request-appointment': typeof AuthenticatedPortalRequestAppointmentRoute
   '/portal/treatment': typeof AuthenticatedPortalTreatmentRoute
   '/portal/': typeof AuthenticatedPortalIndexRoute
   '/admin/patient-details/$patientId': typeof AuthenticatedAdminPatientDetailsPatientIdRoute
@@ -263,7 +255,6 @@ export interface FileRoutesByTo {
   '/portal/prescriptions': typeof AuthenticatedPortalPrescriptionsRoute
   '/portal/profile': typeof AuthenticatedPortalProfileRoute
   '/portal/records': typeof AuthenticatedPortalRecordsRoute
-  '/portal/request-appointment': typeof AuthenticatedPortalRequestAppointmentRoute
   '/portal/treatment': typeof AuthenticatedPortalTreatmentRoute
   '/portal': typeof AuthenticatedPortalIndexRoute
   '/admin/patient-details/$patientId': typeof AuthenticatedAdminPatientDetailsPatientIdRoute
@@ -296,7 +287,6 @@ export interface FileRoutesById {
   '/_authenticated/portal/prescriptions': typeof AuthenticatedPortalPrescriptionsRoute
   '/_authenticated/portal/profile': typeof AuthenticatedPortalProfileRoute
   '/_authenticated/portal/records': typeof AuthenticatedPortalRecordsRoute
-  '/_authenticated/portal/request-appointment': typeof AuthenticatedPortalRequestAppointmentRoute
   '/_authenticated/portal/treatment': typeof AuthenticatedPortalTreatmentRoute
   '/_authenticated/portal/': typeof AuthenticatedPortalIndexRoute
   '/_authenticated/admin/patient-details/$patientId': typeof AuthenticatedAdminPatientDetailsPatientIdRoute
@@ -329,7 +319,6 @@ export interface FileRouteTypes {
     | '/portal/prescriptions'
     | '/portal/profile'
     | '/portal/records'
-    | '/portal/request-appointment'
     | '/portal/treatment'
     | '/portal/'
     | '/admin/patient-details/$patientId'
@@ -359,7 +348,6 @@ export interface FileRouteTypes {
     | '/portal/prescriptions'
     | '/portal/profile'
     | '/portal/records'
-    | '/portal/request-appointment'
     | '/portal/treatment'
     | '/portal'
     | '/admin/patient-details/$patientId'
@@ -391,7 +379,6 @@ export interface FileRouteTypes {
     | '/_authenticated/portal/prescriptions'
     | '/_authenticated/portal/profile'
     | '/_authenticated/portal/records'
-    | '/_authenticated/portal/request-appointment'
     | '/_authenticated/portal/treatment'
     | '/_authenticated/portal/'
     | '/_authenticated/admin/patient-details/$patientId'
@@ -518,13 +505,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedPortalTreatmentRouteImport
       parentRoute: typeof AuthenticatedPortalRoute
     }
-    '/_authenticated/portal/request-appointment': {
-      id: '/_authenticated/portal/request-appointment'
-      path: '/request-appointment'
-      fullPath: '/portal/request-appointment'
-      preLoaderRoute: typeof AuthenticatedPortalRequestAppointmentRouteImport
-      parentRoute: typeof AuthenticatedPortalRoute
-    }
     '/_authenticated/portal/records': {
       id: '/_authenticated/portal/records'
       path: '/records'
@@ -648,7 +628,6 @@ interface AuthenticatedPortalRouteChildren {
   AuthenticatedPortalPrescriptionsRoute: typeof AuthenticatedPortalPrescriptionsRoute
   AuthenticatedPortalProfileRoute: typeof AuthenticatedPortalProfileRoute
   AuthenticatedPortalRecordsRoute: typeof AuthenticatedPortalRecordsRoute
-  AuthenticatedPortalRequestAppointmentRoute: typeof AuthenticatedPortalRequestAppointmentRoute
   AuthenticatedPortalTreatmentRoute: typeof AuthenticatedPortalTreatmentRoute
   AuthenticatedPortalIndexRoute: typeof AuthenticatedPortalIndexRoute
 }
@@ -661,8 +640,6 @@ const AuthenticatedPortalRouteChildren: AuthenticatedPortalRouteChildren = {
   AuthenticatedPortalPrescriptionsRoute: AuthenticatedPortalPrescriptionsRoute,
   AuthenticatedPortalProfileRoute: AuthenticatedPortalProfileRoute,
   AuthenticatedPortalRecordsRoute: AuthenticatedPortalRecordsRoute,
-  AuthenticatedPortalRequestAppointmentRoute:
-    AuthenticatedPortalRequestAppointmentRoute,
   AuthenticatedPortalTreatmentRoute: AuthenticatedPortalTreatmentRoute,
   AuthenticatedPortalIndexRoute: AuthenticatedPortalIndexRoute,
 }
