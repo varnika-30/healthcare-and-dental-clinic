@@ -283,16 +283,14 @@ export default function PatientManagementPage() {
   const [patients, setPatients] = useState(INITIAL_PATIENTS);
   useEffect(() => {
     async function loadPatients() {
-      const { data, error } = await supabase
-        .from("patients")
-        .select("*");
+      const { data, error } = await supabase.from("patients").select("*");
 
       console.log("PATIENTS:", data);
       console.log("ERROR:", error);
 
       if (data) {
         setPatients(
-          data.map((patient) => ({
+          (data as any[]).map((patient) => ({
             id: patient.id,
             name: `${patient.first_name} ${patient.last_name}`,
             age: 0,
@@ -307,7 +305,7 @@ export default function PatientManagementPage() {
             balanceDue: 0,
             category: "new",
             joinedDate: patient.created_at,
-          }))
+          })),
         );
       }
     }
@@ -506,7 +504,7 @@ export default function PatientManagementPage() {
                   </button>
 
                   <button
-                    onClick={() => {
+                    onClick={async () => {
                       const patient: PatientRecord = {
                         id: Date.now().toString(),
 
@@ -534,7 +532,43 @@ export default function PatientManagementPage() {
                         joinedDate: new Date().toLocaleDateString(),
                       };
 
-                      setPatients((prev) => [patient, ...prev]);
+                      const [firstName, ...lastParts] = patient.name.split(" ");
+
+                      const { error } = await supabase.from("patients").insert({
+                        first_name: firstName,
+                        last_name: lastParts.join(" ") || "",
+                        phone: patient.phone,
+                        email: newPatient.email,
+                        gender: patient.gender,
+                      } as any);
+
+                      if (error) {
+                        console.error("Failed to create patient:", error);
+                        return;
+                      }
+
+                      const { data } = await supabase.from("patients").select("*");
+
+                      if (data) {
+                        setPatients(
+                          (data as any[]).map((p) => ({
+                            id: p.id,
+                            name: `${p.first_name} ${p.last_name}`,
+                            age: 0,
+                            gender: p.gender || "Unknown",
+                            phone: p.phone || "",
+                            lastTreatment: {
+                              type: "No Treatment",
+                              date: "",
+                            },
+                            upcomingAppointment: null,
+                            paymentStatus: "paid",
+                            balanceDue: 0,
+                            category: "new",
+                            joinedDate: p.created_at,
+                          })),
+                        );
+                      }
 
                       try {
                         if (typeof window !== "undefined" && window.localStorage) {

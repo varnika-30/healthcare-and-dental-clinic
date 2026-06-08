@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { DashboardShell } from "@/components/dashboard/DashboardShell";
 import { motion, AnimatePresence } from "framer-motion";
+import { supabase } from "@/integrations/supabase/client";
 import {
   CalendarDays,
   Clock,
@@ -121,6 +122,33 @@ export default function AppointmentManagementPage() {
     timeSlot: "11:00 AM",
     notes: "",
   });
+
+  useEffect(() => {
+    async function loadAppointments() {
+      const { data, error } = await supabase.from("appointments").select("*");
+
+      console.log("APPOINTMENTS:", data);
+      console.log("APPOINTMENTS ERROR:", error);
+
+      if (data) {
+        setAppointments(
+          (data as any[]).map((appt) => ({
+            id: appt.id,
+            patientName: `Patient ${appt.patient_id.slice(0, 8)}`,
+            patientId: appt.patient_id,
+            phone: "",
+            treatmentType: appt.appointment_type || "General Consultation",
+            dateTime: appt.appointment_date,
+            duration: "30 mins",
+            status: appt.status === "requested" ? "pending" : appt.status,
+            notes: appt.notes || "",
+          })),
+        );
+      }
+    }
+
+    loadAppointments();
+  }, []);
 
   const scheduleDate = new Date(2026, 4, selectedDate);
   const scheduleLabel = scheduleDate.toLocaleDateString("en-US", {
