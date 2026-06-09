@@ -1,4 +1,5 @@
-export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
+export type Json = string | number | boolean | null | { [key: string]: Json 
+ undefined } | Json[];
 
 export type Database = {
   // Allows to automatically instantiate createClient with right options
@@ -18,10 +19,9 @@ export type Database = {
           notes: string | null;
           patient_id: string;
           priority: Database["public"]["Enums"]["appointment_priority"];
-          scheduled_at: string;
+          appointment_date: string;
           service: string;
           status: Database["public"]["Enums"]["appointment_status"];
-          updated_at: string;
         };
         Insert: {
           created_at?: string;
@@ -32,10 +32,9 @@ export type Database = {
           notes?: string | null;
           patient_id: string;
           priority?: Database["public"]["Enums"]["appointment_priority"];
-          scheduled_at: string;
+          appointment_date?: string;
           service: string;
           status?: Database["public"]["Enums"]["appointment_status"];
-          updated_at?: string;
         };
         Update: {
           created_at?: string;
@@ -46,10 +45,9 @@ export type Database = {
           notes?: string | null;
           patient_id?: string;
           priority?: Database["public"]["Enums"]["appointment_priority"];
-          scheduled_at?: string;
+          appointment_date?: string;
           service?: string;
           status?: Database["public"]["Enums"]["appointment_status"];
-          updated_at?: string;
         };
         Relationships: [
           {

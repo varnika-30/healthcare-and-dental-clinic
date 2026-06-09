@@ -120,7 +120,7 @@ export default function AppointmentManagementPage() {
   const [patientSearchQuery, setPatientSearchQuery] = useState("");
   const [selectedPatient, setSelectedPatient] = useState<{ id: string; name: string } | null>(null);
   const [showPatientDropdown, setShowPatientDropdown] = useState(false);
-  const [selectedDate, setSelectedDate] = useState<number>(26);
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [pendingIndex, setPendingIndex] = useState(0);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
@@ -138,7 +138,15 @@ export default function AppointmentManagementPage() {
 
   useEffect(() => {
     async function loadAppointments() {
-      const { data, error } = await supabase.from("appointments").select("*");
+      const { data, error } = await supabase
+        .from("appointments")
+        .select(`
+          *,
+          patients (
+            first_name,
+            last_name
+          )
+        `);
 
       console.log("APPOINTMENTS:", data);
       console.log("APPOINTMENTS ERROR:", error);
@@ -157,11 +165,13 @@ export default function AppointmentManagementPage() {
 
             return {
               id: appt.id,
-              patientName: `Patient ${appt.patient_id.slice(0, 8)}`,
+              patientName:
+                patientOptions.find((p) => p.id === appt.patient_id)?.name ??
+                `Patient ${appt.patient_id.slice(0, 8)}`,
               patientId: appt.patient_id,
               phone: "",
               treatmentType: appt.service,
-              dateTime: appt.scheduled_at,
+              dateTime: appt.appointment_date,
               duration: `${appt.duration_minutes} mins`,
               status: statusMap,
               priority: appt.priority || "normal",
@@ -179,19 +189,19 @@ export default function AppointmentManagementPage() {
       console.log("PATIENT OPTIONS ERROR:", error);
       if (data) {
         setPatientOptions(
-            data.map((patient: Record<string, unknown>) => ({
-              id: String(patient.id),
-              name: `${patient["first_name"]} ${patient["last_name"]}`,
-            }))
+          data.map((patient: Record<string, unknown>) => ({
+            id: String(patient.id),
+            name: `${patient["first_name"]} ${patient["last_name"]}`,
+          })),
         );
       }
     }
 
     loadAppointments();
     loadPatientOptions();
-  }, []);
+  }, [patientOptions]);
 
-  const scheduleDate = new Date(2026, 4, selectedDate);
+  const scheduleDate = selectedDate;
   const scheduleLabel = scheduleDate.toLocaleDateString("en-US", {
     weekday: "long",
     month: "short",
@@ -199,10 +209,26 @@ export default function AppointmentManagementPage() {
     year: "numeric",
   });
 
-  const goPreviousDay = () => setSelectedDate((prev) => Math.max(1, prev - 1));
-  const goNextDay = () => setSelectedDate((prev) => Math.min(31, prev + 1));
+  const goPreviousDay = () => {
+    setSelectedDate((prev) => new Date(prev.getFullYear(), prev.getMonth(), prev.getDate() - 1));
+  };
 
-  const handleUpdateStatus = (id: string, newStatus: AppointmentStatus) => {
+  const goNextDay = () => {
+    setSelectedDate((prev) => new Date(prev.getFullYear(), prev.getMonth(), prev.getDate() + 1));
+  };
+
+  const handleUpdateStatus = async (id: string, newStatus: AppointmentStatus) => {
+    const dbStatus =
+      newStatus === "pending" ? "requested" : newStatus === "approved" ? "confirmed" : newStatus;
+
+    const { error } = await supabase.from("appointments").update({ status: dbStatus }).eq("id", id);
+
+    if (error) {
+      console.error(error);
+      alert("Failed to update appointment status");
+      return;
+    }
+
     setAppointments((prev) =>
       prev.map((apt) => (apt.id === id ? { ...apt, status: newStatus } : apt)),
     );
@@ -219,7 +245,7 @@ export default function AppointmentManagementPage() {
     }
   };
 
-  const handleCreateAppointment = (e: React.FormEvent) => {
+  const handleCreateAppointment = async (e: React.FormEvent) => {
     e.preventDefault();
     const [hourStr, minuteStrWithAmPm] = formData.timeSlot.split(":");
     const [minuteStr, ampm] = minuteStrWithAmPm.split(" ");
@@ -230,13 +256,15 @@ export default function AppointmentManagementPage() {
     const isoDateTime = `${formData.date}T${String(hours).padStart(2, "0")}:${minuteStr}:00`;
 
     const selectedPatientName = selectedPatient?.name || formData.patientName;
-    const selectedPatientId =
-      selectedPatient?.id || `#P-${Math.floor(1000 + Math.random() * 9000)}`;
+    if (!selectedPatient) {
+      alert("Please select a patient.");
+      return;
+    }
 
     const newApt: Appointment = {
       id: `APT-${Math.floor(2000 + Math.random() * 9000)}`,
       patientName: selectedPatientName,
-      patientId: selectedPatientId,
+      patientId: selectedPatient.id,
       phone: formData.phone,
       treatmentType: formData.treatmentType,
       dateTime: isoDateTime,
@@ -246,7 +274,30 @@ export default function AppointmentManagementPage() {
       notes: formData.notes,
     };
 
-    setAppointments((prev) => [...prev, newApt]);
+    const { error } = await supabase.from("appointments").insert({
+      patient_id: selectedPatient.id,
+      appointment_date: isoDateTime,
+      service: formData.treatmentType,
+      priority: formData.priority,
+      status: "confirmed",
+      notes: formData.notes,
+    });
+
+    if (error) {
+      console.error(error);
+      alert("Failed to create appointment");
+      return;
+    }
+
+    const { data: refreshedAppointments, error: refreshError } = await supabase
+      .from("appointments")
+      .select("*");
+
+    if (refreshedAppointments) {
+      console.log("REFRESHED APPOINTMENTS:", refreshedAppointments);
+    }
+    console.log("REFRESH ERROR:", refreshError);
+
     setIsModalOpen(false);
     setFormData({
       patientName: "",
@@ -261,7 +312,7 @@ export default function AppointmentManagementPage() {
     setPatientSearchQuery("");
     setSelectedPatient(null);
     setShowPatientDropdown(false);
-    setSelectedDate(new Date(isoDateTime).getDate());
+    setSelectedDate(new Date(isoDateTime));
   };
 
   const pendingRequests = useMemo(() => {
@@ -307,8 +358,13 @@ export default function AppointmentManagementPage() {
   const dayScheduleTimeline = useMemo(() => {
     return appointments
       .filter((apt) => {
-        const aptDay = new Date(apt.dateTime).getDate();
-        return aptDay === selectedDate && apt.status !== "pending";
+        const aptDate = new Date(apt.dateTime);
+
+        return (
+          aptDate.getDate() === selectedDate.getDate() &&
+          aptDate.getMonth() === selectedDate.getMonth() &&
+          aptDate.getFullYear() === selectedDate.getFullYear()
+        );
       })
       .sort((a, b) => new Date(a.dateTime).getTime() - new Date(b.dateTime).getTime());
   }, [appointments, selectedDate]);
@@ -393,13 +449,48 @@ export default function AppointmentManagementPage() {
                         exit={{ opacity: 0, y: 8 }}
                         className="absolute left-0 mt-2 w-72 bg-white border border-slate-200 p-4 rounded-xl shadow-xl z-50 space-y-3"
                       >
-                        <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                          <span className="text-xs font-bold text-slate-900 uppercase tracking-wider font-mono">
-                            May 2026
+                        {/* Dynamic Month/Year Header with Navigation */}
+                        <div className="flex items-center justify-between border-b border-slate-100 pb-2 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedDate(
+                                new Date(
+                                  selectedDate.getFullYear(),
+                                  selectedDate.getMonth() - 1,
+                                  1,
+                                ),
+                              );
+                            }}
+                            className="p-1 rounded-lg text-slate-600 hover:bg-slate-50 transition"
+                            title="Previous month"
+                          >
+                            <ChevronLeft className="h-4 w-4" />
+                          </button>
+
+                          <span className="text-xs font-bold text-slate-900 uppercase tracking-wider font-mono flex-1 text-center">
+                            {selectedDate.toLocaleDateString("en-US", {
+                              month: "long",
+                              year: "numeric",
+                            })}
                           </span>
-                          <span className="text-[11px] text-slate-400 font-medium">
-                            Select a date
-                          </span>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedDate(
+                                new Date(
+                                  selectedDate.getFullYear(),
+                                  selectedDate.getMonth() + 1,
+                                  1,
+                                ),
+                              );
+                            }}
+                            className="p-1 rounded-lg text-slate-600 hover:bg-slate-50 transition"
+                            title="Next month"
+                          >
+                            <ChevronRight className="h-4 w-4" />
+                          </button>
                         </div>
 
                         <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-bold text-slate-400 uppercase tracking-widest">
@@ -412,41 +503,98 @@ export default function AppointmentManagementPage() {
                           <span>S</span>
                         </div>
 
+                        {/* Dynamic Calendar Grid */}
                         <div className="grid grid-cols-7 gap-1 text-xs text-center font-semibold">
-                          <span className="text-slate-200 py-1.5">27</span>
-                          <span className="text-slate-200 py-1.5">28</span>
-                          <span className="text-slate-200 py-1.5">29</span>
-                          <span className="text-slate-200 py-1.5">30</span>
+                          {(() => {
+                            const year = selectedDate.getFullYear();
+                            const month = selectedDate.getMonth();
+                            const currentDate = selectedDate.getDate();
+                            const currentMonth = selectedDate.getMonth();
+                            const currentYear = selectedDate.getFullYear();
 
-                          {Array.from({ length: 31 }, (_, i) => i + 1)
-                            .slice(0, 17)
-                            .map((day) => {
-                              const isSelected = selectedDate === day;
-                              const bookingCount = calendarBadgesMap[day] || 0;
+                            // Get first day of the month (0 = Monday in this calendar's context)
+                            const firstDay = new Date(year, month, 1);
+                            const firstDayOfWeek = firstDay.getDay(); // 0 = Sunday, adjust to Monday = 0
+                            const adjustedFirstDay = firstDayOfWeek === 0 ? 6 : firstDayOfWeek - 1;
+
+                            // Get number of days in this month
+                            const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+                            // Get number of days in previous month
+                            const daysInPrevMonth = new Date(year, month, 0).getDate();
+
+                            // Calculate days to show from previous month
+                            const prevMonthDays = adjustedFirstDay;
+                            const prevMonthStartDay = daysInPrevMonth - prevMonthDays + 1;
+
+                            // Build calendar array
+                            const calendarDays = [];
+
+                            // Add previous month's trailing days
+                            for (let i = prevMonthStartDay; i <= daysInPrevMonth; i++) {
+                              calendarDays.push({
+                                day: i,
+                                isCurrentMonth: false,
+                                isSelected: false,
+                              });
+                            }
+
+                            // Add current month's days
+                            for (let i = 1; i <= daysInMonth; i++) {
+                              calendarDays.push({
+                                day: i,
+                                isCurrentMonth: true,
+                                isSelected:
+                                  i === currentDate &&
+                                  month === currentMonth &&
+                                  year === currentYear,
+                              });
+                            }
+
+                            // Add next month's leading days to fill grid
+                            const remainingDays = 42 - calendarDays.length; // 6 rows × 7 days
+                            for (let i = 1; i <= remainingDays; i++) {
+                              calendarDays.push({
+                                day: i,
+                                isCurrentMonth: false,
+                                isSelected: false,
+                              });
+                            }
+
+                            return calendarDays.map((dayObj, index) => {
+                              const bookingCount = dayObj.isCurrentMonth
+                                ? calendarBadgesMap[dayObj.day] || 0
+                                : 0;
 
                               return (
                                 <button
-                                  key={day}
+                                  key={`${dayObj.day}-${index}`}
                                   type="button"
+                                  disabled={!dayObj.isCurrentMonth}
                                   onClick={() => {
-                                    setSelectedDate(day);
-                                    setIsCalendarOpen(false);
+                                    if (dayObj.isCurrentMonth) {
+                                      setSelectedDate(new Date(year, month, dayObj.day));
+                                      setIsCalendarOpen(false);
+                                    }
                                   }}
                                   className={`py-1.5 rounded-lg font-bold transition relative flex flex-col items-center justify-center min-h-[32px] ${
-                                    isSelected
-                                      ? "bg-teal-600 text-white shadow-xs"
-                                      : "text-slate-800 hover:bg-slate-50"
+                                    !dayObj.isCurrentMonth
+                                      ? "text-slate-200 cursor-default"
+                                      : dayObj.isSelected
+                                        ? "bg-teal-600 text-white shadow-xs"
+                                        : "text-slate-800 hover:bg-slate-50"
                                   }`}
                                 >
-                                  <span>{day}</span>
-                                  {bookingCount > 0 && (
+                                  <span>{dayObj.day}</span>
+                                  {dayObj.isCurrentMonth && bookingCount > 0 && (
                                     <span
-                                      className={`absolute bottom-0.5 h-1 w-1 rounded-full ${isSelected ? "bg-white" : "bg-teal-500"}`}
+                                      className={`absolute bottom-0.5 h-1 w-1 rounded-full ${dayObj.isSelected ? "bg-white" : "bg-teal-500"}`}
                                     />
                                   )}
                                 </button>
                               );
-                            })}
+                            });
+                          })()}
                         </div>
                       </motion.div>
                     </>
@@ -465,7 +613,7 @@ export default function AppointmentManagementPage() {
 
             <button
               type="button"
-              onClick={() => setSelectedDate(26)} // Resets back to mock layout standard anchor day
+              onClick={() => setSelectedDate(new Date())}
               className="hidden md:inline-flex h-9 items-center justify-center rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 hover:bg-slate-50 transition"
             >
               Today
@@ -821,9 +969,6 @@ export default function AppointmentManagementPage() {
                           <div className="flex items-center justify-between gap-3">
                             <span className="font-medium text-slate-900 truncate">
                               {patient.name}
-                            </span>
-                            <span className="text-[11px] uppercase tracking-[0.24em] text-slate-400">
-                              {patient.id}
                             </span>
                           </div>
                         </button>
