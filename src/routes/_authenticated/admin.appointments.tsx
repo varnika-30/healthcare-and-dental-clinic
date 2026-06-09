@@ -23,6 +23,7 @@ export const Route = createFileRoute("/_authenticated/admin/appointments")({
 });
 
 type AppointmentStatus = "pending" | "approved" | "completed" | "cancelled";
+type AppointmentPriority = "normal" | "urgent" | "emergency";
 
 interface Appointment {
   id: string;
@@ -33,6 +34,7 @@ interface Appointment {
   dateTime: string;
   duration: string;
   status: AppointmentStatus;
+  priority: AppointmentPriority;
   notes: string;
 }
 
@@ -46,6 +48,7 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
     dateTime: "2026-05-26T09:00:00",
     duration: "45 mins",
     status: "pending",
+    priority: "normal",
     notes:
       "New patient requesting clear aligner assessment. Has panoramic X-rays from previous clinic.",
   },
@@ -58,6 +61,7 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
     dateTime: "2026-05-26T10:30:00",
     duration: "30 mins",
     status: "approved",
+    priority: "normal",
     notes: "6-month recall visit. Needs routine scaling and polishing.",
   },
   {
@@ -69,6 +73,7 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
     dateTime: "2026-05-26T13:00:00",
     duration: "60 mins",
     status: "approved",
+    priority: "normal",
     notes: "Reporting acute pain on lower left molar when chewing cold food.",
   },
   {
@@ -80,6 +85,7 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
     dateTime: "2026-05-26T15:00:00",
     duration: "45 mins",
     status: "completed",
+    priority: "normal",
     notes: "In-office laser whitening course completed successfully.",
   },
   {
@@ -91,6 +97,7 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
     dateTime: "2026-05-25T11:00:00",
     duration: "90 mins",
     status: "cancelled",
+    priority: "normal",
     notes: "Patient cancelled due to work trip travel emergency.",
   },
 ];
@@ -109,6 +116,10 @@ const TIMELINE_SLOTS = [
 
 export default function AppointmentManagementPage() {
   const [appointments, setAppointments] = useState<Appointment[]>(INITIAL_APPOINTMENTS);
+  const [patientOptions, setPatientOptions] = useState<{ id: string; name: string }[]>([]);
+  const [patientSearchQuery, setPatientSearchQuery] = useState("");
+  const [selectedPatient, setSelectedPatient] = useState<{ id: string; name: string } | null>(null);
+  const [showPatientDropdown, setShowPatientDropdown] = useState(false);
   const [selectedDate, setSelectedDate] = useState<number>(26);
   const [pendingIndex, setPendingIndex] = useState(0);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -116,10 +127,12 @@ export default function AppointmentManagementPage() {
 
   const [formData, setFormData] = useState({
     patientName: "",
+    patientId: "",
     phone: "",
     treatmentType: "Routine Cleaning & Checkup",
     date: "2026-05-26",
     timeSlot: "11:00 AM",
+    priority: "normal" as AppointmentPriority,
     notes: "",
   });
 
@@ -132,22 +145,50 @@ export default function AppointmentManagementPage() {
 
       if (data) {
         setAppointments(
-          (data as any[]).map((appt) => ({
-            id: appt.id,
-            patientName: `Patient ${appt.patient_id.slice(0, 8)}`,
-            patientId: appt.patient_id,
-            phone: "",
-            treatmentType: appt.appointment_type || "General Consultation",
-            dateTime: appt.appointment_date,
-            duration: "30 mins",
-            status: appt.status === "requested" ? "pending" : appt.status,
-            notes: appt.notes || "",
-          })),
+          data.map((appt) => {
+            const statusMap: AppointmentStatus =
+              appt.status === "requested"
+                ? "pending"
+                : appt.status === "confirmed"
+                  ? "approved"
+                  : appt.status === "completed"
+                    ? "completed"
+                    : "cancelled";
+
+            return {
+              id: appt.id,
+              patientName: `Patient ${appt.patient_id.slice(0, 8)}`,
+              patientId: appt.patient_id,
+              phone: "",
+              treatmentType: appt.service,
+              dateTime: appt.scheduled_at,
+              duration: `${appt.duration_minutes} mins`,
+              status: statusMap,
+              priority: appt.priority || "normal",
+              notes: appt.notes || "",
+            };
+          }),
+        );
+      }
+    }
+
+    async function loadPatientOptions() {
+      const { data, error } = await supabase.from("patients").select("*");
+
+      console.log("PATIENT OPTIONS:", data);
+      console.log("PATIENT OPTIONS ERROR:", error);
+      if (data) {
+        setPatientOptions(
+            data.map((patient: Record<string, unknown>) => ({
+              id: String(patient.id),
+              name: `${patient["first_name"]} ${patient["last_name"]}`,
+            }))
         );
       }
     }
 
     loadAppointments();
+    loadPatientOptions();
   }, []);
 
   const scheduleDate = new Date(2026, 4, selectedDate);
@@ -188,15 +229,20 @@ export default function AppointmentManagementPage() {
 
     const isoDateTime = `${formData.date}T${String(hours).padStart(2, "0")}:${minuteStr}:00`;
 
+    const selectedPatientName = selectedPatient?.name || formData.patientName;
+    const selectedPatientId =
+      selectedPatient?.id || `#P-${Math.floor(1000 + Math.random() * 9000)}`;
+
     const newApt: Appointment = {
       id: `APT-${Math.floor(2000 + Math.random() * 9000)}`,
-      patientName: formData.patientName,
-      patientId: `#P-${Math.floor(1000 + Math.random() * 9000)}`,
+      patientName: selectedPatientName,
+      patientId: selectedPatientId,
       phone: formData.phone,
       treatmentType: formData.treatmentType,
       dateTime: isoDateTime,
       duration: "45 mins",
       status: "approved",
+      priority: formData.priority,
       notes: formData.notes,
     };
 
@@ -204,12 +250,17 @@ export default function AppointmentManagementPage() {
     setIsModalOpen(false);
     setFormData({
       patientName: "",
+      patientId: "",
       phone: "",
       treatmentType: "Routine Cleaning & Checkup",
       date: "2026-05-26",
       timeSlot: "11:00 AM",
+      priority: "normal",
       notes: "",
     });
+    setPatientSearchQuery("");
+    setSelectedPatient(null);
+    setShowPatientDropdown(false);
     setSelectedDate(new Date(isoDateTime).getDate());
   };
 
@@ -239,6 +290,19 @@ export default function AppointmentManagementPage() {
       setPendingIndex(Math.max(0, pendingRequests.length - 1));
     }
   }, [pendingRequests.length, pendingIndex]);
+
+  const filteredPatientOptions = useMemo(() => {
+    const normalizedQuery = patientSearchQuery.trim().toLowerCase();
+    if (!normalizedQuery) return patientOptions.slice(0, 25);
+
+    return patientOptions
+      .filter(
+        (patient) =>
+          patient.name.toLowerCase().includes(normalizedQuery) ||
+          patient.id.toLowerCase().includes(normalizedQuery),
+      )
+      .slice(0, 25);
+  }, [patientOptions, patientSearchQuery]);
 
   const dayScheduleTimeline = useMemo(() => {
     return appointments
@@ -702,18 +766,70 @@ export default function AppointmentManagementPage() {
               </div>
 
               <form onSubmit={handleCreateAppointment} className="p-5 space-y-4">
-                <div className="space-y-1">
+                <div
+                  className="space-y-1 relative"
+                  tabIndex={-1}
+                  onBlur={() => setShowPatientDropdown(false)}
+                >
                   <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
-                    Patient Name
+                    Patient
                   </label>
                   <input
                     type="text"
                     required
-                    value={formData.patientName}
-                    onChange={(e) => setFormData({ ...formData, patientName: e.target.value })}
+                    value={patientSearchQuery}
+                    onChange={(e) => {
+                      setPatientSearchQuery(e.target.value);
+                      setFormData((prev) => ({
+                        ...prev,
+                        patientName: e.target.value,
+                        patientId: "",
+                      }));
+                      if (selectedPatient?.name !== e.target.value) {
+                        setSelectedPatient(null);
+                      }
+                      setShowPatientDropdown(true);
+                    }}
+                    onFocus={() => setShowPatientDropdown(true)}
                     className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-teal-500 focus:outline-hidden"
-                    placeholder="e.g. John Doe"
+                    placeholder="Search patient by name or ID"
                   />
+                  {selectedPatient && (
+                    <p className="text-[11px] text-slate-500 mt-1">
+                      Selected ID: {selectedPatient.id}
+                    </p>
+                  )}
+                  {showPatientDropdown && filteredPatientOptions.length > 0 && (
+                    <div className="absolute left-0 right-0 top-full z-50 mt-2 max-h-64 overflow-y-auto rounded-3xl border border-slate-200 bg-white shadow-xl">
+                      {filteredPatientOptions.map((patient) => (
+                        <button
+                          key={patient.id}
+                          type="button"
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            setSelectedPatient(patient);
+                            setPatientSearchQuery(patient.name);
+                            setFormData((prev) => ({
+                              ...prev,
+                              patientId: patient.id,
+                              patientName: patient.name,
+                            }));
+                            setShowPatientDropdown(false);
+                          }}
+                          className="w-full text-left px-4 py-3 hover:bg-slate-50 transition"
+                        >
+                          <div className="flex items-center justify-between gap-3">
+                            <span className="font-medium text-slate-900 truncate">
+                              {patient.name}
+                            </span>
+                            <span className="text-[11px] uppercase tracking-[0.24em] text-slate-400">
+                              {patient.id}
+                            </span>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 <div className="space-y-1">
@@ -730,7 +846,7 @@ export default function AppointmentManagementPage() {
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                   <div className="space-y-1">
                     <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
                       Date
@@ -757,6 +873,25 @@ export default function AppointmentManagementPage() {
                           {slot}
                         </option>
                       ))}
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
+                      Priority
+                    </label>
+                    <select
+                      value={formData.priority}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          priority: e.target.value as AppointmentPriority,
+                        })
+                      }
+                      className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-teal-500 focus:outline-hidden bg-white"
+                    >
+                      <option value="normal">Normal</option>
+                      <option value="urgent">Urgent</option>
+                      <option value="emergency">Emergency</option>
                     </select>
                   </div>
                 </div>
