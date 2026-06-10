@@ -178,6 +178,69 @@ export default function DentalTreatmentOperationsDashboard() {
   const [labDialogOpen, setLabDialogOpen] = useState(false);
 
   const [treatments, setTreatments] = useState<OngoingTreatmentCase[]>(initialTreatments);
+  useEffect(() => {
+    async function loadTreatmentPlans() {
+      const { data, error } = await supabase
+        .from("treatment_plans")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      console.log("TREATMENT DATA:", data);
+      console.log("TREATMENT ERROR:", error);
+
+      if (data) {
+        setTreatments(
+          data.map((plan) => ({
+            id: plan.id,
+
+            patientName: `Patient ${plan.patient_id.slice(0, 8)}`,
+            patientId: plan.patient_id,
+
+            treatment: plan.title,
+
+            appointmentDate: plan.start_date || "—",
+
+            clinicalStage:
+              plan.status === "planned"
+                ? "Ready for Follow-up"
+                : plan.status === "in_progress"
+                  ? "Active Treatment"
+                  : plan.status === "completed"
+                    ? "Concluded"
+                    : "Ready for Follow-up",
+
+            labWorkflow: {
+              status:
+                plan.lab_status === "none"
+                  ? "None"
+                  : "In Progress",
+            },
+
+            totalAmount: Number(plan.estimated_cost || 0),
+
+            paidAmount: Number(plan.paid_amount || 0),
+
+            remainingBalance:
+              Number(plan.estimated_cost || 0) -
+              Number(plan.paid_amount || 0),
+
+            status:
+              plan.payment_status === "pending"
+                ? "Pending"
+                : plan.payment_status === "paid"
+                  ? "Paid"
+                  : "Partial",
+
+            paymentMethod: "—",
+
+            dueDate: plan.due_date || "—",
+          })),
+        );
+      }
+    }
+
+    loadTreatmentPlans();
+  }, []);
   const [searchTerm, setSearchTerm] = useState("");
   const [activeFilter, setActiveFilter] = useState<"All" | "Active" | "Lab Phase" | "Follow-up">(
     "All",
@@ -190,7 +253,6 @@ export default function DentalTreatmentOperationsDashboard() {
   const [selectedPatient, setSelectedPatient] = useState<{ id: string; name: string } | null>(null);
   const [showPatientDropdown, setShowPatientDropdown] = useState(false);
   const [customTreatmentName, setCustomTreatmentName] = useState("");
-  
 
   // Form states
   const [invoiceForm, setInvoiceForm] = useState({
@@ -250,16 +312,22 @@ export default function DentalTreatmentOperationsDashboard() {
       : dateObj.toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" });
   };
 
-  const handleCreateInvoice = (e: React.FormEvent) => {
+  const handleCreateInvoice = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!selectedPatient) {
+      toast.error("Please select a patient.");
+      return;
+    }
     if (!invoiceForm.patientName || !invoiceForm.treatment || !invoiceForm.amount) return;
 
+    const finalTreatment =
+      invoiceForm.treatment === "Other" ? customTreatmentName : invoiceForm.treatment;
     const total = parseFloat(invoiceForm.amount) || 0;
     const newCase: OngoingTreatmentCase = {
       id: `TRT-2026-0${483 + treatments.length}`,
       patientName: invoiceForm.patientName,
       patientId: `PT-${Math.floor(1000 + Math.random() * 9000)}`,
-      treatment: invoiceForm.treatment,
+      treatment: finalTreatment,
       appointmentDate: formatDateString(new Date().toISOString().split("T")[0]),
       clinicalStage: "Active Treatment",
       labWorkflow: { status: "None" },
@@ -271,10 +339,40 @@ export default function DentalTreatmentOperationsDashboard() {
       dueDate: formatDateString(invoiceForm.dueDate),
     };
 
-    setTreatments((prev) => [newCase, ...prev]);
-    setInvoiceForm({ patientName: "", treatment: "", amount: "", dueDate: "", notes: "" });
+    const { error } = await supabase.from("treatment_plans").insert({
+      patient_id: selectedPatient.id,
+      title: finalTreatment,
+      description: invoiceForm.notes || null,
+      status: "in_progress",
+      start_date: new Date().toISOString().split("T")[0],
+      estimated_cost: total,
+      actual_cost: 0,
+      paid_amount: 0,
+      due_date: invoiceForm.dueDate || null,
+      payment_status: "pending",
+      lab_status: "none",
+    });
+
+    if (error) {
+      console.log("INSERT ERROR:", error);
+      console.log("INSERT ERROR JSON:", JSON.stringify(error, null, 2));
+      toast.error("Failed to create treatment plan");
+      return;
+    }
+
+    toast.success("Treatment plan created successfully.");
+
+    setInvoiceForm({
+      patientName: "",
+      treatment: "",
+      amount: "",
+      dueDate: "",
+      notes: "",
+    });
+
+    setSelectedPatient(null);
+    setPatientSearchQuery("");
     setCreateOpen(false);
-    toast.success("New operational treatment case opened successfully.");
   };
 
   const handleOpenPayment = (trtCase: OngoingTreatmentCase) => {
@@ -873,58 +971,37 @@ export default function DentalTreatmentOperationsDashboard() {
                     Routine Cleaning & Checkup
                   </SelectItem>
 
-                  <SelectItem value="Dental Filling">
-                    Dental Filling
-                  </SelectItem>
+                  <SelectItem value="Dental Filling">Dental Filling</SelectItem>
 
-                  <SelectItem value="Root Canal Treatment">
-                    Root Canal Treatment
-                  </SelectItem>
+                  <SelectItem value="Root Canal Treatment">Root Canal Treatment</SelectItem>
 
-                  <SelectItem value="Crown Placement">
-                    Crown Placement
-                  </SelectItem>
+                  <SelectItem value="Crown Placement">Crown Placement</SelectItem>
 
-                  <SelectItem value="Bridge Placement">
-                    Bridge Placement
-                  </SelectItem>
+                  <SelectItem value="Bridge Placement">Bridge Placement</SelectItem>
 
-                  <SelectItem value="Tooth Extraction">
-                    Tooth Extraction
-                  </SelectItem>
+                  <SelectItem value="Tooth Extraction">Tooth Extraction</SelectItem>
 
-                  <SelectItem value="Dental Implant">
-                    Dental Implant
-                  </SelectItem>
+                  <SelectItem value="Dental Implant">Dental Implant</SelectItem>
 
-                  <SelectItem value="Scaling & Polishing">
-                    Scaling & Polishing
-                  </SelectItem>
+                  <SelectItem value="Scaling & Polishing">Scaling & Polishing</SelectItem>
 
-                  <SelectItem value="Teeth Whitening">
-                    Teeth Whitening
-                  </SelectItem>
+                  <SelectItem value="Teeth Whitening">Teeth Whitening</SelectItem>
 
-                  <SelectItem value="Orthodontic Treatment">
-                    Orthodontic Treatment
-                  </SelectItem>
+                  <SelectItem value="Orthodontic Treatment">Orthodontic Treatment</SelectItem>
 
-                  <SelectItem value="Denture">
-                    Denture
-                  </SelectItem>
+                  <SelectItem value="Denture">Denture</SelectItem>
 
                   <SelectItem value="Other"> Other </SelectItem>
                 </SelectContent>
               </Select>
 
               {invoiceForm.treatment === "Other" && (
-                  <Input
-                    placeholder="Enter custom treatment name"
-                    value={customTreatmentName}
-                    onChange={(e) => setCustomTreatmentName(e.target.value)}
-                  />
-                )}
-
+                <Input
+                  placeholder="Enter custom treatment name"
+                  value={customTreatmentName}
+                  onChange={(e) => setCustomTreatmentName(e.target.value)}
+                />
+              )}
             </div>
             <div className="grid gap-1">
               <Label htmlFor="amount">Total Treatment Valuation Base ($)</Label>

@@ -584,40 +584,58 @@ export type Database = {
       };
       treatment_plans: {
         Row: {
-          completed_at: string | null;
           created_at: string;
           description: string | null;
           doctor_id: string | null;
           id: string;
           patient_id: string;
-          started_at: string | null;
+          start_date: string | null;
+          end_date: string | null;
           status: Database["public"]["Enums"]["treatment_status"];
           title: string;
           updated_at: string;
+          lab_status: string | null;
+          paid_amount: number | null;
+          due_date: string | null;
+          payment_status: string | null;
+          estimated_cost: number | null;
+          actual_cost: number | null;
         };
         Insert: {
-          completed_at?: string | null;
           created_at?: string;
           description?: string | null;
           doctor_id?: string | null;
           id?: string;
           patient_id: string;
-          started_at?: string | null;
+          start_date?: string | null;
+          end_date?: string | null;
           status?: Database["public"]["Enums"]["treatment_status"];
           title: string;
           updated_at?: string;
+          lab_status?: string | null;
+          paid_amount?: number | null;
+          due_date?: string | null;
+          payment_status?: string | null;
+          estimated_cost?: number | null;
+          actual_cost?: number | null;
         };
         Update: {
-          completed_at?: string | null;
           created_at?: string;
           description?: string | null;
           doctor_id?: string | null;
           id?: string;
           patient_id?: string;
-          started_at?: string | null;
+          start_date?: string | null;
+          end_date?: string | null;
           status?: Database["public"]["Enums"]["treatment_status"];
           title?: string;
           updated_at?: string;
+          lab_status?: string | null;
+          paid_amount?: number | null;
+          due_date?: string | null;
+          payment_status?: string | null;
+          estimated_cost?: number | null;
+          actual_cost?: number | null;
         };
         Relationships: [
           {
