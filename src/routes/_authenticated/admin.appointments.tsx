@@ -138,9 +138,7 @@ export default function AppointmentManagementPage() {
 
   useEffect(() => {
     async function loadAppointments() {
-      const { data, error } = await supabase
-        .from("appointments")
-        .select(`
+      const { data, error } = await supabase.from("appointments").select(`
           *,
           patients (
             first_name,

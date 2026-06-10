@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { createFileRoute } from "@tanstack/react-router";
+import { supabase } from "@/integrations/supabase/client";
 import { DashboardShell } from "@/components/dashboard/DashboardShell";
 import {
   Dialog,
@@ -67,6 +68,53 @@ interface OngoingTreatmentCase {
   paymentMethod: PaymentMethod;
   dueDate: string;
 }
+
+const TREATMENT_OPTIONS = [
+  {
+    name: "Routine Cleaning & Checkup",
+    aliases: ["cleaning", "checkup", "clean"],
+  },
+  {
+    name: "Dental Filling",
+    aliases: ["fill", "filling"],
+  },
+  {
+    name: "Root Canal Treatment",
+    aliases: ["rc", "rct", "root canal"],
+  },
+  {
+    name: "Crown Placement",
+    aliases: ["crown"],
+  },
+  {
+    name: "Bridge Placement",
+    aliases: ["bridge"],
+  },
+  {
+    name: "Tooth Extraction",
+    aliases: ["extract", "extraction"],
+  },
+  {
+    name: "Dental Implant",
+    aliases: ["implant", "imp"],
+  },
+  {
+    name: "Scaling & Polishing",
+    aliases: ["scaling", "polishing", "sp"],
+  },
+  {
+    name: "Teeth Whitening",
+    aliases: ["whitening", "bleaching"],
+  },
+  {
+    name: "Orthodontic Treatment",
+    aliases: ["ortho", "braces"],
+  },
+  {
+    name: "Denture",
+    aliases: ["denture", "partial denture"],
+  },
+];
 
 const initialTreatments: OngoingTreatmentCase[] = [
   {
@@ -136,6 +184,14 @@ export default function DentalTreatmentOperationsDashboard() {
   );
   const [selectedCase, setSelectedCase] = useState<OngoingTreatmentCase | null>(null);
 
+  // Patient selector states
+  const [patientOptions, setPatientOptions] = useState<{ id: string; name: string }[]>([]);
+  const [patientSearchQuery, setPatientSearchQuery] = useState("");
+  const [selectedPatient, setSelectedPatient] = useState<{ id: string; name: string } | null>(null);
+  const [showPatientDropdown, setShowPatientDropdown] = useState(false);
+  const [customTreatmentName, setCustomTreatmentName] = useState("");
+  
+
   // Form states
   const [invoiceForm, setInvoiceForm] = useState({
     patientName: "",
@@ -155,6 +211,36 @@ export default function DentalTreatmentOperationsDashboard() {
   const [labForm, setLabForm] = useState({
     expectedReturnDate: new Date(Date.now() + 86400000 * 7).toISOString().split("T")[0],
   });
+
+  // Load patients from Supabase
+  useEffect(() => {
+    async function loadPatientOptions() {
+      const { data, error } = await supabase.from("patients").select("*");
+      if (data) {
+        setPatientOptions(
+          data.map((patient: Record<string, unknown>) => ({
+            id: String(patient.id),
+            name: `${patient["first_name"]} ${patient["last_name"]}`,
+          })),
+        );
+      }
+    }
+    loadPatientOptions();
+  }, []);
+
+  // Filter patient options based on search query
+  const filteredPatientOptions = useMemo(() => {
+    const normalizedQuery = patientSearchQuery.trim().toLowerCase();
+    if (!normalizedQuery) return patientOptions.slice(0, 25);
+
+    return patientOptions
+      .filter(
+        (patient) =>
+          patient.name.toLowerCase().includes(normalizedQuery) ||
+          patient.id.toLowerCase().includes(normalizedQuery),
+      )
+      .slice(0, 25);
+  }, [patientOptions, patientSearchQuery]);
 
   const formatDateString = (dateInput: string) => {
     if (!dateInput) return "—";
@@ -730,25 +816,115 @@ export default function DentalTreatmentOperationsDashboard() {
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleCreateInvoice} className="space-y-4 py-2 text-xs">
-            <div className="grid gap-1">
-              <Label htmlFor="patientName">Patient Full Name</Label>
+            <div className="grid gap-2">
+              <Label>Patient</Label>
+
               <Input
-                id="patientName"
-                required
-                value={invoiceForm.patientName}
-                onChange={(e) => setInvoiceForm({ ...invoiceForm, patientName: e.target.value })}
-                placeholder="Ex: Eleanor Vance"
+                value={patientSearchQuery}
+                onChange={(e) => {
+                  setPatientSearchQuery(e.target.value);
+                  setShowPatientDropdown(true);
+                }}
+                onFocus={() => setShowPatientDropdown(true)}
+                placeholder="Search patient..."
               />
+
+              {showPatientDropdown && patientSearchQuery.trim() && (
+                <div className="max-h-48 overflow-y-auto border rounded-lg bg-white">
+                  {filteredPatientOptions.map((patient) => (
+                    <button
+                      key={patient.id}
+                      type="button"
+                      className="w-full text-left px-3 py-2 hover:bg-slate-50"
+                      onClick={() => {
+                        setSelectedPatient(patient);
+                        setPatientSearchQuery(patient.name);
+                        setShowPatientDropdown(false);
+
+                        setInvoiceForm({
+                          ...invoiceForm,
+                          patientName: patient.name,
+                        });
+                      }}
+                    >
+                      {patient.name}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
             <div className="grid gap-1">
               <Label htmlFor="treatment">Target Treatment Clinical Procedure</Label>
-              <Input
-                id="treatment"
-                required
+              <Select
                 value={invoiceForm.treatment}
-                onChange={(e) => setInvoiceForm({ ...invoiceForm, treatment: e.target.value })}
-                placeholder="Ex: Porcelain Crown Prep"
-              />
+                onValueChange={(value) =>
+                  setInvoiceForm({
+                    ...invoiceForm,
+                    treatment: value,
+                  })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select treatment" />
+                </SelectTrigger>
+
+                <SelectContent>
+                  <SelectItem value="Routine Cleaning & Checkup">
+                    Routine Cleaning & Checkup
+                  </SelectItem>
+
+                  <SelectItem value="Dental Filling">
+                    Dental Filling
+                  </SelectItem>
+
+                  <SelectItem value="Root Canal Treatment">
+                    Root Canal Treatment
+                  </SelectItem>
+
+                  <SelectItem value="Crown Placement">
+                    Crown Placement
+                  </SelectItem>
+
+                  <SelectItem value="Bridge Placement">
+                    Bridge Placement
+                  </SelectItem>
+
+                  <SelectItem value="Tooth Extraction">
+                    Tooth Extraction
+                  </SelectItem>
+
+                  <SelectItem value="Dental Implant">
+                    Dental Implant
+                  </SelectItem>
+
+                  <SelectItem value="Scaling & Polishing">
+                    Scaling & Polishing
+                  </SelectItem>
+
+                  <SelectItem value="Teeth Whitening">
+                    Teeth Whitening
+                  </SelectItem>
+
+                  <SelectItem value="Orthodontic Treatment">
+                    Orthodontic Treatment
+                  </SelectItem>
+
+                  <SelectItem value="Denture">
+                    Denture
+                  </SelectItem>
+
+                  <SelectItem value="Other"> Other </SelectItem>
+                </SelectContent>
+              </Select>
+
+              {invoiceForm.treatment === "Other" && (
+                  <Input
+                    placeholder="Enter custom treatment name"
+                    value={customTreatmentName}
+                    onChange={(e) => setCustomTreatmentName(e.target.value)}
+                  />
+                )}
+
             </div>
             <div className="grid gap-1">
               <Label htmlFor="amount">Total Treatment Valuation Base ($)</Label>
