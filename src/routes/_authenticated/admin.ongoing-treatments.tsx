@@ -182,18 +182,20 @@ export default function DentalTreatmentOperationsDashboard() {
     async function loadTreatmentPlans() {
       const { data, error } = await supabase
         .from("treatment_plans")
-        .select("*")
+        .select(
+          `
+          *,
+          patients (*)
+        `,
+        )
         .order("created_at", { ascending: false });
-
-      console.log("TREATMENT DATA:", data);
-      console.log("TREATMENT ERROR:", error);
 
       if (data) {
         setTreatments(
           data.map((plan) => ({
             id: plan.id,
 
-            patientName: `Patient ${plan.patient_id.slice(0, 8)}`,
+            patientName: `${String((plan.patients as Record<string, unknown>).first_name ?? "")} ${String((plan.patients as Record<string, unknown>).last_name ?? "")}`,
             patientId: plan.patient_id,
 
             treatment: plan.title,
@@ -210,19 +212,14 @@ export default function DentalTreatmentOperationsDashboard() {
                     : "Ready for Follow-up",
 
             labWorkflow: {
-              status:
-                plan.lab_status === "none"
-                  ? "None"
-                  : "In Progress",
+              status: plan.lab_status === "none" ? "None" : "In Progress",
             },
 
             totalAmount: Number(plan.estimated_cost || 0),
 
             paidAmount: Number(plan.paid_amount || 0),
 
-            remainingBalance:
-              Number(plan.estimated_cost || 0) -
-              Number(plan.paid_amount || 0),
+            remainingBalance: Number(plan.estimated_cost || 0) - Number(plan.paid_amount || 0),
 
             status:
               plan.payment_status === "pending"
@@ -354,8 +351,6 @@ export default function DentalTreatmentOperationsDashboard() {
     });
 
     if (error) {
-      console.log("INSERT ERROR:", error);
-      console.log("INSERT ERROR JSON:", JSON.stringify(error, null, 2));
       toast.error("Failed to create treatment plan");
       return;
     }
@@ -386,12 +381,31 @@ export default function DentalTreatmentOperationsDashboard() {
     setPaymentOpen(true);
   };
 
-  const handleRecordPayment = (e: React.FormEvent) => {
+  const handleRecordPayment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedCase) return;
 
     const incomingPayment = parseFloat(paymentForm.amountPaid) || 0;
     if (incomingPayment <= 0) return;
+
+    const updatedPaid = selectedCase.paidAmount + incomingPayment;
+
+    const updatedStatus =
+      updatedPaid >= selectedCase.totalAmount ? "paid" : updatedPaid > 0 ? "partial" : "pending";
+
+    const { error } = await supabase
+      .from("treatment_plans")
+      .update({
+        paid_amount: updatedPaid,
+        payment_status: updatedStatus,
+      })
+      .eq("id", selectedCase.id);
+
+    if (error) {
+      console.error("PAYMENT UPDATE ERROR:", error);
+      toast.error("Failed to record payment");
+      return;
+    }
 
     setTreatments((prev) =>
       prev.map((item) => {
@@ -642,9 +656,8 @@ export default function DentalTreatmentOperationsDashboard() {
                 {/* ZONE 1: DETAILED TREATMENT CLINICAL PROFILE AREA */}
                 <div className="md:col-span-5 pl-1.5 space-y-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-xs font-bold text-slate-900">{item.patientName}</span>
-                    <span className="text-[10px] font-mono font-bold text-slate-400 bg-slate-50 border px-1 rounded">
-                      {item.id}
+                    <span className="text-xl font-extrabold text-slate-900">
+                      {item.patientName}
                     </span>
                     <span
                       className={`text-[9px] font-extrabold uppercase tracking-wider px-2 py-0.2 rounded border ${
