@@ -1,3 +1,4 @@
+import { Receipt } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
@@ -26,6 +27,7 @@ const NAV: Record<"doctor", { to: string; label: string; icon: LucideIcon }[]> =
     { to: "/admin/appointments", label: "Appointments", icon: Calendar },
     { to: "/admin/patients", label: "Patients", icon: Users },
     { to: "/admin/ongoing-treatments", label: "Ongoing Treatments", icon: ClipboardList },
+    { to: "/admin/billing", label: "Billing", icon: Receipt },
     { to: "/admin/notifications", label: "Notifications", icon: Bell },
     { to: "/admin/profile", label: "Profile", icon: UserCircle },
   ],
@@ -125,7 +127,12 @@ export function DashboardShell({ children }: { children: ReactNode }) {
               } catch (e) {
                 // ignore
               }
-              navigate({ to: "/auth/login" });
+              navigate({
+                to: "/auth/login",
+                search: {
+                  redirect: undefined,
+                },
+              });
             }}
             className="w-full justify-start gap-3.5 text-[15px] font-bold text-slate-800 hover:bg-teal-600/5 hover:text-slate-900 rounded-xl py-5 px-4"
           >

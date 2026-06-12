@@ -36,6 +36,7 @@ import { Route as AuthenticatedAdminProfileRouteImport } from './routes/_authent
 import { Route as AuthenticatedAdminPatientsRouteImport } from './routes/_authenticated/admin.patients'
 import { Route as AuthenticatedAdminOngoingTreatmentsRouteImport } from './routes/_authenticated/admin.ongoing-treatments'
 import { Route as AuthenticatedAdminNotificationsRouteImport } from './routes/_authenticated/admin.notifications'
+import { Route as AuthenticatedAdminBillingRouteImport } from './routes/_authenticated/admin.billing'
 import { Route as AuthenticatedAdminAppointmentsRouteImport } from './routes/_authenticated/admin.appointments'
 import { Route as AuthenticatedAdminPatientDetailsPatientIdRouteImport } from './routes/_authenticated/admin.patient-details.$patientId'
 
@@ -187,6 +188,12 @@ const AuthenticatedAdminNotificationsRoute =
     path: '/admin/notifications',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedAdminBillingRoute =
+  AuthenticatedAdminBillingRouteImport.update({
+    id: '/admin/billing',
+    path: '/admin/billing',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedAdminAppointmentsRoute =
   AuthenticatedAdminAppointmentsRouteImport.update({
     id: '/admin/appointments',
@@ -214,6 +221,7 @@ export interface FileRoutesByFullPath {
   '/auth/reset-password': typeof AuthResetPasswordRoute
   '/auth/signup': typeof AuthSignupRoute
   '/admin/appointments': typeof AuthenticatedAdminAppointmentsRoute
+  '/admin/billing': typeof AuthenticatedAdminBillingRoute
   '/admin/notifications': typeof AuthenticatedAdminNotificationsRoute
   '/admin/ongoing-treatments': typeof AuthenticatedAdminOngoingTreatmentsRoute
   '/admin/patients': typeof AuthenticatedAdminPatientsRoute
@@ -243,6 +251,7 @@ export interface FileRoutesByTo {
   '/auth/reset-password': typeof AuthResetPasswordRoute
   '/auth/signup': typeof AuthSignupRoute
   '/admin/appointments': typeof AuthenticatedAdminAppointmentsRoute
+  '/admin/billing': typeof AuthenticatedAdminBillingRoute
   '/admin/notifications': typeof AuthenticatedAdminNotificationsRoute
   '/admin/ongoing-treatments': typeof AuthenticatedAdminOngoingTreatmentsRoute
   '/admin/patients': typeof AuthenticatedAdminPatientsRoute
@@ -275,6 +284,7 @@ export interface FileRoutesById {
   '/auth/reset-password': typeof AuthResetPasswordRoute
   '/auth/signup': typeof AuthSignupRoute
   '/_authenticated/admin/appointments': typeof AuthenticatedAdminAppointmentsRoute
+  '/_authenticated/admin/billing': typeof AuthenticatedAdminBillingRoute
   '/_authenticated/admin/notifications': typeof AuthenticatedAdminNotificationsRoute
   '/_authenticated/admin/ongoing-treatments': typeof AuthenticatedAdminOngoingTreatmentsRoute
   '/_authenticated/admin/patients': typeof AuthenticatedAdminPatientsRoute
@@ -307,6 +317,7 @@ export interface FileRouteTypes {
     | '/auth/reset-password'
     | '/auth/signup'
     | '/admin/appointments'
+    | '/admin/billing'
     | '/admin/notifications'
     | '/admin/ongoing-treatments'
     | '/admin/patients'
@@ -336,6 +347,7 @@ export interface FileRouteTypes {
     | '/auth/reset-password'
     | '/auth/signup'
     | '/admin/appointments'
+    | '/admin/billing'
     | '/admin/notifications'
     | '/admin/ongoing-treatments'
     | '/admin/patients'
@@ -367,6 +379,7 @@ export interface FileRouteTypes {
     | '/auth/reset-password'
     | '/auth/signup'
     | '/_authenticated/admin/appointments'
+    | '/_authenticated/admin/billing'
     | '/_authenticated/admin/notifications'
     | '/_authenticated/admin/ongoing-treatments'
     | '/_authenticated/admin/patients'
@@ -589,6 +602,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminNotificationsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/admin/billing': {
+      id: '/_authenticated/admin/billing'
+      path: '/admin/billing'
+      fullPath: '/admin/billing'
+      preLoaderRoute: typeof AuthenticatedAdminBillingRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/admin/appointments': {
       id: '/_authenticated/admin/appointments'
       path: '/admin/appointments'
@@ -651,6 +671,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRouteWithChildren
   AuthenticatedPortalRoute: typeof AuthenticatedPortalRouteWithChildren
   AuthenticatedAdminAppointmentsRoute: typeof AuthenticatedAdminAppointmentsRoute
+  AuthenticatedAdminBillingRoute: typeof AuthenticatedAdminBillingRoute
   AuthenticatedAdminNotificationsRoute: typeof AuthenticatedAdminNotificationsRoute
   AuthenticatedAdminOngoingTreatmentsRoute: typeof AuthenticatedAdminOngoingTreatmentsRoute
   AuthenticatedAdminPatientsRoute: typeof AuthenticatedAdminPatientsRoute
@@ -662,6 +683,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedDashboardRoute: AuthenticatedDashboardRouteWithChildren,
   AuthenticatedPortalRoute: AuthenticatedPortalRouteWithChildren,
   AuthenticatedAdminAppointmentsRoute: AuthenticatedAdminAppointmentsRoute,
+  AuthenticatedAdminBillingRoute: AuthenticatedAdminBillingRoute,
   AuthenticatedAdminNotificationsRoute: AuthenticatedAdminNotificationsRoute,
   AuthenticatedAdminOngoingTreatmentsRoute:
     AuthenticatedAdminOngoingTreatmentsRoute,
