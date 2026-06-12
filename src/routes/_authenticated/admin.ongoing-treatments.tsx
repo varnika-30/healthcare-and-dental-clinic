@@ -174,7 +174,6 @@ export const Route = createFileRoute("/_authenticated/admin/ongoing-treatments")
 
 export default function DentalTreatmentOperationsDashboard() {
   const [createOpen, setCreateOpen] = useState(false);
-  const [paymentOpen, setPaymentOpen] = useState(false);
   const [labDialogOpen, setLabDialogOpen] = useState(false);
 
   const [treatments, setTreatments] = useState<OngoingTreatmentCase[]>(initialTreatments);
@@ -370,70 +369,6 @@ export default function DentalTreatmentOperationsDashboard() {
     setCreateOpen(false);
   };
 
-  const handleOpenPayment = (trtCase: OngoingTreatmentCase) => {
-    setSelectedCase(trtCase);
-    setPaymentForm({
-      amountPaid: trtCase.remainingBalance.toString(),
-      paymentMethod: "Cash",
-      paymentDate: new Date().toISOString().split("T")[0],
-      notes: "",
-    });
-    setPaymentOpen(true);
-  };
-
-  const handleRecordPayment = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedCase) return;
-
-    const incomingPayment = parseFloat(paymentForm.amountPaid) || 0;
-    if (incomingPayment <= 0) return;
-
-    const updatedPaid = selectedCase.paidAmount + incomingPayment;
-
-    const updatedStatus =
-      updatedPaid >= selectedCase.totalAmount ? "paid" : updatedPaid > 0 ? "partial" : "pending";
-
-    const { error } = await supabase
-      .from("treatment_plans")
-      .update({
-        paid_amount: updatedPaid,
-        payment_status: updatedStatus,
-      })
-      .eq("id", selectedCase.id);
-
-    if (error) {
-      console.error("PAYMENT UPDATE ERROR:", error);
-      toast.error("Failed to record payment");
-      return;
-    }
-
-    setTreatments((prev) =>
-      prev.map((item) => {
-        if (item.id === selectedCase.id) {
-          const updatedPaid = item.paidAmount + incomingPayment;
-          const updatedRemaining = Math.max(0, item.totalAmount - updatedPaid);
-
-          let updatedStatus: OngoingTreatmentCase["status"] = "Pending";
-          if (updatedPaid === item.totalAmount) updatedStatus = "Paid";
-          else if (updatedPaid > 0 && updatedPaid < item.totalAmount) updatedStatus = "Partial";
-
-          return {
-            ...item,
-            paidAmount: updatedPaid,
-            remainingBalance: updatedRemaining,
-            status: updatedStatus,
-            paymentMethod: paymentForm.paymentMethod as PaymentMethod,
-          };
-        }
-        return item;
-      }),
-    );
-
-    setPaymentOpen(false);
-    setSelectedCase(null);
-    toast.success("Ledger offsets applied down directly to patient profile.");
-  };
-
   // Lab operations interaction loops
   const handleOpenLabDispatch = (trtCase: OngoingTreatmentCase) => {
     setSelectedCase(trtCase);
@@ -560,49 +495,41 @@ export default function DentalTreatmentOperationsDashboard() {
         </div>
 
         {/* METRICS ROW HIGHLIGHT FRAMEWORK */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="bg-white border border-slate-100 p-3 rounded-xl shadow-3xs">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="bg-white border border-slate-200 p-6 rounded-xl shadow-3xs min-h-[120px]">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
               Active Cases
             </span>
-            <span className="text-lg font-bold text-slate-800 mt-0.5 block">
+            <span className="text-3xl font-bold text-slate-800 mt-0.5 block">
               {operationsMetrics.activeCases} Patients
             </span>
           </div>
-          <div className="bg-white border border-slate-100 p-3 rounded-xl shadow-3xs flex items-center justify-between">
+          <div className="bg-white border border-slate-200 p-6 rounded-xl shadow-3xs flex items-center justify-between min-h-[120px]">
             <div>
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
                 Awaiting Lab
               </span>
-              <span className="text-lg font-bold text-indigo-700 mt-0.5 block">
+              <span className="text-3xl font-bold text-indigo-700 mt-0.5 block">
                 {operationsMetrics.awaitingLab} Pipelines
               </span>
             </div>
             <FlaskConical className="h-4 w-4 text-indigo-400 shrink-0" />
           </div>
-          <div className="bg-white border border-slate-100 p-3 rounded-xl shadow-3xs flex items-center justify-between">
+          <div className="bg-white border border-slate-200 p-3 rounded-xl shadow-3xs flex items-center justify-between">
             <div>
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
                 Follow-Ups Queued
               </span>
-              <span className="text-lg font-bold text-amber-700 mt-0.5 block">
+              <span className="text-3xl font-bold text-amber-700 mt-0.5 block">
                 {operationsMetrics.followUpNeeded} Outreach
               </span>
             </div>
             <CalendarDays className="h-4 w-4 text-amber-400 shrink-0" />
           </div>
-          <div className="bg-white border border-slate-100 p-3 rounded-xl shadow-3xs">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-              Total Pipeline Ledger Balance
-            </span>
-            <span className="text-lg font-bold text-slate-900 mt-0.5 block">
-              ${operationsMetrics.outstandingBalance.toFixed(2)}
-            </span>
-          </div>
         </div>
 
         {/* CONTROLS UTILITY BAR VIEW */}
-        <div className="bg-white rounded-xl border border-slate-100 p-3 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-3xs">
+        <div className="bg-white rounded-xl border border-slate-200 p-3 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-3xs">
           <div className="relative w-full sm:w-72">
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
             <input
@@ -640,7 +567,7 @@ export default function DentalTreatmentOperationsDashboard() {
             filteredTreatments.map((item) => (
               <div
                 key={item.id}
-                className="bg-white border border-slate-100/90 rounded-xl p-4 shadow-3xs hover:border-slate-200 transition grid grid-cols-1 md:grid-cols-12 gap-4 items-center relative overflow-hidden"
+                className="bg-white border border-slate-200/90 rounded-xl p-4 shadow-3xs hover:border-slate-200 transition grid grid-cols-1 md:grid-cols-12 gap-4 items-center relative overflow-hidden"
               >
                 {/* Visual Accent State Indicators */}
                 <div
@@ -752,15 +679,7 @@ export default function DentalTreatmentOperationsDashboard() {
                     </button>
                   )}
 
-                  {item.remainingBalance > 0 && (
-                    <button
-                      onClick={() => handleOpenPayment(item)}
-                      className="inline-flex items-center gap-1 h-7 text-[10px] font-bold uppercase tracking-wider border border-teal-200 bg-teal-50/60 text-teal-700 rounded px-2.5 hover:bg-teal-600 hover:text-white"
-                    >
-                      <CreditCard className="h-3 w-3" />
-                      <span>Record Payment</span>
-                    </button>
-                  )}
+                  
 
                   <button className="p-1 text-slate-400 hover:text-slate-600 transition ml-auto md:ml-0">
                     <Download className="h-3.5 w-3.5" />
@@ -769,7 +688,7 @@ export default function DentalTreatmentOperationsDashboard() {
               </div>
             ))
           ) : (
-            <div className="bg-white border border-slate-100 rounded-xl p-12 text-center max-w-md mx-auto space-y-2 shadow-3xs">
+            <div className="bg-white border border-slate-200 rounded-xl p-12 text-center max-w-md mx-auto space-y-2 shadow-3xs">
               <AlertCircle className="h-6 w-6 text-slate-300 mx-auto" />
               <h3 className="text-xs font-bold text-slate-700">Clear Search Matrix</h3>
               <p className="text-[11px] text-slate-400 font-medium">
@@ -797,7 +716,7 @@ export default function DentalTreatmentOperationsDashboard() {
                 <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
                   Patient File Link
                 </Label>
-                <div className="text-xs font-bold text-slate-800 bg-slate-50 p-2.5 rounded border border-slate-100 mt-1">
+                <div className="text-xs font-bold text-slate-800 bg-slate-50 p-2.5 rounded border border-slate-200 mt-1">
                   {selectedCase.patientName} — {selectedCase.treatment}
                 </div>
               </div>
@@ -836,85 +755,6 @@ export default function DentalTreatmentOperationsDashboard() {
       {/* ==========================================
           MODAL INTERFACES: BOOKING PAYMENT MANIFEST
          ========================================== */}
-      <Dialog open={paymentOpen} onOpenChange={setPaymentOpen}>
-        <DialogContent className="sm:max-w-md rounded-xl">
-          <DialogHeader>
-            <DialogTitle>Post Ledger Remittance</DialogTitle>
-            <DialogDescription>
-              Post transaction offsets manually down directly to this tracking profile instance.
-            </DialogDescription>
-          </DialogHeader>
-          {selectedCase && (
-            <form onSubmit={handleRecordPayment} className="space-y-4 py-1">
-              <div>
-                <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                  Target Patient Profile
-                </Label>
-                <div className="text-xs font-bold text-slate-800 bg-slate-50 p-2.5 rounded border border-slate-100 mt-1">
-                  {selectedCase.patientName} ({selectedCase.id})
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label>Remaining Balance Due</Label>
-                  <div className="text-xs font-bold text-rose-600 bg-rose-50/50 p-2.5 rounded border border-rose-100 mt-1">
-                    ${selectedCase.remainingBalance.toFixed(2)}
-                  </div>
-                </div>
-                <div>
-                  <Label htmlFor="amountPaid">Amount Remitted ($)</Label>
-                  <Input
-                    id="amountPaid"
-                    type="number"
-                    step="0.01"
-                    required
-                    max={selectedCase.remainingBalance}
-                    value={paymentForm.amountPaid}
-                    onChange={(e) => setPaymentForm({ ...paymentForm, amountPaid: e.target.value })}
-                    className="mt-1 text-xs font-bold text-slate-900"
-                  />
-                </div>
-              </div>
-              <div>
-                <Label htmlFor="paymentMethod">Remittance Routing Instrument</Label>
-                <div className="mt-1">
-                  <Select
-                    value={paymentForm.paymentMethod}
-                    onValueChange={(val) => setPaymentForm({ ...paymentForm, paymentMethod: val })}
-                  >
-                    <SelectTrigger id="paymentMethod" className="w-full text-xs h-9">
-                      <SelectValue placeholder="Select instrument" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Cash">Cash Ledger Settlement</SelectItem>
-                      <SelectItem value="Online">Online Routing Gateway</SelectItem>
-                      <SelectItem value="Card">Merchant Credit / Debit Card</SelectItem>
-                      <SelectItem value="Insurance">Third-Party Insurance Manifest</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <div className="flex justify-end gap-2 pt-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setPaymentOpen(false)}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="submit"
-                  size="sm"
-                  className="bg-teal-600 hover:bg-teal-700 text-white"
-                >
-                  Apply Remittance Offset
-                </Button>
-              </div>
-            </form>
-          )}
-        </DialogContent>
-      </Dialog>
 
       {/* CREATE INVOICE DISPATCH DRAWER OVERLAY */}
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
