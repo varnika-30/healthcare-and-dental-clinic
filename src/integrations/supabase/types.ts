@@ -1,4 +1,5 @@
-export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
+export type Json = string | number | boolean | null | { [key: string]: Json 
+ undefined } | Json[];
 
 export type Database = {
   // Allows to automatically instantiate createClient with right options
@@ -595,11 +596,13 @@ export type Database = {
           title: string;
           updated_at: string;
           lab_status: string | null;
+          follow_up_status: string | null;
           paid_amount: number | null;
           due_date: string | null;
           payment_status: string | null;
           estimated_cost: number | null;
           actual_cost: number | null;
+          follow_up_needed: boolean | null;
         };
         Insert: {
           created_at?: string;
@@ -613,11 +616,13 @@ export type Database = {
           title: string;
           updated_at?: string;
           lab_status?: string | null;
+          follow_up_status?: string | null;
           paid_amount?: number | null;
           due_date?: string | null;
           payment_status?: string | null;
           estimated_cost?: number | null;
           actual_cost?: number | null;
+          follow_up_needed?: boolean | null;
         };
         Update: {
           created_at?: string;
@@ -631,11 +636,13 @@ export type Database = {
           title?: string;
           updated_at?: string;
           lab_status?: string | null;
+          follow_up_status?: string | null;
           paid_amount?: number | null;
           due_date?: string | null;
           payment_status?: string | null;
           estimated_cost?: number | null;
           actual_cost?: number | null;
+          follow_up_needed?: boolean | null;
         };
         Relationships: [
           {

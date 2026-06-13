@@ -13,7 +13,6 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -22,27 +21,22 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Search,
-  CheckCircle2,
-  Clock,
-  AlertCircle,
-  DollarSign,
-  Download,
-  Eye,
-  CreditCard,
-  Plus,
-  ArrowUpRight,
-  FlaskConical,
-  CalendarDays,
-  UserCheck,
-  ChevronRight,
-  RefreshCcw,
-} from "lucide-react";
+import { Search, AlertCircle, Plus, FlaskConical, CalendarDays } from "lucide-react";
 import { toast } from "sonner";
 
+// ==========================================
+// TYPE DEFINITIONS & SCHEMAS
+// ==========================================
 type PaymentMethod = "Card" | "Cash" | "Insurance" | "Bank Transfer" | "Online" | "Other" | "—";
-type LabStatus = "None" | "Sent" | "In Progress" | "Returned" | "Follow-up Needed";
+
+type LabStatus =
+  | "none"
+  | "impression_scheduled"
+  | "sent_to_lab"
+  | "received_from_lab"
+  | "finalized"
+  | "sent_for_improvement";
+
 type ClinicalStage = "Active Treatment" | "Lab Phase Pending" | "Ready for Follow-up" | "Concluded";
 
 interface OngoingTreatmentCase {
@@ -50,17 +44,12 @@ interface OngoingTreatmentCase {
   patientName: string;
   patientId: string;
   treatment: string;
-  appointmentDate: string;
+  appointmentDate: string; // Dynamic target follow-up appt date if it exists
   clinicalStage: ClinicalStage;
-
-  // Advanced Lab Tracking Schema
-  labWorkflow: {
-    status: LabStatus;
-    sentDate?: string;
-    expectedReturnDate?: string;
-  };
-
-  // Finance Schema Bounds
+  labStatus: LabStatus;
+  followUpNeeded: boolean; // Driven by database boolean flag
+  hasAppointment: boolean; // Derived dynamically from relational table join
+  dbStatus: string;
   totalAmount: number;
   paidAmount: number;
   remainingBalance: number;
@@ -69,116 +58,43 @@ interface OngoingTreatmentCase {
   dueDate: string;
 }
 
-const TREATMENT_OPTIONS = [
-  {
-    name: "Routine Cleaning & Checkup",
-    aliases: ["cleaning", "checkup", "clean"],
-  },
-  {
-    name: "Dental Filling",
-    aliases: ["fill", "filling"],
-  },
-  {
-    name: "Root Canal Treatment",
-    aliases: ["rc", "rct", "root canal"],
-  },
-  {
-    name: "Crown Placement",
-    aliases: ["crown"],
-  },
-  {
-    name: "Bridge Placement",
-    aliases: ["bridge"],
-  },
-  {
-    name: "Tooth Extraction",
-    aliases: ["extract", "extraction"],
-  },
-  {
-    name: "Dental Implant",
-    aliases: ["implant", "imp"],
-  },
-  {
-    name: "Scaling & Polishing",
-    aliases: ["scaling", "polishing", "sp"],
-  },
-  {
-    name: "Teeth Whitening",
-    aliases: ["whitening", "bleaching"],
-  },
-  {
-    name: "Orthodontic Treatment",
-    aliases: ["ortho", "braces"],
-  },
-  {
-    name: "Denture",
-    aliases: ["denture", "partial denture"],
-  },
-];
-
-const initialTreatments: OngoingTreatmentCase[] = [
-  {
-    id: "TRT-2026-0482",
-    patientName: "Eleanor Vance",
-    patientId: "PT-8831",
-    treatment: "Root Canal Therapy & Crown (Tooth #14)",
-    appointmentDate: "May 20, 2026",
-    clinicalStage: "Active Treatment",
-    labWorkflow: { status: "None" },
-    totalAmount: 1450.0,
-    paidAmount: 1450.0,
-    remainingBalance: 0.0,
-    status: "Paid",
-    paymentMethod: "Card",
-    dueDate: "May 20, 2026",
-  },
-  {
-    id: "TRT-2026-0481",
-    patientName: "Marcus Brody",
-    patientId: "PT-4219",
-    treatment: "Porcelain Crown Fabrication (Tooth #8)",
-    appointmentDate: "May 19, 2026",
-    clinicalStage: "Lab Phase Pending",
-    labWorkflow: {
-      status: "In Progress",
-      sentDate: "May 19, 2026",
-      expectedReturnDate: "May 29, 2026",
-    },
-    totalAmount: 1200.0,
-    paidAmount: 400.0,
-    remainingBalance: 800.0,
-    status: "Partial",
-    paymentMethod: "Cash",
-    dueDate: "Jun 02, 2026",
-  },
-  {
-    id: "TRT-2026-0465",
-    patientName: "Arthur Pendragon",
-    patientId: "PT-3302",
-    treatment: "Dental Implant Placement (Stage 1)",
-    appointmentDate: "May 05, 2026",
-    clinicalStage: "Active Treatment",
-    labWorkflow: { status: "None" },
-    totalAmount: 2100.0,
-    paidAmount: 0.0,
-    remainingBalance: 2100.0,
-    status: "Pending",
-    paymentMethod: "—",
-    dueDate: "Jun 05, 2026",
-  },
-];
-
 export const Route = createFileRoute("/_authenticated/admin/ongoing-treatments")({
   component: DentalTreatmentOperationsDashboard,
 });
 
 export default function DentalTreatmentOperationsDashboard() {
   const [createOpen, setCreateOpen] = useState(false);
-  const [labDialogOpen, setLabDialogOpen] = useState(false);
+  const [treatments, setTreatments] = useState<OngoingTreatmentCase[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const [treatments, setTreatments] = useState<OngoingTreatmentCase[]>(initialTreatments);
-  useEffect(() => {
-    async function loadTreatmentPlans() {
+  // Filter and Search States
+  const [searchTerm, setSearchTerm] = useState("");
+  const [activeFilter, setActiveFilter] = useState<
+    "All Cases" | "Active Cases" | "Lab Phase" | "Follow-Ups" | "Completed Cases"
+  >("All Cases");
+
+  // Patient Selector States
+  const [patientOptions, setPatientOptions] = useState<{ id: string; name: string }[]>([]);
+  const [patientSearchQuery, setPatientSearchQuery] = useState("");
+  const [selectedPatient, setSelectedPatient] = useState<{ id: string; name: string } | null>(null);
+  const [showPatientDropdown, setShowPatientDropdown] = useState(false);
+  const [customTreatmentName, setCustomTreatmentName] = useState("");
+
+  // Form State
+  const [invoiceForm, setInvoiceForm] = useState({
+    patientName: "",
+    treatment: "",
+    amount: "",
+    dueDate: "",
+    notes: "",
+  });
+
+  // ==========================================
+  // DATABASE DATA RECOVERY PIPELINE
+  // ==========================================
+  const fetchTreatmentPlans = async () => {
+    try {
+      // Performed single-pass relationship join picking up live target appointments
       const { data, error } = await supabase
         .from("treatment_plans")
         .select(
@@ -189,96 +105,85 @@ export default function DentalTreatmentOperationsDashboard() {
         )
         .order("created_at", { ascending: false });
 
+      if (error) throw error;
+
       if (data) {
         setTreatments(
-          data.map((plan) => ({
-            id: plan.id,
+          data.map((plan) => {
+            const firstName = String((plan.patients as Record<string, unknown>)?.first_name ?? "");
+            const lastName = String((plan.patients as Record<string, unknown>)?.last_name ?? "");
 
-            patientName: `${String((plan.patients as Record<string, unknown>).first_name ?? "")} ${String((plan.patients as Record<string, unknown>).last_name ?? "")}`,
-            patientId: plan.patient_id,
+            const dbLabStatus = (plan.lab_status || "none") as LabStatus;
 
-            treatment: plan.title,
+            // Core Boolean flag handling visibility
+            const isFollowUpNeeded = !!plan.follow_up_needed;
 
-            appointmentDate: plan.start_date || "—",
+            const hasAppointment = false;
+            const executionDate = "—";
 
-            clinicalStage:
+            let derivedStage: ClinicalStage = "Active Treatment";
+            if (plan.status === "completed") {
+              derivedStage = "Concluded";
+            } else if (
+              dbLabStatus === "received_from_lab" ||
+              dbLabStatus === "finalized" ||
               plan.status === "planned"
-                ? "Ready for Follow-up"
-                : plan.status === "in_progress"
-                  ? "Active Treatment"
-                  : plan.status === "completed"
-                    ? "Concluded"
-                    : "Ready for Follow-up",
+            ) {
+              derivedStage = "Ready for Follow-up";
+            } else {
+              derivedStage = "Active Treatment";
+            }
 
-            labWorkflow: {
-              status: plan.lab_status === "none" ? "None" : "In Progress",
-            },
+            const total = Number(plan.estimated_cost || 0);
+            const paid = Number(plan.paid_amount || 0);
 
-            totalAmount: Number(plan.estimated_cost || 0),
-
-            paidAmount: Number(plan.paid_amount || 0),
-
-            remainingBalance: Number(plan.estimated_cost || 0) - Number(plan.paid_amount || 0),
-
-            status:
-              plan.payment_status === "pending"
-                ? "Pending"
-                : plan.payment_status === "paid"
-                  ? "Paid"
-                  : "Partial",
-
-            paymentMethod: "—",
-
-            dueDate: plan.due_date || "—",
-          })),
+            return {
+              id: plan.id,
+              patientName: `${firstName} ${lastName}`.trim() || "Unknown Patient",
+              patientId: plan.patient_id,
+              treatment: plan.title,
+              followUpNeeded: isFollowUpNeeded,
+              hasAppointment,
+              appointmentDate: executionDate,
+              dbStatus: plan.status || "in_progress",
+              clinicalStage: derivedStage,
+              labStatus: dbLabStatus,
+              totalAmount: total,
+              paidAmount: paid,
+              remainingBalance: Math.max(0, total - paid),
+              status:
+                plan.payment_status === "pending"
+                  ? "Pending"
+                  : plan.payment_status === "paid"
+                    ? "Paid"
+                    : "Partial",
+              paymentMethod: "—",
+              dueDate: plan.due_date || "—",
+            };
+          }),
         );
       }
+    } catch (err) {
+      console.error("Error loading treatment plans:", err);
+      toast.error("Failed to sync structural treatment items from real-time database.");
+    } finally {
+      setIsLoading(false);
     }
+  };
 
-    loadTreatmentPlans();
+  useEffect(() => {
+    fetchTreatmentPlans();
   }, []);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [activeFilter, setActiveFilter] = useState<"All" | "Active" | "Lab Phase" | "Follow-up">(
-    "All",
-  );
-  const [selectedCase, setSelectedCase] = useState<OngoingTreatmentCase | null>(null);
 
-  // Patient selector states
-  const [patientOptions, setPatientOptions] = useState<{ id: string; name: string }[]>([]);
-  const [patientSearchQuery, setPatientSearchQuery] = useState("");
-  const [selectedPatient, setSelectedPatient] = useState<{ id: string; name: string } | null>(null);
-  const [showPatientDropdown, setShowPatientDropdown] = useState(false);
-  const [customTreatmentName, setCustomTreatmentName] = useState("");
-
-  // Form states
-  const [invoiceForm, setInvoiceForm] = useState({
-    patientName: "",
-    treatment: "",
-    amount: "",
-    dueDate: "",
-    notes: "",
-  });
-
-  const [paymentForm, setPaymentForm] = useState({
-    amountPaid: "",
-    paymentMethod: "Cash",
-    paymentDate: new Date().toISOString().split("T")[0],
-    notes: "",
-  });
-
-  const [labForm, setLabForm] = useState({
-    expectedReturnDate: new Date(Date.now() + 86400000 * 7).toISOString().split("T")[0],
-  });
-
-  // Load patients from Supabase
+  // Load patient selector directory options
   useEffect(() => {
     async function loadPatientOptions() {
       const { data, error } = await supabase.from("patients").select("*");
       if (data) {
         setPatientOptions(
-          data.map((patient: Record<string, unknown>) => ({
-            id: String(patient.id),
-            name: `${patient["first_name"]} ${patient["last_name"]}`,
+          data.map((p: Record<string, unknown>) => ({
+            id: String(p.id),
+            name: `${p["first_name"] ?? ""} ${p["last_name"] ?? ""}`.trim(),
           })),
         );
       }
@@ -286,169 +191,22 @@ export default function DentalTreatmentOperationsDashboard() {
     loadPatientOptions();
   }, []);
 
-  // Filter patient options based on search query
+  // ==========================================
+  // MEMOIZED SEARCH & METRICS MUTATORS
+  // ==========================================
   const filteredPatientOptions = useMemo(() => {
-    const normalizedQuery = patientSearchQuery.trim().toLowerCase();
-    if (!normalizedQuery) return patientOptions.slice(0, 25);
-
+    const query = patientSearchQuery.trim().toLowerCase();
+    if (!query) return patientOptions.slice(0, 15);
     return patientOptions
-      .filter(
-        (patient) =>
-          patient.name.toLowerCase().includes(normalizedQuery) ||
-          patient.id.toLowerCase().includes(normalizedQuery),
-      )
-      .slice(0, 25);
+      .filter((p) => p.name.toLowerCase().includes(query) || p.id.toLowerCase().includes(query))
+      .slice(0, 15);
   }, [patientOptions, patientSearchQuery]);
 
-  const formatDateString = (dateInput: string) => {
-    if (!dateInput) return "—";
-    const dateObj = new Date(dateInput);
-    return isNaN(dateObj.getTime())
-      ? "—"
-      : dateObj.toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" });
-  };
-
-  const handleCreateInvoice = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedPatient) {
-      toast.error("Please select a patient.");
-      return;
-    }
-    if (!invoiceForm.patientName || !invoiceForm.treatment || !invoiceForm.amount) return;
-
-    const finalTreatment =
-      invoiceForm.treatment === "Other" ? customTreatmentName : invoiceForm.treatment;
-    const total = parseFloat(invoiceForm.amount) || 0;
-    const newCase: OngoingTreatmentCase = {
-      id: `TRT-2026-0${483 + treatments.length}`,
-      patientName: invoiceForm.patientName,
-      patientId: `PT-${Math.floor(1000 + Math.random() * 9000)}`,
-      treatment: finalTreatment,
-      appointmentDate: formatDateString(new Date().toISOString().split("T")[0]),
-      clinicalStage: "Active Treatment",
-      labWorkflow: { status: "None" },
-      totalAmount: total,
-      paidAmount: 0,
-      remainingBalance: total,
-      status: "Pending",
-      paymentMethod: "—",
-      dueDate: formatDateString(invoiceForm.dueDate),
-    };
-
-    const { error } = await supabase.from("treatment_plans").insert({
-      patient_id: selectedPatient.id,
-      title: finalTreatment,
-      description: invoiceForm.notes || null,
-      status: "in_progress",
-      start_date: new Date().toISOString().split("T")[0],
-      estimated_cost: total,
-      actual_cost: 0,
-      paid_amount: 0,
-      due_date: invoiceForm.dueDate || null,
-      payment_status: "pending",
-      lab_status: "none",
-    });
-
-    if (error) {
-      toast.error("Failed to create treatment plan");
-      return;
-    }
-
-    toast.success("Treatment plan created successfully.");
-
-    setInvoiceForm({
-      patientName: "",
-      treatment: "",
-      amount: "",
-      dueDate: "",
-      notes: "",
-    });
-
-    setSelectedPatient(null);
-    setPatientSearchQuery("");
-    setCreateOpen(false);
-  };
-
-  // Lab operations interaction loops
-  const handleOpenLabDispatch = (trtCase: OngoingTreatmentCase) => {
-    setSelectedCase(trtCase);
-    setLabDialogOpen(true);
-  };
-
-  const handleDispatchToLab = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedCase) return;
-
-    setTreatments((prev) =>
-      prev.map((item) => {
-        if (item.id === selectedCase.id) {
-          return {
-            ...item,
-            clinicalStage: "Lab Phase Pending",
-            labWorkflow: {
-              status: "Sent",
-              sentDate: formatDateString(new Date().toISOString().split("T")[0]),
-              expectedReturnDate: formatDateString(labForm.expectedReturnDate),
-            },
-          };
-        }
-        return item;
-      }),
-    );
-
-    setLabDialogOpen(false);
-    setSelectedCase(null);
-    toast.info("Clinical asset marked as dispatched. Tracking parameters initialized.");
-  };
-
-  const handleAdvanceLabStatus = (id: string, currentStatus: LabStatus, patient: string) => {
-    setTreatments((prev) =>
-      prev.map((item) => {
-        if (item.id === id) {
-          let nextStatus: LabStatus = "In Progress";
-          let nextStage: ClinicalStage = "Lab Phase Pending";
-
-          if (currentStatus === "Sent") nextStatus = "In Progress";
-          else if (currentStatus === "In Progress") {
-            nextStatus = "Returned";
-            nextStage = "Ready for Follow-up";
-            // Integrated Notification Workflow Link
-            toast(`Lab case for ${patient} returned.`, {
-              description: "Schedule follow-up appointment within 48 hours.",
-              action: {
-                label: "Acknowledge",
-                onClick: () => {},
-              },
-            });
-          }
-
-          return {
-            ...item,
-            clinicalStage: nextStage,
-            labWorkflow: { ...item.labWorkflow, status: nextStatus },
-          };
-        }
-        return item;
-      }),
-    );
-  };
-
-  const handleTriggerFollowUp = (id: string) => {
-    setTreatments((prev) =>
-      prev.map((item) =>
-        item.id === id ? { ...item, clinicalStage: "Ready for Follow-up" } : item,
-      ),
-    );
-    toast.success("Patient queued into tracking ledger for outreach recall callbacks.");
-  };
-
-  // Comprehensive Metrics compilation bounds
   const operationsMetrics = useMemo(() => {
     return {
       activeCases: treatments.filter((t) => t.clinicalStage === "Active Treatment").length,
       awaitingLab: treatments.filter((t) => t.clinicalStage === "Lab Phase Pending").length,
-      followUpNeeded: treatments.filter((t) => t.clinicalStage === "Ready for Follow-up").length,
-      outstandingBalance: treatments.reduce((sum, t) => sum + t.remainingBalance, 0),
+      followUpNeeded: treatments.filter((t) => t.followUpNeeded).length,
     };
   }, [treatments]);
 
@@ -460,20 +218,127 @@ export default function DentalTreatmentOperationsDashboard() {
         item.treatment.toLowerCase().includes(searchTerm.toLowerCase());
 
       let matchesFilter = true;
-      if (activeFilter === "Active") matchesFilter = item.clinicalStage === "Active Treatment";
-      else if (activeFilter === "Lab Phase")
-        matchesFilter = item.clinicalStage === "Lab Phase Pending";
-      else if (activeFilter === "Follow-up")
-        matchesFilter = item.clinicalStage === "Ready for Follow-up";
+
+      if (activeFilter === "Active Cases") {
+        if (item.dbStatus === "completed") {
+          matchesFilter = false;
+        } else {
+          matchesFilter =
+            item.labStatus === "none" ||
+            item.labStatus === "impression_scheduled" ||
+            item.labStatus === "sent_to_lab" ||
+            item.labStatus === "received_from_lab" ||
+            item.labStatus === "sent_for_improvement";
+        }
+      } else if (activeFilter === "Lab Phase") {
+        matchesFilter =
+          item.labStatus === "impression_scheduled" ||
+          item.labStatus === "sent_to_lab" ||
+          item.labStatus === "received_from_lab" ||
+          item.labStatus === "sent_for_improvement";
+      } else if (activeFilter === "Follow-Ups") {
+        // Enforce restriction: only pull records where follow_up_needed is explicitly true
+        matchesFilter = item.labStatus === "received_from_lab" || item.followUpNeeded === true;
+      } else if (activeFilter === "Completed Cases") {
+        matchesFilter = item.dbStatus === "completed";
+      }
 
       return matchesSearch && matchesFilter;
     });
   }, [treatments, searchTerm, activeFilter]);
 
+  // ==========================================
+  // ACTION PIPELINES (MUTATIONS)
+  // ==========================================
+  const handleCreateInvoice = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedPatient) {
+      toast.error("Please select a valid patient profile.");
+      return;
+    }
+    if (!invoiceForm.treatment || !invoiceForm.amount) {
+      toast.error("Please specify both procedure layout and estimation value.");
+      return;
+    }
+
+    const finalTreatment =
+      invoiceForm.treatment === "Other" ? customTreatmentName : invoiceForm.treatment;
+    const total = parseFloat(invoiceForm.amount) || 0;
+
+    const { error } = await supabase.from("treatment_plans").insert({
+      patient_id: selectedPatient.id,
+      title: finalTreatment,
+      description: invoiceForm.notes || null,
+      status: "in_progress",
+      start_date: new Date().toISOString().split("T")[0],
+      estimated_cost: total,
+      actual_cost: total,
+      paid_amount: 0,
+      due_date: invoiceForm.dueDate || null,
+      payment_status: "pending",
+      lab_status: "none",
+      follow_up_needed: false,
+    });
+
+    if (error) {
+      toast.error("Failed to append treatment track manifest.");
+      return;
+    }
+
+    toast.success("Treatment operational instance created successfully.");
+
+    setInvoiceForm({ patientName: "", treatment: "", amount: "", dueDate: "", notes: "" });
+    setSelectedPatient(null);
+    setPatientSearchQuery("");
+    setCreateOpen(false);
+
+    await fetchTreatmentPlans();
+  };
+
+  const handleUpdateLabStatus = async (id: string, newStatus: LabStatus) => {
+    const updatePayload = {
+      lab_status: newStatus,
+      ...(newStatus === "finalized" ? { status: "completed" as const } : {}),
+    };
+
+    if (newStatus === "finalized") {
+      updatePayload.status = "completed";
+    }
+
+    const { error } = await supabase.from("treatment_plans").update(updatePayload).eq("id", id);
+
+    if (error) {
+      console.error("Database update error:", error);
+      toast.error("Failed to synchronize lab workflow selection.");
+      return;
+    }
+
+    toast.success("Lab workflow status synchronized successfully.");
+    await fetchTreatmentPlans();
+  };
+
+  const handleToggleFollowUpNeeded = async (id: string, needed: boolean) => {
+    const { error } = await supabase
+      .from("treatment_plans")
+      .update({
+        follow_up_needed: needed,
+      })
+      .eq("id", id);
+
+    if (error) {
+      console.error("Database update error:", error);
+      toast.error("Failed to update follow up baseline flag.");
+      return;
+    }
+
+    toast.success("Follow up queue target successfully matched.");
+    await fetchTreatmentPlans();
+  };
+
   return (
     <DashboardShell>
       <div className="space-y-5">
-        {/* DASHBOARD TOP HEADER BAR */}
+        {/* TOP MAIN HEADER PANEL */}
         <div className="border-b border-slate-100 pb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900">
@@ -494,47 +359,47 @@ export default function DentalTreatmentOperationsDashboard() {
           </div>
         </div>
 
-        {/* METRICS ROW HIGHLIGHT FRAMEWORK */}
+        {/* REAL-TIME METRICS GRID */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-white border border-slate-200 p-6 rounded-xl shadow-3xs min-h-[120px]">
+          <div className="bg-white border border-slate-200 p-6 rounded-xl shadow-3xs min-h-[100px] flex flex-col justify-center">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
               Active Cases
             </span>
-            <span className="text-3xl font-bold text-slate-800 mt-0.5 block">
+            <span className="text-2xl font-bold text-slate-800 mt-0.5 block">
               {operationsMetrics.activeCases} Patients
             </span>
           </div>
-          <div className="bg-white border border-slate-200 p-6 rounded-xl shadow-3xs flex items-center justify-between min-h-[120px]">
+          <div className="bg-white border border-slate-200 p-6 rounded-xl shadow-3xs flex items-center justify-between min-h-[100px]">
             <div>
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                Awaiting Lab
+                Awaiting Lab Workflows
               </span>
-              <span className="text-3xl font-bold text-indigo-700 mt-0.5 block">
+              <span className="text-2xl font-bold text-indigo-700 mt-0.5 block">
                 {operationsMetrics.awaitingLab} Pipelines
               </span>
             </div>
-            <FlaskConical className="h-4 w-4 text-indigo-400 shrink-0" />
+            <FlaskConical className="h-5 w-5 text-indigo-400 shrink-0" />
           </div>
-          <div className="bg-white border border-slate-200 p-3 rounded-xl shadow-3xs flex items-center justify-between">
+          <div className="bg-white border border-slate-200 p-6 rounded-xl shadow-3xs flex items-center justify-between min-h-[100px]">
             <div>
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
                 Follow-Ups Queued
               </span>
-              <span className="text-3xl font-bold text-amber-700 mt-0.5 block">
+              <span className="text-2xl font-bold text-amber-700 mt-0.5 block">
                 {operationsMetrics.followUpNeeded} Outreach
               </span>
             </div>
-            <CalendarDays className="h-4 w-4 text-amber-400 shrink-0" />
+            <CalendarDays className="h-5 w-5 text-amber-400 shrink-0" />
           </div>
         </div>
 
-        {/* CONTROLS UTILITY BAR VIEW */}
+        {/* SEARCH AND FILTERS TOOLBAR */}
         <div className="bg-white rounded-xl border border-slate-200 p-3 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-3xs">
           <div className="relative w-full sm:w-72">
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
             <input
               type="text"
-              placeholder="Filter by clinician, patient ID..."
+              placeholder="Search by patient name, case ID, or procedure..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full bg-slate-50 pl-9 pr-4 py-1.5 border border-slate-200 rounded-lg text-xs placeholder:text-slate-400 focus:outline-none focus:border-teal-500 focus:bg-white transition font-medium text-slate-900"
@@ -543,17 +408,22 @@ export default function DentalTreatmentOperationsDashboard() {
           <div className="flex bg-slate-100 p-1 rounded-lg w-full sm:w-auto overflow-x-auto">
             {(
               [
-                { id: "All", label: "All Cases" },
-                { id: "Active", label: "Active" },
+                { id: "All Cases", label: "All Cases" },
+                { id: "Active Cases", label: "Active Cases" },
                 { id: "Lab Phase", label: "Lab Phase" },
-                { id: "Follow-up", label: "Callbacks Needed" },
+                { id: "Follow-Ups", label: "Follow-Ups" },
+                { id: "Completed Cases", label: "Completed Cases" },
               ] as const
             ).map((tab) => (
               <button
                 key={tab.id}
                 type="button"
                 onClick={() => setActiveFilter(tab.id)}
-                className={`px-3 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider transition whitespace-nowrap ${activeFilter === tab.id ? "bg-white text-slate-900 shadow-3xs" : "text-slate-500 hover:text-slate-900"}`}
+                className={`px-3 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider transition whitespace-nowrap ${
+                  activeFilter === tab.id
+                    ? "bg-white text-slate-900 shadow-3xs"
+                    : "text-slate-500 hover:text-slate-900"
+                }`}
               >
                 {tab.label}
               </button>
@@ -561,15 +431,19 @@ export default function DentalTreatmentOperationsDashboard() {
           </div>
         </div>
 
-        {/* CORE CONSOLIDATED CASE CARDS LIST VIEW */}
+        {/* CASE TRACK ITEMS LIST ARCHITECTURE */}
         <div className="space-y-3.5">
-          {filteredTreatments.length > 0 ? (
+          {isLoading ? (
+            <div className="bg-white border border-slate-200 rounded-xl p-12 text-center text-xs font-semibold text-slate-400">
+              Loading active treatment plans...
+            </div>
+          ) : filteredTreatments.length > 0 ? (
             filteredTreatments.map((item) => (
               <div
                 key={item.id}
-                className="bg-white border border-slate-200/90 rounded-xl p-4 shadow-3xs hover:border-slate-200 transition grid grid-cols-1 md:grid-cols-12 gap-4 items-center relative overflow-hidden"
+                className="bg-white border border-slate-200/90 rounded-xl p-4 shadow-3xs hover:border-slate-300 transition grid grid-cols-1 lg:grid-cols-12 gap-4 items-start relative overflow-hidden"
               >
-                {/* Visual Accent State Indicators */}
+                {/* Visual Accent State Bar Indicators */}
                 <div
                   className={`absolute left-0 top-0 bottom-0 w-1 ${
                     item.clinicalStage === "Lab Phase Pending"
@@ -580,14 +454,14 @@ export default function DentalTreatmentOperationsDashboard() {
                   }`}
                 />
 
-                {/* ZONE 1: DETAILED TREATMENT CLINICAL PROFILE AREA */}
-                <div className="md:col-span-5 pl-1.5 space-y-1">
+                {/* ZONE 1: CLINICAL TREATMENT PROFILE */}
+                <div className="md:col-span-4 pl-1.5 space-y-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-xl font-extrabold text-slate-900">
+                    <span className="text-base font-extrabold text-slate-900">
                       {item.patientName}
                     </span>
                     <span
-                      className={`text-[9px] font-extrabold uppercase tracking-wider px-2 py-0.2 rounded border ${
+                      className={`text-[9px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded border ${
                         item.clinicalStage === "Active Treatment"
                           ? "bg-teal-50 text-teal-700 border-teal-100"
                           : item.clinicalStage === "Lab Phase Pending"
@@ -598,92 +472,117 @@ export default function DentalTreatmentOperationsDashboard() {
                       {item.clinicalStage}
                     </span>
                   </div>
-                  <p className="text-xs font-semibold text-slate-700 truncate max-w-sm">
+                  <p className="text-xs font-semibold text-slate-500 truncate max-w-xs">
                     {item.treatment}
                   </p>
+                </div>
 
-                  {/* Embedded Custom Lab Tracking Dashboard Block */}
-                  {item.labWorkflow.status !== "None" && (
-                    <div className="text-[11px] font-medium text-indigo-600 bg-indigo-50/40 border border-indigo-100/60 p-2 rounded-lg mt-1 flex items-center justify-between gap-2 max-w-sm">
-                      <div className="flex items-center gap-1">
-                        <FlaskConical className="h-3 w-3" />
-                        <span>
-                          Lab Workflow:{" "}
-                          <strong className="font-bold underline">{item.labWorkflow.status}</strong>
-                        </span>
+                {/* ZONE 2: DROP-DOWN LAB STATUS CONTROLLER */}
+                <div className="md:col-span-3 space-y-1">
+                  <span className="block text-[9px] font-bold uppercase tracking-wider text-slate-400">
+                    Lab Workflow Status
+                  </span>
+                  <Select
+                    value={item.labStatus}
+                    onValueChange={(val: LabStatus) => handleUpdateLabStatus(item.id, val)}
+                  >
+                    <SelectTrigger className="h-8 text-xs font-medium bg-slate-50 border-slate-200 focus:ring-teal-500/20 w-full">
+                      <SelectValue placeholder="No Lab Work" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {activeFilter !== "Completed Cases" && (
+                        <SelectItem value="none">No Lab Work Needed</SelectItem>
+                      )}
+
+                      <SelectItem value="impression_scheduled">Impression Scheduled</SelectItem>
+                      <SelectItem value="sent_to_lab">Sent to Lab</SelectItem>
+                      <SelectItem value="received_from_lab">Received from Lab</SelectItem>
+                      <SelectItem value="finalized">Finalized Case</SelectItem>
+                      <SelectItem value="sent_for_improvement">Sent for Improvement</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* ZONE 3: CONDITIONAL FOLLOW-UP WORKFLOW PANEL (Visible ONLY inside Follow-Ups View) */}
+                <div className="md:col-span-3 space-y-1">
+                  {activeFilter === "Follow-Ups" ? (
+                    <>
+                      <span className="block text-[9px] font-bold uppercase tracking-wider text-slate-400">
+                        Follow-Up Status
+                      </span>
+                      <div className="text-xs space-y-0.5">
+                        <Select value={item.hasAppointment ? "scheduled" : "needed"}>
+                          <SelectTrigger className="h-8 w-full min-w-[190px] text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+
+                          <SelectContent>
+                            <SelectItem value="needed">Appointment Needed</SelectItem>
+
+                            <SelectItem value="scheduled">Appointment Scheduled</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        {item.hasAppointment && (
+                          <div className="text-[10px] text-slate-500">
+                            Scheduled On: {item.appointmentDate}
+                          </div>
+                        )}
+                        {item.hasAppointment && (
+                          <div className="text-[10px] font-medium text-slate-500">
+                            Scheduled On:{" "}
+                            <span className="text-slate-700 font-semibold">
+                              {item.appointmentDate}
+                            </span>
+                          </div>
+                        )}
                       </div>
-                      <div className="text-[10px] text-slate-400">
-                        Exp: {item.labWorkflow.expectedReturnDate}
-                      </div>
-                    </div>
+                    </>
+                  ) : (
+                    <>
+                      {String(activeFilter) === "Follow-Ups" && (
+                        <>
+                          <span className="block text-[9px] font-bold uppercase tracking-wider text-slate-400">
+                            Quick Action Queue
+                          </span>
+
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() =>
+                              handleToggleFollowUpNeeded(item.id, !item.followUpNeeded)
+                            }
+                            className={`h-7 text-[10px] font-bold uppercase tracking-wider w-full ${
+                              item.followUpNeeded
+                                ? "border-rose-200 bg-rose-50/40 text-rose-700 hover:bg-rose-100"
+                                : "border-slate-200 text-slate-700 hover:bg-slate-50"
+                            }`}
+                          >
+                            {item.followUpNeeded ? "Remove From Follow-Ups" : "Flag For Follow-Up"}
+                          </Button>
+                        </>
+                      )}
+                    </>
                   )}
                 </div>
 
-                {/* ZONE 2: DETAILED FINANCIAL COMMITMENT MATRIX AREA */}
-                <div className="md:col-span-3 border-t md:border-t-0 pt-2 md:pt-0 border-slate-50 grid grid-cols-2 gap-2 text-left">
+                {/* ZONE 4: FINANCES OUTSTANDING */}
+                <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-2 text-left text-xs">
                   <div>
-                    <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                      Ledger Invoicing
+                    <span className="block text-[9px] font-bold uppercase tracking-wider text-slate-400">
+                      Total Cost
                     </span>
-                    <span className="text-xs font-bold text-slate-800">
-                      ${item.totalAmount.toFixed(2)}
-                    </span>
+                    <span className="font-bold text-slate-800">${item.totalAmount.toFixed(2)}</span>
                   </div>
                   <div>
-                    <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                      Financial Balance
+                    <span className="block text-[9px] font-bold uppercase tracking-wider text-slate-400">
+                      Arrears
                     </span>
                     <span
-                      className={`text-xs font-black ${item.remainingBalance > 0 ? "text-rose-600" : "text-emerald-600"}`}
+                      className={`font-black ${item.remainingBalance > 0 ? "text-rose-600" : "text-emerald-600"}`}
                     >
-                      {item.remainingBalance > 0
-                        ? `$${item.remainingBalance.toFixed(2)} Due`
-                        : "Cleared Ledger"}
+                      {item.remainingBalance > 0 ? `$${item.remainingBalance.toFixed(2)}` : "Paid"}
                     </span>
                   </div>
-                </div>
-
-                {/* ZONE 3: ACTIONS CONTEXT CONTROL PANELS */}
-                <div className="md:col-span-4 border-t md:border-t-0 pt-2 md:pt-0 border-slate-50 flex flex-wrap items-center justify-start md:justify-end gap-2">
-                  {/* Conditional Workflows rendering maps */}
-                  {item.labWorkflow.status === "None" &&
-                    item.clinicalStage !== "Ready for Follow-up" && (
-                      <button
-                        onClick={() => handleOpenLabDispatch(item)}
-                        className="inline-flex items-center gap-1 h-7 text-[10px] font-bold uppercase tracking-wider border border-indigo-200 bg-indigo-50/30 text-indigo-700 rounded px-2.5 hover:bg-indigo-50"
-                      >
-                        <FlaskConical className="h-3 w-3" />
-                        <span>Send to Lab</span>
-                      </button>
-                    )}
-
-                  {item.labWorkflow.status !== "None" && item.labWorkflow.status !== "Returned" && (
-                    <button
-                      onClick={() =>
-                        handleAdvanceLabStatus(item.id, item.labWorkflow.status, item.patientName)
-                      }
-                      className="inline-flex items-center gap-1 h-7 text-[10px] font-bold uppercase tracking-wider border border-indigo-200 bg-indigo-600 text-white rounded px-2.5 hover:bg-indigo-700"
-                    >
-                      <RefreshCcw className="h-3 w-3 animate-spin-slow" />
-                      <span>Log Return Progress</span>
-                    </button>
-                  )}
-
-                  {item.clinicalStage === "Active Treatment" && (
-                    <button
-                      onClick={() => handleTriggerFollowUp(item.id)}
-                      className="inline-flex items-center gap-1 h-7 text-[10px] font-bold uppercase tracking-wider border border-amber-200 bg-amber-50/40 text-amber-700 rounded px-2.5 hover:bg-amber-50"
-                    >
-                      <CalendarDays className="h-3 w-3" />
-                      <span>Queue Recall</span>
-                    </button>
-                  )}
-
-                  
-
-                  <button className="p-1 text-slate-400 hover:text-slate-600 transition ml-auto md:ml-0">
-                    <Download className="h-3.5 w-3.5" />
-                  </button>
                 </div>
               </div>
             ))
@@ -700,76 +599,22 @@ export default function DentalTreatmentOperationsDashboard() {
       </div>
 
       {/* ==========================================
-          MODAL INTERFACES: DISPATCH LOG TO LAB
+          MODAL OVERLAY: INITIALIZE CASES
          ========================================== */}
-      <Dialog open={labDialogOpen} onOpenChange={setLabDialogOpen}>
+      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent className="sm:max-w-md rounded-xl">
           <DialogHeader>
-            <DialogTitle>Laboratory Case Despatch</DialogTitle>
-            <DialogDescription>
-              Route manufacturing tracking indexes cleanly through external partner technicians.
-            </DialogDescription>
-          </DialogHeader>
-          {selectedCase && (
-            <form onSubmit={handleDispatchToLab} className="space-y-4 py-2">
-              <div>
-                <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                  Patient File Link
-                </Label>
-                <div className="text-xs font-bold text-slate-800 bg-slate-50 p-2.5 rounded border border-slate-200 mt-1">
-                  {selectedCase.patientName} — {selectedCase.treatment}
-                </div>
-              </div>
-              <div className="grid gap-1.5">
-                <Label htmlFor="expectedReturnDate">Target Expected Completion Return Date</Label>
-                <Input
-                  id="expectedReturnDate"
-                  type="date"
-                  required
-                  value={labForm.expectedReturnDate}
-                  onChange={(e) => setLabForm({ ...labForm, expectedReturnDate: e.target.value })}
-                />
-              </div>
-              <div className="flex justify-end gap-2 pt-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setLabDialogOpen(false)}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="submit"
-                  size="sm"
-                  className="bg-indigo-600 hover:bg-indigo-700 text-white"
-                >
-                  Confirm Dispatch Order
-                </Button>
-              </div>
-            </form>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* ==========================================
-          MODAL INTERFACES: BOOKING PAYMENT MANIFEST
-         ========================================== */}
-
-      {/* CREATE INVOICE DISPATCH DRAWER OVERLAY */}
-      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent className="sm:max-w-lg rounded-xl">
-          <DialogHeader>
-            <DialogTitle>Initialize Treatment Case Manifest</DialogTitle>
-            <DialogDescription>
+            <DialogTitle className="text-base font-bold">
+              Initialize Treatment Case Manifest
+            </DialogTitle>
+            <DialogDescription className="text-xs">
               Generate an upfront treatment itemization ledger record before collecting processing
               funds.
             </DialogDescription>
           </DialogHeader>
-          <form onSubmit={handleCreateInvoice} className="space-y-4 py-2 text-xs">
-            <div className="grid gap-2">
-              <Label>Patient</Label>
-
+          <form onSubmit={handleCreateInvoice} className="space-y-4 pt-2 text-xs">
+            <div className="grid gap-1.5">
+              <Label className="text-xs font-semibold text-slate-700">Patient Link</Label>
               <Input
                 value={patientSearchQuery}
                 onChange={(e) => {
@@ -777,117 +622,122 @@ export default function DentalTreatmentOperationsDashboard() {
                   setShowPatientDropdown(true);
                 }}
                 onFocus={() => setShowPatientDropdown(true)}
-                placeholder="Search patient..."
+                placeholder="Type patient name to look up profile..."
+                className="h-10 text-xs"
               />
 
               {showPatientDropdown && patientSearchQuery.trim() && (
-                <div className="max-h-48 overflow-y-auto border rounded-lg bg-white">
-                  {filteredPatientOptions.map((patient) => (
-                    <button
-                      key={patient.id}
-                      type="button"
-                      className="w-full text-left px-3 py-2 hover:bg-slate-50"
-                      onClick={() => {
-                        setSelectedPatient(patient);
-                        setPatientSearchQuery(patient.name);
-                        setShowPatientDropdown(false);
-
-                        setInvoiceForm({
-                          ...invoiceForm,
-                          patientName: patient.name,
-                        });
-                      }}
-                    >
-                      {patient.name}
-                    </button>
-                  ))}
+                <div className="max-h-40 overflow-y-auto border border-slate-200 rounded-lg bg-white shadow-lg divide-y divide-slate-50">
+                  {filteredPatientOptions.length > 0 ? (
+                    filteredPatientOptions.map((patient) => (
+                      <button
+                        key={patient.id}
+                        type="button"
+                        className="w-full text-left px-3 py-2 text-xs hover:bg-slate-50 font-medium text-slate-700"
+                        onClick={() => {
+                          setSelectedPatient(patient);
+                          setPatientSearchQuery(patient.name);
+                          setShowPatientDropdown(false);
+                          setInvoiceForm({ ...invoiceForm, patientName: patient.name });
+                        }}
+                      >
+                        {patient.name} ({patient.id})
+                      </button>
+                    ))
+                  ) : (
+                    <div className="px-3 py-2 text-xs text-slate-400 italic">
+                      No matching patient records
+                    </div>
+                  )}
                 </div>
               )}
             </div>
-            <div className="grid gap-1">
-              <Label htmlFor="treatment">Target Treatment Clinical Procedure</Label>
+
+            <div className="grid gap-1.5">
+              <Label className="text-xs font-semibold text-slate-700" htmlFor="treatment">
+                Target Procedure
+              </Label>
               <Select
                 value={invoiceForm.treatment}
-                onValueChange={(value) =>
-                  setInvoiceForm({
-                    ...invoiceForm,
-                    treatment: value,
-                  })
-                }
+                onValueChange={(val) => setInvoiceForm({ ...invoiceForm, treatment: val })}
               >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select treatment" />
+                <SelectTrigger className="h-10 text-xs">
+                  <SelectValue placeholder="Choose a clinic procedure Layout..." />
                 </SelectTrigger>
-
                 <SelectContent>
                   <SelectItem value="Routine Cleaning & Checkup">
                     Routine Cleaning & Checkup
                   </SelectItem>
-
                   <SelectItem value="Dental Filling">Dental Filling</SelectItem>
-
                   <SelectItem value="Root Canal Treatment">Root Canal Treatment</SelectItem>
-
                   <SelectItem value="Crown Placement">Crown Placement</SelectItem>
-
                   <SelectItem value="Bridge Placement">Bridge Placement</SelectItem>
-
                   <SelectItem value="Tooth Extraction">Tooth Extraction</SelectItem>
-
                   <SelectItem value="Dental Implant">Dental Implant</SelectItem>
-
                   <SelectItem value="Scaling & Polishing">Scaling & Polishing</SelectItem>
-
                   <SelectItem value="Teeth Whitening">Teeth Whitening</SelectItem>
-
                   <SelectItem value="Orthodontic Treatment">Orthodontic Treatment</SelectItem>
-
                   <SelectItem value="Denture">Denture</SelectItem>
-
-                  <SelectItem value="Other"> Other </SelectItem>
+                  <SelectItem value="Other">Other</SelectItem>
                 </SelectContent>
               </Select>
 
               {invoiceForm.treatment === "Other" && (
                 <Input
-                  placeholder="Enter custom treatment name"
+                  placeholder="Type custom clinical procedure definition..."
                   value={customTreatmentName}
                   onChange={(e) => setCustomTreatmentName(e.target.value)}
+                  className="h-10 text-xs mt-1.5"
+                  required
                 />
               )}
             </div>
-            <div className="grid gap-1">
-              <Label htmlFor="amount">Total Treatment Valuation Base ($)</Label>
-              <Input
-                id="amount"
-                type="number"
-                step="0.01"
-                required
-                value={invoiceForm.amount}
-                onChange={(e) => setInvoiceForm({ ...invoiceForm, amount: e.target.value })}
-                placeholder="0.00"
-              />
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="grid gap-1.5">
+                <Label className="text-xs font-semibold text-slate-700" htmlFor="amount">
+                  Total Treatment Valuation Base ($)
+                </Label>
+                <Input
+                  id="amount"
+                  type="number"
+                  step="0.01"
+                  required
+                  placeholder="0.00"
+                  value={invoiceForm.amount}
+                  onChange={(e) => setInvoiceForm({ ...invoiceForm, amount: e.target.value })}
+                  className="h-10 text-xs"
+                />
+              </div>
+              <div className="grid gap-1.5">
+                <Label className="text-xs font-semibold text-slate-700" htmlFor="dueDate">
+                  Remittance Clearance Due Date
+                </Label>
+                <Input
+                  id="dueDate"
+                  type="date"
+                  value={invoiceForm.dueDate}
+                  onChange={(e) => setInvoiceForm({ ...invoiceForm, dueDate: e.target.value })}
+                  className="h-10 text-xs"
+                />
+              </div>
             </div>
-            <div className="grid gap-1">
-              <Label htmlFor="dueDate">Remittance Clearance Due Date</Label>
-              <Input
-                id="dueDate"
-                type="date"
-                required
-                value={invoiceForm.dueDate}
-                onChange={(e) => setInvoiceForm({ ...invoiceForm, dueDate: e.target.value })}
-              />
-            </div>
+
             <div className="flex justify-end gap-2 pt-2">
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
                 onClick={() => setCreateOpen(false)}
+                className="h-9 text-xs"
               >
                 Cancel
               </Button>
-              <Button type="submit" size="sm" className="bg-teal-600 hover:bg-teal-700 text-white">
+              <Button
+                type="submit"
+                size="sm"
+                className="bg-teal-600 hover:bg-teal-700 text-white h-9 text-xs font-bold"
+              >
                 Initialize Treatment File
               </Button>
             </div>
