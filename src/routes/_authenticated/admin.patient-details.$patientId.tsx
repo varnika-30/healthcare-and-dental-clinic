@@ -580,9 +580,56 @@ export default function AdminPatientDetailsPage() {
           }))
         : [];
 
+      // Fetch appointments
+      const { data: dbAppointments, error: apptsError } = await supabase
+        .from("appointments")
+        .select("*")
+        .eq("patient_id", dbPatient.id);
+
+      if (apptsError) {
+        console.error("Failed to load appointments from database:", apptsError);
+      }
+
+      const mappedAppointments = dbAppointments
+        ? dbAppointments.map((appt) => {
+            let clinicalRecord;
+            if (appt.notes) {
+              try {
+                clinicalRecord = JSON.parse(appt.notes);
+              } catch {
+                clinicalRecord = {
+                  chiefComplaint: "",
+                  extraOralExamination: "",
+                  oralExamination: "",
+                  treatmentAdvised: "",
+                  clinicalNotes: appt.notes || "",
+                };
+              }
+            }
+            return {
+              id: appt.id,
+              date: appt.appointment_date ? appt.appointment_date.split("T")[0] : "",
+              time: (() => {
+                try {
+                  const d = new Date(appt.appointment_date);
+                  return isNaN(d.getTime()) ? "" : d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+                } catch {
+                  return "";
+                }
+              })(),
+              provider: appt.doctor_id || "Unassigned",
+              type: appt.service,
+              status: appt.status === "completed" ? ("Completed" as const) : appt.status === "no_show" ? ("No Show" as const) : ("Upcoming" as const),
+              clinicalRecord,
+            };
+          })
+        : [];
+
+      console.log("DB PATIENT", dbPatient);
       setPatientData((prev) => ({
         ...prev,
         id: dbPatient.id,
+        appointments: mappedAppointments.length > 0 ? mappedAppointments : prev.appointments,
         profile: {
           ...prev.profile,
           fullName:
@@ -854,17 +901,17 @@ export default function AdminPatientDetailsPage() {
   };
 
   const handleSaveNetwork = async () => {
+    console.log("SAVE NETWORK FIRED");
     // 1. Update emergency contact in database
     const patientPayload = {
       emergency_contact_name: editableNetwork.emergencyContact.name,
       emergency_contact_phone: editableNetwork.emergencyContact.phone,
     };
 
-    const updateFn = supabase.from("patients").update as unknown as (
-      p: Record<string, unknown>,
-    ) => { eq: (col: string, val: string) => Promise<{ error: Error | null }> };
-
-    const { error: patientError } = await updateFn(patientPayload).eq("id", patientData.id);
+    const { error: patientError } = await supabase
+      .from("patients")
+      .update(patientPayload)
+      .eq("id", patientData.id);
 
     if (patientError) {
       console.error("Failed to update emergency contact in database:", patientError);
@@ -995,6 +1042,7 @@ export default function AdminPatientDetailsPage() {
   // DISPATCHERS & STATE WRITERS
   // ==========================================
   const handleSaveProfile = async (e: React.FormEvent) => {
+    console.log("SAVE PROFILE FIRED");
     e.preventDefault();
 
     const [firstName, ...lastParts] = editableProfile.fullName.trim().split(" ");
@@ -1014,15 +1062,12 @@ export default function AdminPatientDetailsPage() {
       blood_group: editableProfile.bloodGroup,
       address: JSON.stringify(editableProfile.address),
       dob: dobStr,
-      emergency_contact_name: editableProfile.emergencyContact.name,
-      emergency_contact_phone: editableProfile.emergencyContact.phone,
     };
 
-    const updateFn = supabase.from("patients").update as unknown as (
-      p: Record<string, unknown>,
-    ) => { eq: (col: string, val: string) => Promise<{ error: Error | null }> };
-
-    const { error } = await updateFn(updatePayload).eq("id", patientData.id);
+    const { error } = await supabase
+      .from("patients")
+      .update(updatePayload)
+      .eq("id", patientData.id);
 
     if (error) {
       console.error("Failed to update profile in database:", error);
@@ -1054,6 +1099,7 @@ export default function AdminPatientDetailsPage() {
   };
 
   const handleSaveMedicalHistory = async () => {
+    console.log("SAVE MEDICAL FIRED");
     const allergiesStr = editableMedicalStrings.allergies
       .split(",")
       .map((s) => s.trim())
@@ -1065,11 +1111,10 @@ export default function AdminPatientDetailsPage() {
       medical_notes: editableProfile.medicalProfile.notes,
     };
 
-    const updateFn = supabase.from("patients").update as unknown as (
-      p: Record<string, unknown>,
-    ) => { eq: (col: string, val: string) => Promise<{ error: Error | null }> };
-
-    const { error } = await updateFn(updatePayload).eq("id", patientData.id);
+    const { error } = await supabase
+      .from("patients")
+      .update(updatePayload)
+      .eq("id", patientData.id);
 
     if (error) {
       console.error("Failed to update medical history in database:", error);
@@ -2285,72 +2330,6 @@ export default function AdminPatientDetailsPage() {
                 <div className="mt-6 space-y-4 text-sm flex-1">
                   {isMedicalEditing ? (
                     <div className="grid grid-cols-1 xl:grid-cols-[280px_1fr] gap-4">
-                      <div className="bg-white rounded-2xl border border-slate-200 p-3 space-y-4">
-                        <span className="text-[10px] uppercase tracking-wide text-slate-500 font-bold block">
-                          Emergency Contact
-                        </span>
-                        <div>
-                          <label className="block text-slate-500 font-medium mb-2 uppercase tracking-[0.14em] text-[11px]">
-                            Name
-                          </label>
-                          <input
-                            type="text"
-                            placeholder="Contact name"
-                            value={editableProfile.emergencyContact.name}
-                            onChange={(e) =>
-                              setEditableProfile({
-                                ...editableProfile,
-                                emergencyContact: {
-                                  ...editableProfile.emergencyContact,
-                                  name: e.target.value,
-                                },
-                              })
-                            }
-                            className="w-full p-3 bg-white border border-slate-200 rounded-2xl font-medium text-slate-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-teal-100"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-slate-500 font-medium mb-2 uppercase tracking-[0.14em] text-[11px]">
-                            Relation
-                          </label>
-                          <input
-                            type="text"
-                            placeholder="e.g. Spouse, Parent"
-                            value={editableProfile.emergencyContact.relation}
-                            onChange={(e) =>
-                              setEditableProfile({
-                                ...editableProfile,
-                                emergencyContact: {
-                                  ...editableProfile.emergencyContact,
-                                  relation: e.target.value,
-                                },
-                              })
-                            }
-                            className="w-full p-3 bg-white border border-slate-200 rounded-2xl font-medium text-slate-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-teal-100"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-slate-500 font-medium mb-2 uppercase tracking-[0.14em] text-[11px]">
-                            Phone
-                          </label>
-                          <input
-                            type="text"
-                            placeholder="(555) 000-0000"
-                            value={editableProfile.emergencyContact.phone}
-                            onChange={(e) =>
-                              setEditableProfile({
-                                ...editableProfile,
-                                emergencyContact: {
-                                  ...editableProfile.emergencyContact,
-                                  phone: e.target.value,
-                                },
-                              })
-                            }
-                            className="w-full p-3 bg-white border border-slate-200 rounded-2xl font-medium text-slate-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-teal-100"
-                          />
-                        </div>
-                      </div>
-
                       <div className="space-y-4">
                         <div>
                           <label className="block text-slate-500 font-medium mb-2 uppercase tracking-[0.14em] text-[11px]">
@@ -4394,8 +4373,26 @@ export default function AdminPatientDetailsPage() {
               <div className="p-3 bg-slate-50 border-t border-slate-100 space-y-3">
                 <button
                   type="button"
-                  onClick={() => {
+                  onClick={async () => {
                     if (!selectedAppointment) return;
+
+                    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+                      selectedAppointment.id,
+                    );
+
+                    if (isUuid) {
+                      const { error } = await supabase
+                        .from("appointments")
+                        .update({
+                          notes: JSON.stringify(appointmentClinicalDraft),
+                        })
+                        .eq("id", selectedAppointment.id);
+
+                      if (error) {
+                        console.error("Failed to update appointment notes in database:", error);
+                      }
+                    }
+
                     setPatientData((prev) => ({
                       ...prev,
                       appointments: prev.appointments.map((a) =>
@@ -4414,12 +4411,29 @@ export default function AdminPatientDetailsPage() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => {
+                  onClick={async () => {
                     const nextDate = prompt(
                       "Input micro-reschedule date parameter (YYYY-MM-DD):",
                       selectedAppointment?.date,
                     );
                     if (nextDate && selectedAppointment) {
+                      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+                        selectedAppointment.id,
+                      );
+
+                      if (isUuid) {
+                        const { error } = await supabase
+                          .from("appointments")
+                          .update({
+                            appointment_date: nextDate,
+                          })
+                          .eq("id", selectedAppointment.id);
+
+                        if (error) {
+                          console.error("Failed to reschedule appointment in database:", error);
+                        }
+                      }
+
                       setPatientData((prev) => ({
                         ...prev,
                         appointments: prev.appointments.map((a) =>
