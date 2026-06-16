@@ -237,9 +237,7 @@ export default function DentalTreatmentOperationsDashboard() {
           item.labStatus === "received_from_lab" ||
           item.labStatus === "sent_for_improvement";
       } else if (activeFilter === "Follow-Ups") {
-          matchesFilter =
-            item.labStatus === "received_from_lab" ||
-            item.labStatus === "none";
+        matchesFilter = item.labStatus === "received_from_lab" || item.labStatus === "none";
       } else if (activeFilter === "Completed Cases") {
         matchesFilter = item.dbStatus === "completed";
       }

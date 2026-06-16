@@ -45,6 +45,7 @@ import {
 import { ToothChart } from "@/components/dashboard/ToothChart";
 import { Card } from "@/components/ui/card";
 import type { PrescriptionRecord } from "@/lib/prescription-store";
+import { supabase } from "@/integrations/supabase/client";
 
 // ==========================================
 // TANSTACK ROUTE DEFINITION
@@ -415,6 +416,22 @@ const MOCK_PATIENT_ECOSYSTEM: Record<string, CompletePatientState> = {
   },
 };
 
+interface DatabasePatient {
+  id: string;
+  first_name: string | null;
+  last_name: string | null;
+  gender: string | null;
+  dob: string | null;
+  phone: string | null;
+  email: string | null;
+  address: string | null;
+  blood_group: string | null;
+  allergies: string | null;
+  medical_notes: string | null;
+  emergency_contact_name: string | null;
+  emergency_contact_phone: string | null;
+}
+
 export default function AdminPatientDetailsPage() {
   const { patientId } = Route.useParams();
 
@@ -488,6 +505,116 @@ export default function AdminPatientDetailsPage() {
     const patientKey = `patient_ecosystem_${patientData.id}`;
     localStorage.setItem(patientKey, JSON.stringify(patientData));
   }, [patientData]);
+
+  // Load profile, medical history, emergency contact, and family links from Supabase
+  useEffect(() => {
+    async function loadDbData() {
+      if (!patientId) return;
+
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+        patientId,
+      );
+      console.log("PATIENT ID FROM ROUTE:", patientId);
+      console.log("IS UUID:", isUuid);
+
+      let patientQuery = supabase.from("patients").select("*");
+      if (isUuid) {
+        patientQuery = patientQuery.eq("id", patientId);
+      } else {
+        patientQuery = patientQuery.limit(1);
+      }
+
+      const { data: dbPatients, error: patientError } = await (patientQuery as unknown as Promise<{
+        data: DatabasePatient[] | null;
+        error: Error | null;
+      }>);
+      console.log("DB PATIENTS:", dbPatients);
+      console.log("PATIENT ERROR:", patientError);
+
+      if (patientError) {
+        console.error("Failed to load patient from database:", patientError);
+        return;
+      }
+
+      const dbPatient = dbPatients?.[0];
+      if (!dbPatient) return;
+
+      // Calculate age from dob (YYYY-MM-DD)
+      let calculatedAge = 28; // fallback
+      if (dbPatient.dob) {
+        const birthDate = new Date(dbPatient.dob);
+        const today = new Date();
+        let age = today.getFullYear() - birthDate.getFullYear();
+        const m = today.getMonth() - birthDate.getMonth();
+        if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+          age--;
+        }
+        calculatedAge = age;
+      }
+
+      // Address parsing
+      let parsedAddress = { street: "", city: "", state: "", zipCode: "" };
+      if (dbPatient.address) {
+        try {
+          parsedAddress = JSON.parse(dbPatient.address);
+        } catch {
+          parsedAddress.street = dbPatient.address;
+        }
+      }
+
+      // Fetch family links
+      const { data: familyLinks, error: familyError } = await supabase
+        .from("family_links")
+        .select("*")
+        .eq("patient_id", dbPatient.id);
+
+      if (familyError) {
+        console.error("Failed to load family links from database:", familyError);
+      }
+
+      const mappedFamily = familyLinks
+        ? familyLinks.map((link) => ({
+            id: link.id,
+            fullName: link.related_name,
+            relation: link.relationship || "",
+          }))
+        : [];
+
+      setPatientData((prev) => ({
+        ...prev,
+        id: dbPatient.id,
+        profile: {
+          ...prev.profile,
+          fullName:
+            `${dbPatient.first_name || ""} ${dbPatient.last_name || ""}`.trim() || "Unknown",
+          email: dbPatient.email || "",
+          phone: dbPatient.phone || "",
+          age: calculatedAge,
+          gender: dbPatient.gender || "",
+          sex: dbPatient.gender || "",
+          address: parsedAddress,
+          emergencyContact: {
+            name: dbPatient.emergency_contact_name || "",
+            relation: prev.profile?.emergencyContact?.relation || "",
+            phone: dbPatient.emergency_contact_phone || "",
+          },
+          medicalProfile: {
+            ...prev.profile.medicalProfile,
+            allergies: dbPatient.allergies
+              ? dbPatient.allergies
+                  .split(",")
+                  .map((s) => s.trim())
+                  .filter(Boolean)
+              : [],
+            notes: dbPatient.medical_notes || "",
+          },
+        },
+        family: mappedFamily,
+      }));
+    }
+
+    loadDbData();
+  }, [patientId]);
 
   // UI Control Configurations
   const [isProfileEditing, setIsProfileEditing] = useState(false);
@@ -685,6 +812,37 @@ export default function AdminPatientDetailsPage() {
     trackingNotes: patientData.referrals.trackingNotes || "",
   });
 
+  // Synchronize edit states when patientData.profile changes
+  useEffect(() => {
+    if (!isProfileEditing && !isMedicalEditing) {
+      setEditableProfile({
+        ...patientData.profile,
+      });
+      setEditableMedicalStrings({
+        allergies: patientData.profile.medicalProfile.allergies.join(", "),
+        medications: patientData.profile.medicalProfile.medications.join(", "),
+        conditions: patientData.profile.medicalProfile.conditions.join(", "),
+      });
+    }
+  }, [patientData.profile, isProfileEditing, isMedicalEditing]);
+
+  // Synchronize network edit states when family/emergencyContact changes
+  useEffect(() => {
+    if (!isNetworkEditing) {
+      setEditableNetwork({
+        family: patientData.family.map((member) => ({ ...member })),
+        emergencyContact: { ...patientData.profile.emergencyContact },
+        referralName: patientData.referrals.referredBy?.name || "",
+        trackingNotes: patientData.referrals.trackingNotes || "",
+      });
+    }
+  }, [
+    patientData.family,
+    patientData.profile.emergencyContact,
+    patientData.referrals,
+    isNetworkEditing,
+  ]);
+
   const handleStartNetworkEditing = () => {
     setEditableNetwork({
       family: patientData.family.map((member) => ({ ...member })),
@@ -695,7 +853,59 @@ export default function AdminPatientDetailsPage() {
     setIsNetworkEditing(true);
   };
 
-  const handleSaveNetwork = () => {
+  const handleSaveNetwork = async () => {
+    // 1. Update emergency contact in database
+    const patientPayload = {
+      emergency_contact_name: editableNetwork.emergencyContact.name,
+      emergency_contact_phone: editableNetwork.emergencyContact.phone,
+    };
+
+    const updateFn = supabase.from("patients").update as unknown as (
+      p: Record<string, unknown>,
+    ) => { eq: (col: string, val: string) => Promise<{ error: Error | null }> };
+
+    const { error: patientError } = await updateFn(patientPayload).eq("id", patientData.id);
+
+    if (patientError) {
+      console.error("Failed to update emergency contact in database:", patientError);
+    }
+
+    // 2. Synchronize family links in database
+    // Delete existing links
+    const { error: deleteError } = await supabase
+      .from("family_links")
+      .delete()
+      .eq("patient_id", patientData.id);
+
+    if (deleteError) {
+      console.error("Failed to delete existing family links:", deleteError);
+    }
+
+    // Insert new links
+    if (editableNetwork.family.length > 0) {
+      const inserts = editableNetwork.family
+        .filter((member) => member.fullName.trim() !== "")
+        .map((member) => {
+          const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+            member.id,
+          );
+          return {
+            id: isUuid ? member.id : undefined,
+            patient_id: patientData.id,
+            related_name: member.fullName,
+            relationship: member.relation,
+          };
+        });
+
+      if (inserts.length > 0) {
+        const { error: insertError } = await supabase.from("family_links").insert(inserts);
+
+        if (insertError) {
+          console.error("Failed to insert family links:", insertError);
+        }
+      }
+    }
+
     setPatientData((prev) => ({
       ...prev,
       family: editableNetwork.family.map((member) => ({ ...member })),
@@ -784,8 +994,40 @@ export default function AdminPatientDetailsPage() {
   // ==========================================
   // DISPATCHERS & STATE WRITERS
   // ==========================================
-  const handleSaveProfile = (e: React.FormEvent) => {
+  const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    const [firstName, ...lastParts] = editableProfile.fullName.trim().split(" ");
+    const lastName = lastParts.join(" ") || "";
+
+    // Calculate dob based on edited age
+    const today = new Date();
+    const dobYear = today.getFullYear() - editableProfile.age;
+    const dobStr = `${dobYear}-01-01`;
+
+    const updatePayload = {
+      first_name: firstName,
+      last_name: lastName,
+      email: editableProfile.email,
+      phone: editableProfile.phone,
+      gender: editableProfile.sex || editableProfile.gender,
+      blood_group: editableProfile.bloodGroup,
+      address: JSON.stringify(editableProfile.address),
+      dob: dobStr,
+      emergency_contact_name: editableProfile.emergencyContact.name,
+      emergency_contact_phone: editableProfile.emergencyContact.phone,
+    };
+
+    const updateFn = supabase.from("patients").update as unknown as (
+      p: Record<string, unknown>,
+    ) => { eq: (col: string, val: string) => Promise<{ error: Error | null }> };
+
+    const { error } = await updateFn(updatePayload).eq("id", patientData.id);
+
+    if (error) {
+      console.error("Failed to update profile in database:", error);
+    }
+
     setPatientData((prev) => ({
       ...prev,
       profile: {
@@ -811,7 +1053,28 @@ export default function AdminPatientDetailsPage() {
     setIsProfileEditing(false);
   };
 
-  const handleSaveMedicalHistory = () => {
+  const handleSaveMedicalHistory = async () => {
+    const allergiesStr = editableMedicalStrings.allergies
+      .split(",")
+      .map((s) => s.trim())
+      .filter((s) => s)
+      .join(", ");
+
+    const updatePayload = {
+      allergies: allergiesStr,
+      medical_notes: editableProfile.medicalProfile.notes,
+    };
+
+    const updateFn = supabase.from("patients").update as unknown as (
+      p: Record<string, unknown>,
+    ) => { eq: (col: string, val: string) => Promise<{ error: Error | null }> };
+
+    const { error } = await updateFn(updatePayload).eq("id", patientData.id);
+
+    if (error) {
+      console.error("Failed to update medical history in database:", error);
+    }
+
     setPatientData((prev) => ({
       ...prev,
       profile: {
