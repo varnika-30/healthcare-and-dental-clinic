@@ -612,14 +612,21 @@ export default function AdminPatientDetailsPage() {
               time: (() => {
                 try {
                   const d = new Date(appt.appointment_date);
-                  return isNaN(d.getTime()) ? "" : d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+                  return isNaN(d.getTime())
+                    ? ""
+                    : d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
                 } catch {
                   return "";
                 }
               })(),
               provider: appt.doctor_id || "Unassigned",
               type: appt.service,
-              status: appt.status === "completed" ? ("Completed" as const) : appt.status === "no_show" ? ("No Show" as const) : ("Upcoming" as const),
+              status:
+                appt.status === "completed"
+                  ? ("Completed" as const)
+                  : appt.status === "no_show"
+                    ? ("No Show" as const)
+                    : ("Upcoming" as const),
               clinicalRecord,
             };
           })
@@ -1066,7 +1073,7 @@ export default function AdminPatientDetailsPage() {
 
     const { error } = await supabase
       .from("patients")
-      .update(updatePayload)
+      .update(updatePayload as never)
       .eq("id", patientData.id);
 
     if (error) {

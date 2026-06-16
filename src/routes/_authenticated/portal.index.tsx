@@ -47,8 +47,8 @@ function PortalHome() {
           .from("appointments")
           .select("*")
           .eq("patient_id", patient.id)
-          .gte("scheduled_at", new Date().toISOString())
-          .order("scheduled_at")
+          .gte("appointment_date", new Date().toISOString())
+          .order("appointment_date")
           .limit(5),
         supabase
           .from("prescriptions")
@@ -132,18 +132,18 @@ function WelcomeBanner({
   name: string;
   nextAppointment:
     | {
-        scheduled_at: string;
-        dentist_name?: string;
-        treatment_type?: string;
+        appointment_date: string;
+        doctor_id?: string | null;
+        service?: string;
       }
     | null
     | undefined;
 }) {
   const hasNextAppt = !!nextAppointment;
   const formattedDate = hasNextAppt
-    ? format(new Date(nextAppointment.scheduled_at), "eee, MMM dd")
+    ? format(new Date(nextAppointment.appointment_date), "eee, MMM dd")
     : "None Scheduled";
-  const formattedTime = hasNextAppt ? format(new Date(nextAppointment.scheduled_at), "p") : "";
+  const formattedTime = hasNextAppt ? format(new Date(nextAppointment.appointment_date), "p") : "";
 
   return (
     <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#0f766e] to-[#14b8a6] p-6 text-white shadow-[0_20px_60px_rgba(20,184,166,0.18)] md:p-9">
@@ -200,14 +200,12 @@ function WelcomeBanner({
           {hasNextAppt ? (
             <div className="min-w-0">
               <div className="text-sm text-teal-50/90 truncate">
-                {formattedTime} · {nextAppointment.dentist_name || "Clinic Dentist"}
+                {formattedTime} · Assigned Provider
               </div>
 
               <div className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-white/20 px-3 py-1 text-xs font-medium max-w-full">
                 <Clock className="h-3 w-3 shrink-0" />
-                <span className="truncate">
-                  {nextAppointment.treatment_type || "General Checkup"}
-                </span>
+                <span className="truncate">{nextAppointment.service || "General Checkup"}</span>
               </div>
             </div>
           ) : (
@@ -391,18 +389,18 @@ function UpcomingAppointments({
   appointments,
 }: {
   appointments: {
-    dentist_name?: string;
-    treatment_type?: string;
-    scheduled_at: string;
+    doctor_id?: string | null;
+    service?: string;
+    appointment_date: string;
     status?: string;
   }[];
 }) {
   const displayAppts =
     appointments.length > 0
       ? appointments.map((a) => ({
-          dentist: a.dentist_name || "Dr. Aisha Patel",
-          type: a.treatment_type || "General Treatment",
-          date: format(new Date(a.scheduled_at), "eee, MMM dd · p"),
+          dentist: "Assigned Provider",
+          type: a.service || "General Treatment",
+          date: format(new Date(a.appointment_date), "eee, MMM dd · p"),
           status: a.status || "Confirmed",
           statusTint:
             a.status === "Pending"
@@ -514,22 +512,27 @@ function TreatmentProgress({
       const parsed = JSON.parse(stored);
       if (parsed && Array.isArray(parsed.treatments)) {
         // Find the first active/ongoing treatment
-        const activeTx = parsed.treatments.find((tx: any) => tx.status !== "Completed");
+        const activeTx = parsed.treatments.find(
+          (tx: { status?: string }) => tx.status !== "Completed",
+        );
         if (activeTx) {
           treatmentName = activeTx.procedure;
           treatmentDesc = `Tooth ${activeTx.toothNumber}`;
 
           const total = activeTx.stages?.length || 0;
           const completed =
-            activeTx.stages?.filter((s: any) => s.status === "completed").length || 0;
+            activeTx.stages?.filter((s: { status?: string }) => s.status === "completed").length ||
+            0;
           progress = total > 0 ? Math.round((completed / total) * 100) : 0;
 
-          stagesToRender = (activeTx.stages || []).map((stage: any, idx: number) => ({
-            label: `Stage ${idx + 1}`,
-            title: stage.name,
-            done: stage.status === "completed",
-            current: stage.status === "active",
-          }));
+          stagesToRender = (activeTx.stages || []).map(
+            (stage: { name?: string; status?: string }, idx: number) => ({
+              label: `Stage ${idx + 1}`,
+              title: stage.name,
+              done: stage.status === "completed",
+              current: stage.status === "active",
+            }),
+          );
         }
       }
     } catch (e) {
