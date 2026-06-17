@@ -19,6 +19,8 @@ import {
   X,
   ChevronDown,
   ChevronUp,
+  ChevronLeft,
+  ChevronRight,
   History,
   Users,
   Search,
@@ -111,6 +113,7 @@ interface AppointmentRecord {
   type: string;
   status: "Upcoming" | "Completed" | "No Show";
   clinicalRecord?: AppointmentClinicalRecord;
+  doctor_id?: string | null;
 }
 
 type TreatmentStage = string;
@@ -305,32 +308,7 @@ const MOCK_PATIENT_ECOSYSTEM: Record<string, CompletePatientState> = {
         familyHistory: "Mother has hypertension; father has type 2 diabetes.",
       },
     },
-    appointments: [
-      {
-        id: "A-5521",
-        date: "2026-05-26",
-        time: "09:00 AM",
-        provider: "Dr. Aisha Rahman",
-        type: "Composite Follow-up",
-        status: "Upcoming",
-      },
-      {
-        id: "A-5490",
-        date: "2026-05-20",
-        time: "11:15 AM",
-        provider: "Dr. Aisha Rahman",
-        type: "Diagnostic Evaluation",
-        status: "Completed",
-      },
-      {
-        id: "A-5310",
-        date: "2026-05-12",
-        time: "02:30 PM",
-        provider: "Dr. Aisha Rahman",
-        type: "Periodontal Maintenance",
-        status: "Completed",
-      },
-    ],
+    appointments: [],
     treatments: [
       {
         id: "TX-901",
@@ -619,8 +597,8 @@ export default function AdminPatientDetailsPage() {
                   return "";
                 }
               })(),
-              provider: appt.doctor_id || "Unassigned",
-              type: appt.service,
+              provider: "Assigned Provider",
+              type: appt.service || "Routine Cleaning & Checkup",
               status:
                 appt.status === "completed"
                   ? ("Completed" as const)
@@ -628,15 +606,15 @@ export default function AdminPatientDetailsPage() {
                     ? ("No Show" as const)
                     : ("Upcoming" as const),
               clinicalRecord,
+              doctor_id: appt.doctor_id,
             };
           })
         : [];
 
-      console.log("DB PATIENT", dbPatient);
       setPatientData((prev) => ({
         ...prev,
         id: dbPatient.id,
-        appointments: mappedAppointments.length > 0 ? mappedAppointments : prev.appointments,
+        appointments: mappedAppointments,
         profile: {
           ...prev.profile,
           fullName:
@@ -684,6 +662,39 @@ export default function AdminPatientDetailsPage() {
       treatmentAdvised: "",
       clinicalNotes: "",
     });
+
+  const [currentMonth, setCurrentMonth] = useState(5); // June (0-indexed)
+  const [currentYear, setCurrentYear] = useState(2026);
+  const [isCreateApptModalOpen, setIsCreateApptModalOpen] = useState(false);
+  const [createApptForm, setCreateApptForm] = useState({
+    date: "",
+    service: "Routine Cleaning & Checkup",
+    doctor_id: "",
+    notes: "",
+  });
+  const [doctorsList, setDoctorsList] = useState<{ id: string; full_name: string | null }[]>([]);
+
+  useEffect(() => {
+    async function fetchDoctors() {
+      const { data, error } = await supabase.from("profiles").select("id, full_name");
+      if (error) {
+        console.error("Failed to fetch profiles:", error);
+      } else if (data) {
+        setDoctorsList(data);
+      }
+    }
+    fetchDoctors();
+  }, []);
+
+  const doctorNameMap = React.useMemo(() => {
+    const map: Record<string, string> = {};
+    doctorsList.forEach((d) => {
+      if (d.id && d.full_name) {
+        map[d.id] = d.full_name;
+      }
+    });
+    return map;
+  }, [doctorsList]);
 
   useEffect(() => {
     if (!selectedAppointment) {
@@ -1033,15 +1044,17 @@ export default function AdminPatientDetailsPage() {
   const latestPrescription = patientData.prescriptions[0] ?? null;
 
   // Mini-Calendar Days Alignment
-  const calendarDays = Array.from({ length: 31 }, (_, index) => {
+  const numDays = new Date(currentYear, currentMonth + 1, 0).getDate();
+  const calendarDays = Array.from({ length: numDays }, (_, index) => {
     const day = index + 1;
-
+    const dateObj = new Date(currentYear, currentMonth, day);
     const dayNames = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
-
+    const dayName = dayNames[dateObj.getDay()];
+    const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
     return {
-      dayName: dayNames[index % 7],
+      dayName,
       dayNum: String(day),
-      dateStr: `2026-05-${String(day).padStart(2, "0")}`,
+      dateStr,
     };
   });
 
@@ -3352,10 +3365,48 @@ export default function AdminPatientDetailsPage() {
             className="bg-white rounded-2xl border border-slate-200 border-l-4 border-l-rose-200 shadow-xs overflow-hidden flex flex-col justify-between scroll-mt-[160px]"
           >
             <div>
-              <div className="px-4 sm:px-5 py-4 border-b border-slate-100 bg-slate-50/50">
+              <div className="px-4 sm:px-5 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
                 <h3 className="text-xs sm:text-sm font-bold text-slate-900 flex items-center gap-2">
                   <Calendar className="w-4 h-4 text-indigo-600" /> Operational Scheduler Matrix Grid
                 </h3>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCurrentMonth((prev) => {
+                        if (prev === 0) {
+                          setCurrentYear((y) => y - 1);
+                          return 11;
+                        }
+                        return prev - 1;
+                      });
+                    }}
+                    className="p-1 hover:bg-slate-200 rounded text-slate-600 transition"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  <span className="text-xs font-black text-slate-700 min-w-[80px] text-center select-none">
+                    {new Date(currentYear, currentMonth).toLocaleDateString("en-US", {
+                      month: "long",
+                      year: "numeric",
+                    })}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCurrentMonth((prev) => {
+                        if (prev === 11) {
+                          setCurrentYear((y) => y + 1);
+                          return 0;
+                        }
+                        return prev + 1;
+                      });
+                    }}
+                    className="p-1 hover:bg-slate-200 rounded text-slate-600 transition"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
 
               <div className="p-4 space-y-4">
@@ -3370,20 +3421,30 @@ export default function AdminPatientDetailsPage() {
                       (a) => a.date === day.dateStr,
                     );
 
-                    const isCurrentSelection = day.dayNum === "28";
+                    const isCurrentSelection = day.dateStr === "2026-06-16";
 
                     return (
                       <button
                         key={i}
                         type="button"
                         onClick={() => {
-                          if (matchedAppt) setSelectedAppointment(matchedAppt);
+                          if (matchedAppt) {
+                            setSelectedAppointment(matchedAppt);
+                          } else {
+                            setCreateApptForm({
+                              date: day.dateStr,
+                              service: "Routine Cleaning & Checkup",
+                              doctor_id: "",
+                              notes: "",
+                            });
+                            setIsCreateApptModalOpen(true);
+                          }
                         }}
                         className={`rounded-xl border p-1 text-left transition relative h-full
                         
                         ${
                           isCurrentSelection
-                            ? "bg-rose-50 border-slate-200 text-rose-500 shadow-sm"
+                            ? "bg-rose-50 border-rose-200 text-rose-500 shadow-sm"
                             : matchedAppt
                               ? "bg-white hover:bg-slate-50 border-slate-100 text-slate-700"
                               : "bg-white border-slate-100 text-slate-400 hover:bg-slate-50"
@@ -4222,7 +4283,7 @@ export default function AdminPatientDetailsPage() {
               initial={{ scale: 0.96, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.96, opacity: 0 }}
-              className="relative w-full max-w-sm bg-white rounded-2xl border border-slate-200 shadow-2xl overflow-hidden text-xs"
+              className="relative w-full max-w-md bg-white rounded-2xl border border-slate-200 shadow-2xl overflow-hidden text-xs"
             >
               <div className="p-3 bg-rose-50/60 border-b border-rose-100 flex justify-between items-center">
                 {" "}
@@ -4240,129 +4301,168 @@ export default function AdminPatientDetailsPage() {
                   ✕
                 </button>
               </div>
-              <div className="p-4 space-y-3 font-medium text-slate-600">
-                <div className="flex justify-between border-b border-slate-100 pb-1.5">
-                  <span>Target Window:</span>
-                  <span className="font-bold text-slate-800">
-                    {selectedAppointment.time} ({selectedAppointment.date})
-                  </span>
-                </div>
-                <div className="flex justify-between border-b border-slate-100 pb-1.5">
-                  <span>Assigned Staff:</span>
-                  <span className="font-bold text-indigo-700">{selectedAppointment.provider}</span>
-                </div>
-                <div className="flex justify-between border-b border-slate-100 pb-1.5">
-                  <span>Tracking ID:</span>
-                  <span className="font-mono text-slate-400">{selectedAppointment.id}</span>
-                </div>
-                <div className="flex justify-between items-center pt-1">
-                  <span>Routing Status:</span>
-                  <span className="bg-indigo-100 text-indigo-800 font-bold px-2 py-0.5 rounded text-[10px]">
-                    {selectedAppointment.status}
-                  </span>
+              <div className="p-4 space-y-2 font-medium text-slate-600">
+                <div className="grid grid-cols-2 gap-2 text-[11px]">
+                  <div className="border-b border-slate-100 pb-1 flex flex-col">
+                    <span className="text-slate-400 text-[9px] uppercase font-bold">
+                      Target Window
+                    </span>
+                    <span className="font-bold text-slate-800">
+                      {selectedAppointment.time || "10:00 AM"} ({selectedAppointment.date})
+                    </span>
+                  </div>
+                  <div className="border-b border-slate-100 pb-1 flex flex-col">
+                    <span className="text-slate-400 text-[9px] uppercase font-bold">
+                      Assigned Staff
+                    </span>
+                    <span className="font-bold text-indigo-700">
+                      {selectedAppointment.doctor_id && doctorNameMap[selectedAppointment.doctor_id]
+                        ? doctorNameMap[selectedAppointment.doctor_id]
+                        : selectedAppointment.provider || "Assigned Provider"}
+                    </span>
+                  </div>
+                  <div className="border-b border-slate-100 pb-1 flex flex-col">
+                    <span className="text-slate-400 text-[9px] uppercase font-bold">
+                      Tracking ID
+                    </span>
+                    <span
+                      className="font-mono text-slate-400 truncate"
+                      title={selectedAppointment.id}
+                    >
+                      {selectedAppointment.id}
+                    </span>
+                  </div>
+                  <div className="border-b border-slate-100 pb-1 flex flex-col">
+                    <span className="text-slate-400 text-[9px] uppercase font-bold">
+                      Routing Status
+                    </span>
+                    <div>
+                      <span className="bg-indigo-100 text-indigo-800 font-bold px-1.5 py-0.5 rounded text-[9px] inline-block mt-0.5">
+                        {selectedAppointment.status}
+                      </span>
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              <div className="p-4 border-t border-slate-100 bg-slate-50 space-y-4">
+              <div className="p-4 border-t border-slate-100 bg-slate-50 space-y-3">
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <span className="text-[10px] uppercase tracking-wide text-slate-400 font-bold">
                       Appointment Clinical Record
                     </span>
-                    <p className="text-[11px] text-slate-500 mt-1">
-                      Store visit-specific findings and notes for this appointment.
-                    </p>
                   </div>
-                  {selectedAppointment.clinicalRecord ? (
-                    <span className="text-[10px] px-2 py-1 rounded-full bg-emerald-100 text-emerald-700 font-bold">
-                      Saved
-                    </span>
-                  ) : (
-                    <span className="text-[10px] px-2 py-1 rounded-full bg-slate-100 text-slate-600 font-bold">
-                      Draft
-                    </span>
-                  )}
+                  {(() => {
+                    const dbRecord: AppointmentClinicalRecord =
+                      selectedAppointment.clinicalRecord || {
+                        chiefComplaint: "",
+                        extraOralExamination: "",
+                        oralExamination: "",
+                        treatmentAdvised: "",
+                        clinicalNotes: "",
+                      };
+                    const isDraftSaved =
+                      appointmentClinicalDraft.chiefComplaint === (dbRecord.chiefComplaint || "") &&
+                      appointmentClinicalDraft.extraOralExamination ===
+                        (dbRecord.extraOralExamination || "") &&
+                      appointmentClinicalDraft.oralExamination ===
+                        (dbRecord.oralExamination || "") &&
+                      appointmentClinicalDraft.treatmentAdvised ===
+                        (dbRecord.treatmentAdvised || "") &&
+                      appointmentClinicalDraft.clinicalNotes === (dbRecord.clinicalNotes || "");
+                    return isDraftSaved ? (
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-bold">
+                        Saved to Database
+                      </span>
+                    ) : (
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-bold animate-pulse">
+                        Unsaved Draft
+                      </span>
+                    );
+                  })()}
                 </div>
 
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-slate-500 text-[11px] font-bold mb-1">
-                      Chief Complaint
-                    </label>
-                    <textarea
-                      rows={2}
-                      value={appointmentClinicalDraft.chiefComplaint}
-                      onChange={(e) =>
-                        setAppointmentClinicalDraft((prev) => ({
-                          ...prev,
-                          chiefComplaint: e.target.value,
-                        }))
-                      }
-                      className="w-full p-2 border border-slate-200 rounded bg-white text-sm text-slate-700"
-                      placeholder="Write the patient’s main complaint for this visit"
-                    />
+                <div className="space-y-2.5">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-slate-500 text-[10px] font-bold mb-0.5">
+                        Chief Complaint
+                      </label>
+                      <textarea
+                        rows={1}
+                        value={appointmentClinicalDraft.chiefComplaint}
+                        onChange={(e) =>
+                          setAppointmentClinicalDraft((prev) => ({
+                            ...prev,
+                            chiefComplaint: e.target.value,
+                          }))
+                        }
+                        className="w-full p-1.5 border border-slate-200 rounded bg-white text-xs text-slate-700"
+                        placeholder="Chief complaint"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-slate-500 text-[10px] font-bold mb-0.5">
+                        Extra Oral Exam
+                      </label>
+                      <textarea
+                        rows={1}
+                        value={appointmentClinicalDraft.extraOralExamination}
+                        onChange={(e) =>
+                          setAppointmentClinicalDraft((prev) => ({
+                            ...prev,
+                            extraOralExamination: e.target.value,
+                          }))
+                        }
+                        className="w-full p-1.5 border border-slate-200 rounded bg-white text-xs text-slate-700"
+                        placeholder="Extra oral findings"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-slate-500 text-[10px] font-bold mb-0.5">
+                        Oral Exam
+                      </label>
+                      <textarea
+                        rows={1}
+                        value={appointmentClinicalDraft.oralExamination}
+                        onChange={(e) =>
+                          setAppointmentClinicalDraft((prev) => ({
+                            ...prev,
+                            oralExamination: e.target.value,
+                          }))
+                        }
+                        className="w-full p-1.5 border border-slate-200 rounded bg-white text-xs text-slate-700"
+                        placeholder="Oral findings"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-slate-500 text-[10px] font-bold mb-0.5">
+                        Treatment Advised
+                      </label>
+                      <textarea
+                        rows={1}
+                        value={appointmentClinicalDraft.treatmentAdvised}
+                        onChange={(e) =>
+                          setAppointmentClinicalDraft((prev) => ({
+                            ...prev,
+                            treatmentAdvised: e.target.value,
+                          }))
+                        }
+                        className="w-full p-1.5 border border-slate-200 rounded bg-white text-xs text-slate-700"
+                        placeholder="Treatment advised"
+                      />
+                    </div>
                   </div>
 
                   <div>
-                    <label className="block text-slate-500 text-[11px] font-bold mb-1">
-                      Extra Oral Examination
-                    </label>
-                    <textarea
-                      rows={2}
-                      value={appointmentClinicalDraft.extraOralExamination}
-                      onChange={(e) =>
-                        setAppointmentClinicalDraft((prev) => ({
-                          ...prev,
-                          extraOralExamination: e.target.value,
-                        }))
-                      }
-                      className="w-full p-2 border border-slate-200 rounded bg-white text-sm text-slate-700"
-                      placeholder="Record inspection of facial symmetry, TMJ, lymph nodes, and lips"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-slate-500 text-[11px] font-bold mb-1">
-                      Oral Examination
-                    </label>
-                    <textarea
-                      rows={2}
-                      value={appointmentClinicalDraft.oralExamination}
-                      onChange={(e) =>
-                        setAppointmentClinicalDraft((prev) => ({
-                          ...prev,
-                          oralExamination: e.target.value,
-                        }))
-                      }
-                      className="w-full p-2 border border-slate-200 rounded bg-white text-sm text-slate-700"
-                      placeholder="Document oral findings, soft tissue exam, and intraoral observations"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-slate-500 text-[11px] font-bold mb-1">
-                      Treatment Advised
-                    </label>
-                    <textarea
-                      rows={2}
-                      value={appointmentClinicalDraft.treatmentAdvised}
-                      onChange={(e) =>
-                        setAppointmentClinicalDraft((prev) => ({
-                          ...prev,
-                          treatmentAdvised: e.target.value,
-                        }))
-                      }
-                      className="w-full p-2 border border-slate-200 rounded bg-white text-sm text-slate-700"
-                      placeholder="Summarize the recommended procedural plan for this visit"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-slate-500 text-[11px] font-bold mb-1">
+                    <label className="block text-slate-500 text-[10px] font-bold mb-0.5">
                       Clinical Notes
                     </label>
                     <textarea
-                      rows={3}
+                      rows={2}
                       value={appointmentClinicalDraft.clinicalNotes}
                       onChange={(e) =>
                         setAppointmentClinicalDraft((prev) => ({
@@ -4370,8 +4470,8 @@ export default function AdminPatientDetailsPage() {
                           clinicalNotes: e.target.value,
                         }))
                       }
-                      className="w-full p-2 border border-slate-200 rounded bg-white text-sm text-slate-700"
-                      placeholder="Add observations, procedural details, and visit-specific remarks"
+                      className="w-full p-1.5 border border-slate-200 rounded bg-white text-xs text-slate-700"
+                      placeholder="Add observations and remarks"
                     />
                   </div>
                 </div>
@@ -4383,34 +4483,57 @@ export default function AdminPatientDetailsPage() {
                   onClick={async () => {
                     if (!selectedAppointment) return;
 
-                    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-                      selectedAppointment.id,
-                    );
+                    const isUuid =
+                      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+                        selectedAppointment.id,
+                      );
 
                     if (isUuid) {
-                      const { error } = await supabase
+                      console.log("SAVING APPOINTMENT", selectedAppointment.id);
+                      console.log("PAYLOAD", JSON.stringify(appointmentClinicalDraft));
+
+                      const { data, error } = await supabase
                         .from("appointments")
                         .update({
                           notes: JSON.stringify(appointmentClinicalDraft),
                         })
-                        .eq("id", selectedAppointment.id);
+                        .eq("id", selectedAppointment.id)
+                        .select();
+
+                      console.log("UPDATE DATA", data);
+                      console.log("UPDATE ERROR", error);
 
                       if (error) {
                         console.error("Failed to update appointment notes in database:", error);
+                        alert("Failed to save clinical record to database: " + error.message);
+                      } else {
+                        // Success update local state
+                        setPatientData((prev) => ({
+                          ...prev,
+                          appointments: prev.appointments.map((a) =>
+                            a.id === selectedAppointment.id
+                              ? { ...a, clinicalRecord: appointmentClinicalDraft }
+                              : a,
+                          ),
+                        }));
+                        setSelectedAppointment((prev) =>
+                          prev ? { ...prev, clinicalRecord: appointmentClinicalDraft } : prev,
+                        );
                       }
+                    } else {
+                      // fallback for mock
+                      setPatientData((prev) => ({
+                        ...prev,
+                        appointments: prev.appointments.map((a) =>
+                          a.id === selectedAppointment.id
+                            ? { ...a, clinicalRecord: appointmentClinicalDraft }
+                            : a,
+                        ),
+                      }));
+                      setSelectedAppointment((prev) =>
+                        prev ? { ...prev, clinicalRecord: appointmentClinicalDraft } : prev,
+                      );
                     }
-
-                    setPatientData((prev) => ({
-                      ...prev,
-                      appointments: prev.appointments.map((a) =>
-                        a.id === selectedAppointment.id
-                          ? { ...a, clinicalRecord: appointmentClinicalDraft }
-                          : a,
-                      ),
-                    }));
-                    setSelectedAppointment((prev) =>
-                      prev ? { ...prev, clinicalRecord: appointmentClinicalDraft } : prev,
-                    );
                   }}
                   className="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg transition"
                 >
@@ -4424,30 +4547,60 @@ export default function AdminPatientDetailsPage() {
                       selectedAppointment?.date,
                     );
                     if (nextDate && selectedAppointment) {
-                      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-                        selectedAppointment.id,
-                      );
+                      const isUuid =
+                        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+                          selectedAppointment.id,
+                        );
 
                       if (isUuid) {
+                        const originalTimePart = selectedAppointment.time
+                          ? (() => {
+                              try {
+                                const [time, modifier] = selectedAppointment.time.split(" ");
+                                let [hours, minutes] = time.split(":");
+                                if (modifier === "PM" && hours !== "12") {
+                                  hours = String(parseInt(hours, 10) + 12);
+                                }
+                                if (modifier === "AM" && hours === "12") {
+                                  hours = "00";
+                                }
+                                return `${hours.padStart(2, "0")}:${minutes.padStart(2, "0")}:00`;
+                              } catch {
+                                return "10:00:00";
+                              }
+                            })()
+                          : "10:00:00";
+                        const nextDateTime = `${nextDate}T${originalTimePart}+00:00`;
+
                         const { error } = await supabase
                           .from("appointments")
                           .update({
-                            appointment_date: nextDate,
+                            appointment_date: nextDateTime,
                           })
                           .eq("id", selectedAppointment.id);
 
                         if (error) {
                           console.error("Failed to reschedule appointment in database:", error);
+                          alert("Failed to reschedule appointment: " + error.message);
+                        } else {
+                          setPatientData((prev) => ({
+                            ...prev,
+                            appointments: prev.appointments.map((a) =>
+                              a.id === selectedAppointment.id ? { ...a, date: nextDate } : a,
+                            ),
+                          }));
+                          setSelectedAppointment(null);
                         }
+                      } else {
+                        // fallback for mock
+                        setPatientData((prev) => ({
+                          ...prev,
+                          appointments: prev.appointments.map((a) =>
+                            a.id === selectedAppointment.id ? { ...a, date: nextDate } : a,
+                          ),
+                        }));
+                        setSelectedAppointment(null);
                       }
-
-                      setPatientData((prev) => ({
-                        ...prev,
-                        appointments: prev.appointments.map((a) =>
-                          a.id === selectedAppointment.id ? { ...a, date: nextDate } : a,
-                        ),
-                      }));
-                      setSelectedAppointment(null);
                     }
                   }}
                   className="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg transition text-center"
@@ -4460,6 +4613,180 @@ export default function AdminPatientDetailsPage() {
                   className="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg transition"
                 >
                   Close
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* CREATE APPOINTMENT MODAL */}
+      <AnimatePresence>
+        {isCreateApptModalOpen && (
+          <div className="fixed inset-0 z-50 overflow-hidden flex items-center justify-center p-3">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsCreateApptModalOpen(false)}
+              className="absolute inset-0 bg-slate-900/40 backdrop-blur-xs"
+            />
+            <motion.div
+              initial={{ scale: 0.96, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.96, opacity: 0 }}
+              className="relative w-full max-w-sm bg-white rounded-2xl border border-slate-200 shadow-2xl overflow-hidden text-xs"
+            >
+              <div className="p-3 bg-indigo-50/60 border-b border-indigo-100 flex justify-between items-center">
+                <div>
+                  <span className="text-[9px] font-bold text-indigo-500 uppercase tracking-wider block">
+                    Scheduler Action
+                  </span>
+                  <h4 className="font-black text-indigo-950 text-sm">Create New Appointment</h4>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsCreateApptModalOpen(false)}
+                  className="text-slate-400 hover:text-slate-600 font-bold p-1"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="p-4 space-y-3 font-medium text-slate-600">
+                <div>
+                  <label className="block text-slate-500 text-[11px] font-bold mb-1">Date</label>
+                  <input
+                    type="date"
+                    value={createApptForm.date}
+                    onChange={(e) =>
+                      setCreateApptForm((prev) => ({ ...prev, date: e.target.value }))
+                    }
+                    className="w-full p-2 border border-slate-200 rounded bg-white text-sm text-slate-700"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-500 text-[11px] font-bold mb-1">Service</label>
+                  <select
+                    value={createApptForm.service}
+                    onChange={(e) =>
+                      setCreateApptForm((prev) => ({ ...prev, service: e.target.value }))
+                    }
+                    className="w-full p-2 border border-slate-200 rounded bg-white text-sm text-slate-700"
+                  >
+                    <option value="Routine Cleaning & Checkup">Routine Cleaning & Checkup</option>
+                    <option value="Invisalign Consultation">Invisalign Consultation</option>
+                    <option value="Root Canal">Root Canal</option>
+                    <option value="Composite Filling">Composite Filling</option>
+                    <option value="Extraction">Extraction</option>
+                    <option value="Braces Adjustment">Braces Adjustment</option>
+                    <option value="Deep Scaling">Deep Scaling</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-slate-500 text-[11px] font-bold mb-1">
+                    Doctor / Provider
+                  </label>
+                  <select
+                    value={createApptForm.doctor_id}
+                    onChange={(e) =>
+                      setCreateApptForm((prev) => ({ ...prev, doctor_id: e.target.value }))
+                    }
+                    className="w-full p-2 border border-slate-200 rounded bg-white text-sm text-slate-700"
+                  >
+                    <option value="">Select Doctor</option>
+                    {doctorsList.map((doc) => (
+                      <option key={doc.id} value={doc.id}>
+                        {doc.full_name || "Unknown Doctor"}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-slate-500 text-[11px] font-bold mb-1">Notes</label>
+                  <textarea
+                    rows={2}
+                    value={createApptForm.notes}
+                    onChange={(e) =>
+                      setCreateApptForm((prev) => ({ ...prev, notes: e.target.value }))
+                    }
+                    className="w-full p-2 border border-slate-200 rounded bg-white text-sm text-slate-700"
+                    placeholder="Appointment notes, symptoms, etc."
+                  />
+                </div>
+              </div>
+
+              <div className="p-3 bg-slate-50 border-t border-slate-100 flex gap-2">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!createApptForm.date) {
+                      alert("Please specify a date.");
+                      return;
+                    }
+
+                    // Save directly into appointments table
+                    const payload = {
+                      patient_id: patientData.id,
+                      appointment_date: `${createApptForm.date}T10:00:00+00:00`,
+                      service: createApptForm.service,
+                      doctor_id: createApptForm.doctor_id || null,
+                      notes: createApptForm.notes || "",
+                      status: "confirmed" as const,
+                      priority: "normal" as const,
+                      duration_minutes: 45,
+                    };
+
+                    const { data, error } = await supabase
+                      .from("appointments")
+                      .insert(payload as never)
+                      .select();
+
+                    if (error) {
+                      console.error("Failed to insert appointment:", error);
+                      alert("Error saving appointment: " + error.message);
+                      return;
+                    }
+
+                    const newAppt = data?.[0];
+                    if (newAppt) {
+                      const mapped = {
+                        id: newAppt.id,
+                        date: newAppt.appointment_date
+                          ? newAppt.appointment_date.split("T")[0]
+                          : "",
+                        time: "10:00 AM",
+                        provider:
+                          newAppt.doctor_id && doctorNameMap[newAppt.doctor_id]
+                            ? doctorNameMap[newAppt.doctor_id]
+                            : "Assigned Provider",
+                        type: newAppt.service || "Routine Cleaning & Checkup",
+                        status: "Upcoming" as const,
+                        clinicalRecord: undefined,
+                        doctor_id: newAppt.doctor_id,
+                      };
+
+                      setPatientData((prev) => ({
+                        ...prev,
+                        appointments: [...prev.appointments, mapped],
+                      }));
+                    }
+
+                    setIsCreateApptModalOpen(false);
+                  }}
+                  className="flex-1 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg transition text-center"
+                >
+                  Create Appointment
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsCreateApptModalOpen(false)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg transition"
+                >
+                  Cancel
                 </button>
               </div>
             </motion.div>
