@@ -4297,69 +4297,67 @@ export default function AdminPatientDetailsPage() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setSelectedAppointment(null)}
-              className="absolute inset-0 bg-slate-900/40 backdrop-blur-xs"
+              className="absolute inset-0 bg-slate-900/60 backdrop-blur-xs"
             />
             <motion.div
               initial={{ scale: 0.96, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.96, opacity: 0 }}
-              className="relative w-full max-w-3xl bg-white rounded-2xl border border-slate-200 shadow-2xl overflow-hidden text-xs flex flex-col"
+              className="relative w-full max-w-6xl bg-card rounded-3xl border border-border/60 shadow-card overflow-hidden text-sm flex flex-col"
             >
               {/* Header */}
-              <div className="p-4 bg-slate-50 border-b border-slate-100 flex justify-between items-center">
-                <div>
-                  <span className="text-[9px] font-bold text-indigo-500 uppercase tracking-wider block">
-                    Lumident Clinical Portal
-                  </span>
-                  <h4 className="font-black text-slate-800 text-sm">{selectedAppointment.type}</h4>
+              <div className="p-6 bg-muted/30 border-b border-border/60 flex justify-between items-center">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 rounded-2xl bg-primary-soft text-primary shadow-xs">
+                    <ClipboardList className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <span className="text-xs font-bold text-primary uppercase tracking-widest block">
+                      Lumident Clinical Portal
+                    </span>
+                    <h4 className="font-display font-bold text-foreground text-xl tracking-tight mt-0.5">
+                      {selectedAppointment.type}
+                    </h4>
+                  </div>
                 </div>
                 <button
                   type="button"
                   onClick={() => setSelectedAppointment(null)}
-                  className="text-slate-400 hover:text-slate-600 font-bold p-1"
+                  className="p-1.5 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors cursor-pointer"
                 >
-                  ✕
+                  <X className="h-5 w-5" />
                 </button>
               </div>
 
               {/* Grid content */}
-              <div className="grid grid-cols-1 md:grid-cols-5 gap-4 p-5 overflow-y-auto max-h-[85vh]">
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-6 p-6 overflow-y-auto max-h-[85vh]">
                 {/* Left Column: Metadata & Actions */}
-                <div className="md:col-span-2 space-y-4">
-                  <div className="bg-slate-50/50 p-3 rounded-xl border border-slate-100 space-y-2">
-                    <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">
+                <div className="md:col-span-2 space-y-5">
+                  <div className="bg-muted/20 p-5 rounded-2xl border border-border/60 space-y-4 shadow-2xs">
+                    <span className="text-xs uppercase font-bold text-foreground/50 block tracking-wider font-display">
                       Appointment Info
                     </span>
 
-                    <div className="space-y-1.5 text-slate-600 text-[11px] font-medium">
-                      <div className="flex flex-col border-b border-slate-100/70 pb-1">
-                        <span className="text-slate-400 text-[9px] uppercase">Target Window</span>
-                        <span className="font-bold text-slate-800">
+                    <div className="space-y-4 text-sm font-medium">
+                      <div className="flex flex-col border-b border-border/40 pb-3">
+                        <span className="text-muted-foreground text-[10px] uppercase tracking-wider font-bold">Target Window</span>
+                        <span className="font-semibold text-foreground text-base mt-0.5">
                           {selectedAppointment.time || "10:00 AM"} ({selectedAppointment.date})
                         </span>
                       </div>
-                      <div className="flex flex-col border-b border-slate-100/70 pb-1">
-                        <span className="text-slate-400 text-[9px] uppercase">Assigned Staff</span>
-                        <span className="font-bold text-indigo-700">
+                      <div className="flex flex-col border-b border-border/40 pb-3">
+                        <span className="text-muted-foreground text-[10px] uppercase tracking-wider font-bold">Assigned Staff</span>
+                        <span className="font-semibold text-primary text-base mt-0.5">
                           {selectedAppointment.doctor_id &&
                           doctorNameMap[selectedAppointment.doctor_id]
                             ? doctorNameMap[selectedAppointment.doctor_id]
                             : selectedAppointment.provider || "Assigned Provider"}
                         </span>
                       </div>
-                      <div className="flex flex-col border-b border-slate-100/70 pb-1">
-                        <span className="text-slate-400 text-[9px] uppercase">Tracking ID</span>
-                        <span
-                          className="font-mono text-slate-400 truncate"
-                          title={selectedAppointment.id}
-                        >
-                          {selectedAppointment.id}
-                        </span>
-                      </div>
                       <div className="flex flex-col pb-1">
-                        <span className="text-slate-400 text-[9px] uppercase">Routing Status</span>
-                        <div>
-                          <span className="bg-indigo-50 text-indigo-700 font-bold px-1.5 py-0.5 rounded text-[9px] inline-block mt-0.5">
+                        <span className="text-muted-foreground text-[10px] uppercase tracking-wider font-bold">Routing Status</span>
+                        <div className="mt-1">
+                          <span className="bg-primary-soft text-primary font-bold px-2.5 py-1 rounded-lg text-xs inline-block">
                             {selectedAppointment.status}
                           </span>
                         </div>
@@ -4433,14 +4431,14 @@ export default function AdminPatientDetailsPage() {
                           }
                         }
                       }}
-                      className="w-full py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold rounded-lg transition text-center text-xs border border-indigo-100"
+                      className="w-full h-11 bg-primary-soft hover:bg-primary/10 text-primary font-bold rounded-xl transition text-center text-sm border border-primary/20 cursor-pointer"
                     >
                       Quick Reschedule Date
                     </button>
                     <button
                       type="button"
                       onClick={() => setSelectedAppointment(null)}
-                      className="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg transition text-xs"
+                      className="w-full h-11 bg-secondary hover:bg-muted text-foreground font-bold rounded-xl transition text-sm cursor-pointer"
                     >
                       Close Modal
                     </button>
@@ -4448,10 +4446,10 @@ export default function AdminPatientDetailsPage() {
                 </div>
 
                 {/* Right Column: Clinical Record Fields */}
-                <div className="md:col-span-3 space-y-4 border-t md:border-t-0 md:border-l border-slate-100 pt-4 md:pt-0 md:pl-4">
-                  <div className="flex items-center justify-between gap-3 pb-2 border-b border-slate-100">
+                <div className="md:col-span-3 space-y-5 border-t md:border-t-0 md:border-l border-border/60 pt-6 md:pt-0 md:pl-6">
+                  <div className="flex items-center justify-between gap-3 pb-3 border-b border-border/60">
                     <div>
-                      <span className="text-[10px] uppercase tracking-wide text-slate-400 font-bold">
+                      <span className="text-sm uppercase tracking-wider text-foreground/80 font-bold font-display">
                         Clinical Record
                       </span>
                     </div>
@@ -4475,24 +4473,24 @@ export default function AdminPatientDetailsPage() {
                           (dbRecord.treatmentAdvised || "") &&
                         appointmentClinicalDraft.clinicalNotes === (dbRecord.clinicalNotes || "");
                       return isDraftSaved ? (
-                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-bold border border-emerald-200">
+                        <span className="text-xs px-3 py-1 rounded-full bg-success/10 text-success font-bold border border-success/20">
                           Saved to Database
                         </span>
                       ) : (
-                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-bold animate-pulse border border-amber-200">
+                        <span className="text-xs px-3 py-1 rounded-full bg-warning/10 text-warning font-bold animate-pulse border border-warning/20">
                           Unsaved Draft
                         </span>
                       );
                     })()}
                   </div>
 
-                  <div className="space-y-3">
-                    <div>
-                      <label className="block text-slate-600 text-[10px] font-bold mb-1 uppercase tracking-wide">
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <label className="block text-sm font-bold text-foreground/80 tracking-wide mb-1.5 uppercase">
                         Chief Complaint
                       </label>
                       <textarea
-                        rows={2}
+                        rows={3}
                         value={appointmentClinicalDraft.chiefComplaint}
                         onChange={(e) =>
                           setAppointmentClinicalDraft((prev) => ({
@@ -4500,18 +4498,18 @@ export default function AdminPatientDetailsPage() {
                             chiefComplaint: e.target.value,
                           }))
                         }
-                        className="w-full p-2 border border-slate-200 rounded-lg bg-white text-xs text-slate-700 focus:border-indigo-300 focus:ring-1 focus:ring-indigo-300"
+                        className="w-full rounded-xl border border-border bg-card px-4 py-3 text-base text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-hidden transition shadow-xs resize-none h-24"
                         placeholder="Write the patient's chief complaint..."
                       />
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-slate-600 text-[10px] font-bold mb-1 uppercase tracking-wide">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="block text-sm font-bold text-foreground/80 tracking-wide mb-1.5 uppercase">
                           Extra Oral Examination
                         </label>
                         <textarea
-                          rows={2}
+                          rows={3}
                           value={appointmentClinicalDraft.extraOralExamination}
                           onChange={(e) =>
                             setAppointmentClinicalDraft((prev) => ({
@@ -4519,17 +4517,17 @@ export default function AdminPatientDetailsPage() {
                               extraOralExamination: e.target.value,
                             }))
                           }
-                          className="w-full p-2 border border-slate-200 rounded-lg bg-white text-xs text-slate-700 focus:border-indigo-300 focus:ring-1 focus:ring-indigo-300"
+                          className="w-full rounded-xl border border-border bg-card px-4 py-3 text-base text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-hidden transition shadow-xs resize-none h-24"
                           placeholder="Facial symmetry, TMJ, etc."
                         />
                       </div>
 
-                      <div>
-                        <label className="block text-slate-600 text-[10px] font-bold mb-1 uppercase tracking-wide">
+                      <div className="space-y-2">
+                        <label className="block text-sm font-bold text-foreground/80 tracking-wide mb-1.5 uppercase">
                           Oral Examination
                         </label>
                         <textarea
-                          rows={2}
+                          rows={3}
                           value={appointmentClinicalDraft.oralExamination}
                           onChange={(e) =>
                             setAppointmentClinicalDraft((prev) => ({
@@ -4537,18 +4535,18 @@ export default function AdminPatientDetailsPage() {
                               oralExamination: e.target.value,
                             }))
                           }
-                          className="w-full p-2 border border-slate-200 rounded-lg bg-white text-xs text-slate-700 focus:border-indigo-300 focus:ring-1 focus:ring-indigo-300"
+                          className="w-full rounded-xl border border-border bg-card px-4 py-3 text-base text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-hidden transition shadow-xs resize-none h-24"
                           placeholder="Teeth, gums, soft tissues..."
                         />
                       </div>
                     </div>
 
-                    <div>
-                      <label className="block text-slate-600 text-[10px] font-bold mb-1 uppercase tracking-wide">
+                    <div className="space-y-2">
+                      <label className="block text-sm font-bold text-foreground/80 tracking-wide mb-1.5 uppercase">
                         Treatment Advised
                       </label>
                       <textarea
-                        rows={2}
+                        rows={3}
                         value={appointmentClinicalDraft.treatmentAdvised}
                         onChange={(e) =>
                           setAppointmentClinicalDraft((prev) => ({
@@ -4556,13 +4554,13 @@ export default function AdminPatientDetailsPage() {
                             treatmentAdvised: e.target.value,
                           }))
                         }
-                        className="w-full p-2 border border-slate-200 rounded-lg bg-white text-xs text-slate-700 focus:border-indigo-300 focus:ring-1 focus:ring-indigo-300"
+                        className="w-full rounded-xl border border-border bg-card px-4 py-3 text-base text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-hidden transition shadow-xs resize-none h-24"
                         placeholder="Recommended procedural plan..."
                       />
                     </div>
 
-                    <div>
-                      <label className="block text-slate-600 text-[10px] font-bold mb-1 uppercase tracking-wide">
+                    <div className="space-y-2">
+                      <label className="block text-sm font-bold text-foreground/80 tracking-wide mb-1.5 uppercase">
                         Clinical Notes
                       </label>
                       <textarea
@@ -4574,7 +4572,7 @@ export default function AdminPatientDetailsPage() {
                             clinicalNotes: e.target.value,
                           }))
                         }
-                        className="w-full p-2 border border-slate-200 rounded-lg bg-white text-xs text-slate-700 focus:border-indigo-300 focus:ring-1 focus:ring-indigo-300"
+                        className="w-full rounded-xl border border-border bg-card px-4 py-3 text-base text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-hidden transition shadow-xs resize-none h-28"
                         placeholder="Add visit observations, notes..."
                       />
                     </div>
@@ -4663,9 +4661,9 @@ export default function AdminPatientDetailsPage() {
                           );
                         }
                       }}
-                      className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg transition text-xs shadow-sm hover:shadow flex justify-center items-center gap-2"
+                      className="w-full h-12 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl transition text-base shadow-soft hover:shadow-md flex justify-center items-center gap-2 cursor-pointer"
                     >
-                      <Check className="w-4 h-4" /> Save Clinical Visit Record
+                      <Check className="w-5 h-5" /> Save Clinical Visit Record
                     </button>
                   </div>
                 </div>
@@ -4684,51 +4682,56 @@ export default function AdminPatientDetailsPage() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setIsCreateApptModalOpen(false)}
-              className="absolute inset-0 bg-slate-900/40 backdrop-blur-xs"
+              className="absolute inset-0 bg-slate-900/60 backdrop-blur-xs"
             />
             <motion.div
               initial={{ scale: 0.96, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.96, opacity: 0 }}
-              className="relative w-full max-w-sm bg-white rounded-2xl border border-slate-200 shadow-2xl overflow-hidden text-xs"
+              className="relative w-full max-w-xl bg-card rounded-3xl border border-border/60 shadow-card overflow-hidden"
             >
-              <div className="p-3 bg-indigo-50/60 border-b border-indigo-100 flex justify-between items-center">
-                <div>
-                  <span className="text-[9px] font-bold text-indigo-500 uppercase tracking-wider block">
-                    Scheduler Action
-                  </span>
-                  <h4 className="font-black text-indigo-950 text-sm">Create New Appointment</h4>
+              <div className="p-6 bg-muted/30 border-b border-border/60 flex justify-between items-center">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 rounded-2xl bg-primary-soft text-primary shadow-xs">
+                    <Calendar className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <span className="text-xs font-bold text-primary uppercase tracking-widest block">
+                      Scheduler Action
+                    </span>
+                    <h4 className="font-display font-bold text-foreground text-xl tracking-tight">Create New Appointment</h4>
+                  </div>
                 </div>
                 <button
                   type="button"
                   onClick={() => setIsCreateApptModalOpen(false)}
-                  className="text-slate-400 hover:text-slate-600 font-bold p-1"
+                  className="p-1.5 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors cursor-pointer"
                 >
-                  ✕
+                  <X className="h-5 w-5" />
                 </button>
               </div>
 
-              <div className="p-4 space-y-3 font-medium text-slate-600">
-                <div>
-                  <label className="block text-slate-500 text-[11px] font-bold mb-1">Date</label>
+              <div className="p-6 space-y-5 font-medium">
+                <div className="space-y-2">
+                  <label className="block text-sm font-bold text-foreground/80 tracking-wide mb-1.5">Date</label>
                   <input
                     type="date"
                     value={createApptForm.date}
                     onChange={(e) =>
                       setCreateApptForm((prev) => ({ ...prev, date: e.target.value }))
                     }
-                    className="w-full p-2 border border-slate-200 rounded bg-white text-sm text-slate-700"
+                    className="w-full h-12 rounded-xl border border-border bg-card px-4 py-3 text-base text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-hidden transition shadow-xs"
                   />
                 </div>
 
-                <div>
-                  <label className="block text-slate-500 text-[11px] font-bold mb-1">Service</label>
+                <div className="space-y-2">
+                  <label className="block text-sm font-bold text-foreground/80 tracking-wide mb-1.5">Service</label>
                   <select
                     value={createApptForm.service}
                     onChange={(e) =>
                       setCreateApptForm((prev) => ({ ...prev, service: e.target.value }))
                     }
-                    className="w-full p-2 border border-slate-200 rounded bg-white text-sm text-slate-700"
+                    className="w-full h-12 rounded-xl border border-border bg-card px-4 py-3 text-base text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-hidden transition shadow-xs appearance-none pr-8 bg-[url('data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22currentColor%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E')] bg-[length:1.25rem] bg-[right_0.75rem_center] bg-no-repeat cursor-pointer"
                   >
                     <option value="Routine Cleaning & Checkup">Routine Cleaning & Checkup</option>
                     <option value="Invisalign Consultation">Invisalign Consultation</option>
@@ -4740,8 +4743,8 @@ export default function AdminPatientDetailsPage() {
                   </select>
                 </div>
 
-                <div>
-                  <label className="block text-slate-500 text-[11px] font-bold mb-1">
+                <div className="space-y-2">
+                  <label className="block text-sm font-bold text-foreground/80 tracking-wide mb-1.5">
                     Doctor / Provider
                   </label>
                   <select
@@ -4749,7 +4752,7 @@ export default function AdminPatientDetailsPage() {
                     onChange={(e) =>
                       setCreateApptForm((prev) => ({ ...prev, doctor_id: e.target.value }))
                     }
-                    className="w-full p-2 border border-slate-200 rounded bg-white text-sm text-slate-700"
+                    className="w-full h-12 rounded-xl border border-border bg-card px-4 py-3 text-base text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-hidden transition shadow-xs appearance-none pr-8 bg-[url('data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22currentColor%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E')] bg-[length:1.25rem] bg-[right_0.75rem_center] bg-no-repeat cursor-pointer"
                   >
                     <option value="">Select Doctor</option>
                     {doctorsList.map((doc) => (
@@ -4760,21 +4763,28 @@ export default function AdminPatientDetailsPage() {
                   </select>
                 </div>
 
-                <div>
-                  <label className="block text-slate-500 text-[11px] font-bold mb-1">Notes</label>
+                <div className="space-y-2">
+                  <label className="block text-sm font-bold text-foreground/80 tracking-wide mb-1.5">Notes</label>
                   <textarea
-                    rows={2}
+                    rows={3}
                     value={createApptForm.notes}
                     onChange={(e) =>
                       setCreateApptForm((prev) => ({ ...prev, notes: e.target.value }))
                     }
-                    className="w-full p-2 border border-slate-200 rounded bg-white text-sm text-slate-700"
+                    className="w-full rounded-xl border border-border bg-card px-4 py-3 text-base text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-hidden transition shadow-xs resize-none h-28"
                     placeholder="Appointment notes, symptoms, etc."
                   />
                 </div>
               </div>
 
-              <div className="p-3 bg-slate-50 border-t border-slate-100 flex gap-2">
+              <div className="p-6 bg-muted/20 border-t border-border/60 flex items-center justify-end gap-3 text-sm font-bold">
+                <button
+                  type="button"
+                  onClick={() => setIsCreateApptModalOpen(false)}
+                  className="text-muted-foreground hover:text-foreground hover:bg-secondary h-11 px-5 rounded-xl transition font-bold flex items-center justify-center cursor-pointer"
+                >
+                  Cancel
+                </button>
                 <button
                   type="button"
                   onClick={async () => {
@@ -4832,16 +4842,9 @@ export default function AdminPatientDetailsPage() {
 
                     setIsCreateApptModalOpen(false);
                   }}
-                  className="flex-1 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg transition text-center"
+                  className="bg-primary-gradient text-primary-foreground h-11 px-6 rounded-xl transition shadow-soft hover:shadow-md hover:brightness-105 font-bold flex items-center justify-center cursor-pointer"
                 >
                   Create Appointment
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setIsCreateApptModalOpen(false)}
-                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg transition"
-                >
-                  Cancel
                 </button>
               </div>
             </motion.div>
