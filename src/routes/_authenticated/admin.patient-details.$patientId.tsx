@@ -4340,13 +4340,17 @@ export default function AdminPatientDetailsPage() {
 
                     <div className="space-y-4 text-sm font-medium">
                       <div className="flex flex-col border-b border-border/40 pb-3">
-                        <span className="text-muted-foreground text-[10px] uppercase tracking-wider font-bold">Target Window</span>
+                        <span className="text-muted-foreground text-[10px] uppercase tracking-wider font-bold">
+                          Target Window
+                        </span>
                         <span className="font-semibold text-foreground text-base mt-0.5">
                           {selectedAppointment.time || "10:00 AM"} ({selectedAppointment.date})
                         </span>
                       </div>
                       <div className="flex flex-col border-b border-border/40 pb-3">
-                        <span className="text-muted-foreground text-[10px] uppercase tracking-wider font-bold">Assigned Staff</span>
+                        <span className="text-muted-foreground text-[10px] uppercase tracking-wider font-bold">
+                          Assigned Staff
+                        </span>
                         <span className="font-semibold text-primary text-base mt-0.5">
                           {selectedAppointment.doctor_id &&
                           doctorNameMap[selectedAppointment.doctor_id]
@@ -4355,7 +4359,9 @@ export default function AdminPatientDetailsPage() {
                         </span>
                       </div>
                       <div className="flex flex-col pb-1">
-                        <span className="text-muted-foreground text-[10px] uppercase tracking-wider font-bold">Routing Status</span>
+                        <span className="text-muted-foreground text-[10px] uppercase tracking-wider font-bold">
+                          Routing Status
+                        </span>
                         <div className="mt-1">
                           <span className="bg-primary-soft text-primary font-bold px-2.5 py-1 rounded-lg text-xs inline-block">
                             {selectedAppointment.status}
@@ -4699,7 +4705,9 @@ export default function AdminPatientDetailsPage() {
                     <span className="text-xs font-bold text-primary uppercase tracking-widest block">
                       Scheduler Action
                     </span>
-                    <h4 className="font-display font-bold text-foreground text-xl tracking-tight">Create New Appointment</h4>
+                    <h4 className="font-display font-bold text-foreground text-xl tracking-tight">
+                      Create New Appointment
+                    </h4>
                   </div>
                 </div>
                 <button
@@ -4713,7 +4721,9 @@ export default function AdminPatientDetailsPage() {
 
               <div className="p-6 space-y-5 font-medium">
                 <div className="space-y-2">
-                  <label className="block text-sm font-bold text-foreground/80 tracking-wide mb-1.5">Date</label>
+                  <label className="block text-sm font-bold text-foreground/80 tracking-wide mb-1.5">
+                    Date
+                  </label>
                   <input
                     type="date"
                     value={createApptForm.date}
@@ -4725,7 +4735,9 @@ export default function AdminPatientDetailsPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="block text-sm font-bold text-foreground/80 tracking-wide mb-1.5">Service</label>
+                  <label className="block text-sm font-bold text-foreground/80 tracking-wide mb-1.5">
+                    Service
+                  </label>
                   <select
                     value={createApptForm.service}
                     onChange={(e) =>
@@ -4764,7 +4776,9 @@ export default function AdminPatientDetailsPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="block text-sm font-bold text-foreground/80 tracking-wide mb-1.5">Notes</label>
+                  <label className="block text-sm font-bold text-foreground/80 tracking-wide mb-1.5">
+                    Notes
+                  </label>
                   <textarea
                     rows={3}
                     value={createApptForm.notes}
