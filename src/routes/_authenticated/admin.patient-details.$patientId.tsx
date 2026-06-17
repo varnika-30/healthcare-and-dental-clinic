@@ -568,22 +568,32 @@ export default function AdminPatientDetailsPage() {
         console.error("Failed to load appointments from database:", apptsError);
       }
 
+      // Fetch clinical records
+      type ClinicalRecordRow = {
+        id: string;
+        appointment_id: string;
+        chief_complaint: string | null;
+        extra_oral_examination: string | null;
+        oral_examination: string | null;
+        treatment_advised: string | null;
+        clinical_notes: string | null;
+      };
+
+      const dbClinicalRecords: ClinicalRecordRow[] = [];
+
       const mappedAppointments = dbAppointments
         ? dbAppointments.map((appt) => {
-            let clinicalRecord;
-            if (appt.notes) {
-              try {
-                clinicalRecord = JSON.parse(appt.notes);
-              } catch {
-                clinicalRecord = {
-                  chiefComplaint: "",
-                  extraOralExamination: "",
-                  oralExamination: "",
-                  treatmentAdvised: "",
-                  clinicalNotes: appt.notes || "",
-                };
-              }
-            }
+            const clinicalRec = dbClinicalRecords.find((r) => r.appointment_id === appt.id);
+            const clinicalRecord = clinicalRec
+              ? {
+                  chiefComplaint: clinicalRec.chief_complaint || "",
+                  extraOralExamination: clinicalRec.extra_oral_examination || "",
+                  oralExamination: clinicalRec.oral_examination || "",
+                  treatmentAdvised: clinicalRec.treatment_advised || "",
+                  clinicalNotes: clinicalRec.clinical_notes || "",
+                }
+              : undefined;
+
             return {
               id: appt.id,
               date: appt.appointment_date ? appt.appointment_date.split("T")[0] : "",
@@ -3385,7 +3395,7 @@ export default function AdminPatientDetailsPage() {
                   >
                     <ChevronLeft className="w-4 h-4" />
                   </button>
-                  <span className="text-xs font-black text-slate-700 min-w-[80px] text-center select-none">
+                  <span className="text-xs font-black text-slate-700 min-w-[80px] text-center select-none bg-indigo-50 px-2.5 py-1 rounded-full border border-indigo-100">
                     {new Date(currentYear, currentMonth).toLocaleDateString("en-US", {
                       month: "long",
                       year: "numeric",
@@ -3440,39 +3450,48 @@ export default function AdminPatientDetailsPage() {
                             setIsCreateApptModalOpen(true);
                           }
                         }}
-                        className={`rounded-xl border p-1 text-left transition relative h-full
+                        className={`rounded-xl border p-1.5 text-left transition-all duration-200 relative h-full group
                         
                         ${
                           isCurrentSelection
-                            ? "bg-rose-50 border-rose-200 text-rose-500 shadow-sm"
+                            ? "bg-rose-50/80 border-rose-200 text-rose-600 shadow-xs ring-1 ring-rose-200"
                             : matchedAppt
-                              ? "bg-white hover:bg-slate-50 border-slate-100 text-slate-700"
-                              : "bg-white border-slate-100 text-slate-400 hover:bg-slate-50"
+                              ? "bg-indigo-50/30 hover:bg-indigo-50/60 border-indigo-100 text-indigo-900 shadow-xs"
+                              : "bg-white border-slate-100 text-slate-400 hover:border-indigo-200 hover:bg-indigo-50/10 hover:text-indigo-600"
                         }
                       `}
                       >
                         <div className="flex h-full flex-col items-start justify-between">
                           <div>
-                            <span className="block text-[9px] uppercase tracking-wider opacity-70">
+                            <span className="block text-[8px] uppercase tracking-wider opacity-70 font-semibold">
                               {day.dayName}
                             </span>
 
-                            <span className="mt-0.5 block text-sm font-black">{day.dayNum}</span>
+                            <span className="mt-0.5 block text-xs font-black">{day.dayNum}</span>
                           </div>
 
-                          {matchedAppt && (
-                            <div className="flex gap-1 items-center">
+                          {matchedAppt ? (
+                            <div className="flex gap-1 items-center w-full justify-between">
+                              <span className="text-[8px] font-bold text-indigo-700 truncate">
+                                {matchedAppt.time || "10:00 AM"}
+                              </span>
                               <div
-                                className={`h-2 w-2 rounded-full ${
-                                  matchedAppt.clinicalRecord ? "bg-emerald-500" : "bg-rose-400"
+                                className={`h-2 w-2 rounded-full shrink-0 ${
+                                  matchedAppt.clinicalRecord
+                                    ? "bg-emerald-500"
+                                    : "bg-amber-400 animate-pulse"
                                 }`}
-                                aria-label={
+                                title={
                                   matchedAppt.clinicalRecord
                                     ? "Clinical record saved"
-                                    : "Appointment scheduled"
+                                    : "Clinical record pending"
                                 }
                               />
                             </div>
+                          ) : (
+                            <span className="text-[8px] font-bold text-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity">
+                              + Book
+                            </span>
                           )}
                         </div>
                       </button>
@@ -3480,11 +3499,12 @@ export default function AdminPatientDetailsPage() {
                   })}
                 </div>
 
-                <div className="p-3 bg-amber-50/40 border border-amber-200/60 rounded-xl flex items-start gap-2.5 text-xs text-amber-900 font-medium">
-                  <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <div className="p-3 bg-indigo-50/50 border border-indigo-100 rounded-xl flex items-start gap-2.5 text-xs text-indigo-900 font-medium">
+                  <Info className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
                   <p>
-                    Click highlighted active operational indicators inside the grid stepper tracker
-                    array to instantly unlock isolated micro-file drawer previews.
+                    <strong>Scheduler Quick Guide:</strong> Click any cell with a green dot to view
+                    or edit the Clinical Record. Click any empty cell to schedule a new appointment
+                    directly for that date.
                   </p>
                 </div>
               </div>
@@ -4283,15 +4303,15 @@ export default function AdminPatientDetailsPage() {
               initial={{ scale: 0.96, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.96, opacity: 0 }}
-              className="relative w-full max-w-md bg-white rounded-2xl border border-slate-200 shadow-2xl overflow-hidden text-xs"
+              className="relative w-full max-w-3xl bg-white rounded-2xl border border-slate-200 shadow-2xl overflow-hidden text-xs flex flex-col"
             >
-              <div className="p-3 bg-rose-50/60 border-b border-rose-100 flex justify-between items-center">
-                {" "}
+              {/* Header */}
+              <div className="p-4 bg-slate-50 border-b border-slate-100 flex justify-between items-center">
                 <div>
                   <span className="text-[9px] font-bold text-indigo-500 uppercase tracking-wider block">
-                    Operational Manifest
+                    Lumident Clinical Portal
                   </span>
-                  <h4 className="font-black text-indigo-950 text-sm">{selectedAppointment.type}</h4>
+                  <h4 className="font-black text-slate-800 text-sm">{selectedAppointment.type}</h4>
                 </div>
                 <button
                   type="button"
@@ -4301,95 +4321,178 @@ export default function AdminPatientDetailsPage() {
                   ✕
                 </button>
               </div>
-              <div className="p-4 space-y-2 font-medium text-slate-600">
-                <div className="grid grid-cols-2 gap-2 text-[11px]">
-                  <div className="border-b border-slate-100 pb-1 flex flex-col">
-                    <span className="text-slate-400 text-[9px] uppercase font-bold">
-                      Target Window
+
+              {/* Grid content */}
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-4 p-5 overflow-y-auto max-h-[85vh]">
+                {/* Left Column: Metadata & Actions */}
+                <div className="md:col-span-2 space-y-4">
+                  <div className="bg-slate-50/50 p-3 rounded-xl border border-slate-100 space-y-2">
+                    <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">
+                      Appointment Info
                     </span>
-                    <span className="font-bold text-slate-800">
-                      {selectedAppointment.time || "10:00 AM"} ({selectedAppointment.date})
-                    </span>
-                  </div>
-                  <div className="border-b border-slate-100 pb-1 flex flex-col">
-                    <span className="text-slate-400 text-[9px] uppercase font-bold">
-                      Assigned Staff
-                    </span>
-                    <span className="font-bold text-indigo-700">
-                      {selectedAppointment.doctor_id && doctorNameMap[selectedAppointment.doctor_id]
-                        ? doctorNameMap[selectedAppointment.doctor_id]
-                        : selectedAppointment.provider || "Assigned Provider"}
-                    </span>
-                  </div>
-                  <div className="border-b border-slate-100 pb-1 flex flex-col">
-                    <span className="text-slate-400 text-[9px] uppercase font-bold">
-                      Tracking ID
-                    </span>
-                    <span
-                      className="font-mono text-slate-400 truncate"
-                      title={selectedAppointment.id}
-                    >
-                      {selectedAppointment.id}
-                    </span>
-                  </div>
-                  <div className="border-b border-slate-100 pb-1 flex flex-col">
-                    <span className="text-slate-400 text-[9px] uppercase font-bold">
-                      Routing Status
-                    </span>
-                    <div>
-                      <span className="bg-indigo-100 text-indigo-800 font-bold px-1.5 py-0.5 rounded text-[9px] inline-block mt-0.5">
-                        {selectedAppointment.status}
-                      </span>
+
+                    <div className="space-y-1.5 text-slate-600 text-[11px] font-medium">
+                      <div className="flex flex-col border-b border-slate-100/70 pb-1">
+                        <span className="text-slate-400 text-[9px] uppercase">Target Window</span>
+                        <span className="font-bold text-slate-800">
+                          {selectedAppointment.time || "10:00 AM"} ({selectedAppointment.date})
+                        </span>
+                      </div>
+                      <div className="flex flex-col border-b border-slate-100/70 pb-1">
+                        <span className="text-slate-400 text-[9px] uppercase">Assigned Staff</span>
+                        <span className="font-bold text-indigo-700">
+                          {selectedAppointment.doctor_id &&
+                          doctorNameMap[selectedAppointment.doctor_id]
+                            ? doctorNameMap[selectedAppointment.doctor_id]
+                            : selectedAppointment.provider || "Assigned Provider"}
+                        </span>
+                      </div>
+                      <div className="flex flex-col border-b border-slate-100/70 pb-1">
+                        <span className="text-slate-400 text-[9px] uppercase">Tracking ID</span>
+                        <span
+                          className="font-mono text-slate-400 truncate"
+                          title={selectedAppointment.id}
+                        >
+                          {selectedAppointment.id}
+                        </span>
+                      </div>
+                      <div className="flex flex-col pb-1">
+                        <span className="text-slate-400 text-[9px] uppercase">Routing Status</span>
+                        <div>
+                          <span className="bg-indigo-50 text-indigo-700 font-bold px-1.5 py-0.5 rounded text-[9px] inline-block mt-0.5">
+                            {selectedAppointment.status}
+                          </span>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </div>
 
-              <div className="p-4 border-t border-slate-100 bg-slate-50 space-y-3">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <span className="text-[10px] uppercase tracking-wide text-slate-400 font-bold">
-                      Appointment Clinical Record
-                    </span>
+                  <div className="space-y-2 pt-2">
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const nextDate = prompt(
+                          "Input micro-reschedule date parameter (YYYY-MM-DD):",
+                          selectedAppointment?.date,
+                        );
+                        if (nextDate && selectedAppointment) {
+                          const isUuid =
+                            /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+                              selectedAppointment.id,
+                            );
+
+                          if (isUuid) {
+                            const originalTimePart = selectedAppointment.time
+                              ? (() => {
+                                  try {
+                                    const [time, modifier] = selectedAppointment.time.split(" ");
+                                    const [initialHours, mins] = time.split(":");
+                                    let hours = initialHours;
+                                    if (modifier === "PM" && hours !== "12") {
+                                      hours = String(parseInt(hours, 10) + 12);
+                                    }
+                                    if (modifier === "AM" && hours === "12") {
+                                      hours = "00";
+                                    }
+                                    return `${hours.padStart(2, "0")}:${mins.padStart(2, "0")}:00`;
+                                  } catch {
+                                    return "10:00:00";
+                                  }
+                                })()
+                              : "10:00:00";
+                            const nextDateTime = `${nextDate}T${originalTimePart}+00:00`;
+
+                            const { error } = await supabase
+                              .from("appointments")
+                              .update({
+                                appointment_date: nextDateTime,
+                              })
+                              .eq("id", selectedAppointment.id);
+
+                            if (error) {
+                              console.error("Failed to reschedule appointment in database:", error);
+                              alert("Failed to reschedule appointment: " + error.message);
+                            } else {
+                              setPatientData((prev) => ({
+                                ...prev,
+                                appointments: prev.appointments.map((a) =>
+                                  a.id === selectedAppointment.id ? { ...a, date: nextDate } : a,
+                                ),
+                              }));
+                              setSelectedAppointment(null);
+                            }
+                          } else {
+                            // fallback for mock
+                            setPatientData((prev) => ({
+                              ...prev,
+                              appointments: prev.appointments.map((a) =>
+                                a.id === selectedAppointment.id ? { ...a, date: nextDate } : a,
+                              ),
+                            }));
+                            setSelectedAppointment(null);
+                          }
+                        }
+                      }}
+                      className="w-full py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold rounded-lg transition text-center text-xs border border-indigo-100"
+                    >
+                      Quick Reschedule Date
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedAppointment(null)}
+                      className="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg transition text-xs"
+                    >
+                      Close Modal
+                    </button>
                   </div>
-                  {(() => {
-                    const dbRecord: AppointmentClinicalRecord =
-                      selectedAppointment.clinicalRecord || {
-                        chiefComplaint: "",
-                        extraOralExamination: "",
-                        oralExamination: "",
-                        treatmentAdvised: "",
-                        clinicalNotes: "",
-                      };
-                    const isDraftSaved =
-                      appointmentClinicalDraft.chiefComplaint === (dbRecord.chiefComplaint || "") &&
-                      appointmentClinicalDraft.extraOralExamination ===
-                        (dbRecord.extraOralExamination || "") &&
-                      appointmentClinicalDraft.oralExamination ===
-                        (dbRecord.oralExamination || "") &&
-                      appointmentClinicalDraft.treatmentAdvised ===
-                        (dbRecord.treatmentAdvised || "") &&
-                      appointmentClinicalDraft.clinicalNotes === (dbRecord.clinicalNotes || "");
-                    return isDraftSaved ? (
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-bold">
-                        Saved to Database
-                      </span>
-                    ) : (
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-bold animate-pulse">
-                        Unsaved Draft
-                      </span>
-                    );
-                  })()}
                 </div>
 
-                <div className="space-y-2.5">
-                  <div className="grid grid-cols-2 gap-2">
+                {/* Right Column: Clinical Record Fields */}
+                <div className="md:col-span-3 space-y-4 border-t md:border-t-0 md:border-l border-slate-100 pt-4 md:pt-0 md:pl-4">
+                  <div className="flex items-center justify-between gap-3 pb-2 border-b border-slate-100">
                     <div>
-                      <label className="block text-slate-500 text-[10px] font-bold mb-0.5">
+                      <span className="text-[10px] uppercase tracking-wide text-slate-400 font-bold">
+                        Clinical Record
+                      </span>
+                    </div>
+                    {(() => {
+                      const dbRecord: AppointmentClinicalRecord =
+                        selectedAppointment.clinicalRecord || {
+                          chiefComplaint: "",
+                          extraOralExamination: "",
+                          oralExamination: "",
+                          treatmentAdvised: "",
+                          clinicalNotes: "",
+                        };
+                      const isDraftSaved =
+                        appointmentClinicalDraft.chiefComplaint ===
+                          (dbRecord.chiefComplaint || "") &&
+                        appointmentClinicalDraft.extraOralExamination ===
+                          (dbRecord.extraOralExamination || "") &&
+                        appointmentClinicalDraft.oralExamination ===
+                          (dbRecord.oralExamination || "") &&
+                        appointmentClinicalDraft.treatmentAdvised ===
+                          (dbRecord.treatmentAdvised || "") &&
+                        appointmentClinicalDraft.clinicalNotes === (dbRecord.clinicalNotes || "");
+                      return isDraftSaved ? (
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-bold border border-emerald-200">
+                          Saved to Database
+                        </span>
+                      ) : (
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-bold animate-pulse border border-amber-200">
+                          Unsaved Draft
+                        </span>
+                      );
+                    })()}
+                  </div>
+
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-slate-600 text-[10px] font-bold mb-1 uppercase tracking-wide">
                         Chief Complaint
                       </label>
                       <textarea
-                        rows={1}
+                        rows={2}
                         value={appointmentClinicalDraft.chiefComplaint}
                         onChange={(e) =>
                           setAppointmentClinicalDraft((prev) => ({
@@ -4397,53 +4500,55 @@ export default function AdminPatientDetailsPage() {
                             chiefComplaint: e.target.value,
                           }))
                         }
-                        className="w-full p-1.5 border border-slate-200 rounded bg-white text-xs text-slate-700"
-                        placeholder="Chief complaint"
+                        className="w-full p-2 border border-slate-200 rounded-lg bg-white text-xs text-slate-700 focus:border-indigo-300 focus:ring-1 focus:ring-indigo-300"
+                        placeholder="Write the patient's chief complaint..."
                       />
                     </div>
 
-                    <div>
-                      <label className="block text-slate-500 text-[10px] font-bold mb-0.5">
-                        Extra Oral Exam
-                      </label>
-                      <textarea
-                        rows={1}
-                        value={appointmentClinicalDraft.extraOralExamination}
-                        onChange={(e) =>
-                          setAppointmentClinicalDraft((prev) => ({
-                            ...prev,
-                            extraOralExamination: e.target.value,
-                          }))
-                        }
-                        className="w-full p-1.5 border border-slate-200 rounded bg-white text-xs text-slate-700"
-                        placeholder="Extra oral findings"
-                      />
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-slate-600 text-[10px] font-bold mb-1 uppercase tracking-wide">
+                          Extra Oral Examination
+                        </label>
+                        <textarea
+                          rows={2}
+                          value={appointmentClinicalDraft.extraOralExamination}
+                          onChange={(e) =>
+                            setAppointmentClinicalDraft((prev) => ({
+                              ...prev,
+                              extraOralExamination: e.target.value,
+                            }))
+                          }
+                          className="w-full p-2 border border-slate-200 rounded-lg bg-white text-xs text-slate-700 focus:border-indigo-300 focus:ring-1 focus:ring-indigo-300"
+                          placeholder="Facial symmetry, TMJ, etc."
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-slate-600 text-[10px] font-bold mb-1 uppercase tracking-wide">
+                          Oral Examination
+                        </label>
+                        <textarea
+                          rows={2}
+                          value={appointmentClinicalDraft.oralExamination}
+                          onChange={(e) =>
+                            setAppointmentClinicalDraft((prev) => ({
+                              ...prev,
+                              oralExamination: e.target.value,
+                            }))
+                          }
+                          className="w-full p-2 border border-slate-200 rounded-lg bg-white text-xs text-slate-700 focus:border-indigo-300 focus:ring-1 focus:ring-indigo-300"
+                          placeholder="Teeth, gums, soft tissues..."
+                        />
+                      </div>
                     </div>
 
                     <div>
-                      <label className="block text-slate-500 text-[10px] font-bold mb-0.5">
-                        Oral Exam
-                      </label>
-                      <textarea
-                        rows={1}
-                        value={appointmentClinicalDraft.oralExamination}
-                        onChange={(e) =>
-                          setAppointmentClinicalDraft((prev) => ({
-                            ...prev,
-                            oralExamination: e.target.value,
-                          }))
-                        }
-                        className="w-full p-1.5 border border-slate-200 rounded bg-white text-xs text-slate-700"
-                        placeholder="Oral findings"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-slate-500 text-[10px] font-bold mb-0.5">
+                      <label className="block text-slate-600 text-[10px] font-bold mb-1 uppercase tracking-wide">
                         Treatment Advised
                       </label>
                       <textarea
-                        rows={1}
+                        rows={2}
                         value={appointmentClinicalDraft.treatmentAdvised}
                         onChange={(e) =>
                           setAppointmentClinicalDraft((prev) => ({
@@ -4451,169 +4556,119 @@ export default function AdminPatientDetailsPage() {
                             treatmentAdvised: e.target.value,
                           }))
                         }
-                        className="w-full p-1.5 border border-slate-200 rounded bg-white text-xs text-slate-700"
-                        placeholder="Treatment advised"
+                        className="w-full p-2 border border-slate-200 rounded-lg bg-white text-xs text-slate-700 focus:border-indigo-300 focus:ring-1 focus:ring-indigo-300"
+                        placeholder="Recommended procedural plan..."
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-slate-600 text-[10px] font-bold mb-1 uppercase tracking-wide">
+                        Clinical Notes
+                      </label>
+                      <textarea
+                        rows={3}
+                        value={appointmentClinicalDraft.clinicalNotes}
+                        onChange={(e) =>
+                          setAppointmentClinicalDraft((prev) => ({
+                            ...prev,
+                            clinicalNotes: e.target.value,
+                          }))
+                        }
+                        className="w-full p-2 border border-slate-200 rounded-lg bg-white text-xs text-slate-700 focus:border-indigo-300 focus:ring-1 focus:ring-indigo-300"
+                        placeholder="Add visit observations, notes..."
                       />
                     </div>
                   </div>
 
-                  <div>
-                    <label className="block text-slate-500 text-[10px] font-bold mb-0.5">
-                      Clinical Notes
-                    </label>
-                    <textarea
-                      rows={2}
-                      value={appointmentClinicalDraft.clinicalNotes}
-                      onChange={(e) =>
-                        setAppointmentClinicalDraft((prev) => ({
-                          ...prev,
-                          clinicalNotes: e.target.value,
-                        }))
-                      }
-                      className="w-full p-1.5 border border-slate-200 rounded bg-white text-xs text-slate-700"
-                      placeholder="Add observations and remarks"
-                    />
-                  </div>
-                </div>
-              </div>
+                  <div className="pt-2">
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (!selectedAppointment) return;
 
-              <div className="p-3 bg-slate-50 border-t border-slate-100 space-y-3">
-                <button
-                  type="button"
-                  onClick={async () => {
-                    if (!selectedAppointment) return;
+                        const isUuid =
+                          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+                            selectedAppointment.id,
+                          );
 
-                    const isUuid =
-                      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-                        selectedAppointment.id,
-                      );
+                        if (isUuid) {
+                          console.log("SAVING CLINICAL VISIT RECORD", selectedAppointment.id);
 
-                    if (isUuid) {
-                      console.log("SAVING APPOINTMENT", selectedAppointment.id);
-                      console.log("PAYLOAD", JSON.stringify(appointmentClinicalDraft));
+                          // Check if record exists
+                          const { data: existingRecords, error: checkError } = await supabase
+                            .from("appointment_clinical_records")
+                            .select("id")
+                            .eq("appointment_id", selectedAppointment.id);
 
-                      const { data, error } = await supabase
-                        .from("appointments")
-                        .update({
-                          notes: JSON.stringify(appointmentClinicalDraft),
-                        })
-                        .eq("id", selectedAppointment.id)
-                        .select();
+                          if (checkError) {
+                            console.error("Error checking existing clinical records:", checkError);
+                            alert("Error checking database: " + checkError.message);
+                            return;
+                          }
 
-                      console.log("UPDATE DATA", data);
-                      console.log("UPDATE ERROR", error);
+                          const payload = {
+                            appointment_id: selectedAppointment.id,
+                            chief_complaint: appointmentClinicalDraft.chiefComplaint,
+                            extra_oral_examination: appointmentClinicalDraft.extraOralExamination,
+                            oral_examination: appointmentClinicalDraft.oralExamination,
+                            treatment_advised: appointmentClinicalDraft.treatmentAdvised,
+                            clinical_notes: appointmentClinicalDraft.clinicalNotes,
+                          };
 
-                      if (error) {
-                        console.error("Failed to update appointment notes in database:", error);
-                        alert("Failed to save clinical record to database: " + error.message);
-                      } else {
-                        // Success update local state
-                        setPatientData((prev) => ({
-                          ...prev,
-                          appointments: prev.appointments.map((a) =>
-                            a.id === selectedAppointment.id
-                              ? { ...a, clinicalRecord: appointmentClinicalDraft }
-                              : a,
-                          ),
-                        }));
-                        setSelectedAppointment((prev) =>
-                          prev ? { ...prev, clinicalRecord: appointmentClinicalDraft } : prev,
-                        );
-                      }
-                    } else {
-                      // fallback for mock
-                      setPatientData((prev) => ({
-                        ...prev,
-                        appointments: prev.appointments.map((a) =>
-                          a.id === selectedAppointment.id
-                            ? { ...a, clinicalRecord: appointmentClinicalDraft }
-                            : a,
-                        ),
-                      }));
-                      setSelectedAppointment((prev) =>
-                        prev ? { ...prev, clinicalRecord: appointmentClinicalDraft } : prev,
-                      );
-                    }
-                  }}
-                  className="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg transition"
-                >
-                  Save Clinical Visit Record
-                </button>
-                <button
-                  type="button"
-                  onClick={async () => {
-                    const nextDate = prompt(
-                      "Input micro-reschedule date parameter (YYYY-MM-DD):",
-                      selectedAppointment?.date,
-                    );
-                    if (nextDate && selectedAppointment) {
-                      const isUuid =
-                        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-                          selectedAppointment.id,
-                        );
+                          let saveError;
+                          if (existingRecords && existingRecords.length > 0) {
+                            // Update
+                            const { error } = await supabase
+                              .from("appointment_clinical_records")
+                              .update(payload as never)
+                              .eq("appointment_id", selectedAppointment.id);
+                            saveError = error;
+                          } else {
+                            // Insert
+                            const { error } = await supabase
+                              .from("appointment_clinical_records")
+                              .insert(payload as never);
+                            saveError = error;
+                          }
 
-                      if (isUuid) {
-                        const originalTimePart = selectedAppointment.time
-                          ? (() => {
-                              try {
-                                const [time, modifier] = selectedAppointment.time.split(" ");
-                                let [hours, minutes] = time.split(":");
-                                if (modifier === "PM" && hours !== "12") {
-                                  hours = String(parseInt(hours, 10) + 12);
-                                }
-                                if (modifier === "AM" && hours === "12") {
-                                  hours = "00";
-                                }
-                                return `${hours.padStart(2, "0")}:${minutes.padStart(2, "0")}:00`;
-                              } catch {
-                                return "10:00:00";
-                              }
-                            })()
-                          : "10:00:00";
-                        const nextDateTime = `${nextDate}T${originalTimePart}+00:00`;
-
-                        const { error } = await supabase
-                          .from("appointments")
-                          .update({
-                            appointment_date: nextDateTime,
-                          })
-                          .eq("id", selectedAppointment.id);
-
-                        if (error) {
-                          console.error("Failed to reschedule appointment in database:", error);
-                          alert("Failed to reschedule appointment: " + error.message);
+                          if (saveError) {
+                            console.error("Failed to save clinical record to database:", saveError);
+                            alert("Failed to save clinical record: " + saveError.message);
+                          } else {
+                            // Success update local state
+                            setPatientData((prev) => ({
+                              ...prev,
+                              appointments: prev.appointments.map((a) =>
+                                a.id === selectedAppointment.id
+                                  ? { ...a, clinicalRecord: appointmentClinicalDraft }
+                                  : a,
+                              ),
+                            }));
+                            setSelectedAppointment((prev) =>
+                              prev ? { ...prev, clinicalRecord: appointmentClinicalDraft } : prev,
+                            );
+                          }
                         } else {
+                          // fallback for mock
                           setPatientData((prev) => ({
                             ...prev,
                             appointments: prev.appointments.map((a) =>
-                              a.id === selectedAppointment.id ? { ...a, date: nextDate } : a,
+                              a.id === selectedAppointment.id
+                                ? { ...a, clinicalRecord: appointmentClinicalDraft }
+                                : a,
                             ),
                           }));
-                          setSelectedAppointment(null);
+                          setSelectedAppointment((prev) =>
+                            prev ? { ...prev, clinicalRecord: appointmentClinicalDraft } : prev,
+                          );
                         }
-                      } else {
-                        // fallback for mock
-                        setPatientData((prev) => ({
-                          ...prev,
-                          appointments: prev.appointments.map((a) =>
-                            a.id === selectedAppointment.id ? { ...a, date: nextDate } : a,
-                          ),
-                        }));
-                        setSelectedAppointment(null);
-                      }
-                    }
-                  }}
-                  className="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg transition text-center"
-                >
-                  Quick Reschedule Operational Window
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSelectedAppointment(null)}
-                  className="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg transition"
-                >
-                  Close
-                </button>
+                      }}
+                      className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg transition text-xs shadow-sm hover:shadow flex justify-center items-center gap-2"
+                    >
+                      <Check className="w-4 h-4" /> Save Clinical Visit Record
+                    </button>
+                  </div>
+                </div>
               </div>
             </motion.div>
           </div>

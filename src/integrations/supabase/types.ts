@@ -525,6 +525,52 @@ export type Database = {
           },
         ];
       };
+
+      appointment_clinical_records: {
+        Row: {
+          id: string;
+          appointment_id: string;
+          chief_complaint: string | null;
+          extra_oral_examination: string | null;
+          oral_examination: string | null;
+          treatment_advised: string | null;
+          clinical_notes: string | null;
+          created_at: string | null;
+          updated_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          appointment_id: string;
+          chief_complaint?: string | null;
+          extra_oral_examination?: string | null;
+          oral_examination?: string | null;
+          treatment_advised?: string | null;
+          clinical_notes?: string | null;
+          created_at?: string | null;
+          updated_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          appointment_id?: string;
+          chief_complaint?: string | null;
+          extra_oral_examination?: string | null;
+          oral_examination?: string | null;
+          treatment_advised?: string | null;
+          clinical_notes?: string | null;
+          created_at?: string | null;
+          updated_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "appointment_clinical_records_appointment_id_fkey";
+            columns: ["appointment_id"];
+            isOneToOne: false;
+            referencedRelation: "appointments";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+
       tooth_treatments: {
         Row: {
           created_at: string;
