@@ -478,6 +478,27 @@ export default function AdminPatientDetailsPage() {
 
   const [patientData, setPatientData] = useState<CompletePatientState>(getInitialPatientData);
 
+  useEffect(() => {
+    console.log(
+      "TREATMENTS CHANGED",
+      patientData.treatments.map((t) => ({
+        id: t.id,
+        procedure: t.procedure,
+        status: t.status,
+      })),
+    );
+  }, [patientData.treatments]);
+  useEffect(() => {
+    console.log(
+      "TREATMENTS CHANGED",
+      patientData.treatments.map((t) => ({
+        id: t.id,
+        procedure: t.procedure,
+        status: t.status,
+      })),
+    );
+  }, [patientData.treatments]);
+
   // Auto-save to localStorage
   useEffect(() => {
     const patientKey = `patient_ecosystem_${patientData.id}`;
@@ -496,11 +517,12 @@ export default function AdminPatientDetailsPage() {
       console.log("IS UUID:", isUuid);
 
       let patientQuery = supabase.from("patients").select("*");
-      if (isUuid) {
-        patientQuery = patientQuery.eq("id", patientId);
-      } else {
-        patientQuery = patientQuery.limit(1);
+      if (!isUuid) {
+        console.log("Mock patient route detected. Skipping database load.");
+        return;
       }
+
+      patientQuery = patientQuery.eq("id", patientId);
 
       const { data: dbPatients, error: patientError } = await (patientQuery as unknown as Promise<{
         data: DatabasePatient[] | null;
@@ -621,10 +643,154 @@ export default function AdminPatientDetailsPage() {
           })
         : [];
 
+      // ----------------------------------------------------
+      // PHASE 1: Load treatments, steps, and tooth treatments
+      // ----------------------------------------------------
+
+      // Fetch treatment plans
+      const { data: dbPlans, error: plansError } = await supabase
+        .from("treatment_plans")
+        .select("*")
+        .eq("patient_id", dbPatient.id);
+
+      if (plansError) {
+        console.error("Failed to load treatment plans from database:", plansError);
+      }
+
+      const planIds = dbPlans ? dbPlans.map((p) => p.id) : [];
+
+      const stepsResponse =
+        planIds.length > 0
+          ? await supabase.from("treatment_steps").select("*").in("treatment_plan_id", planIds)
+          : { data: null, error: null };
+
+      if (stepsResponse.error) {
+        console.error("Failed to load treatment steps:", stepsResponse.error);
+      }
+      const dbSteps = stepsResponse.data || [];
+
+      const toothTxResponse =
+        planIds.length > 0
+          ? await supabase.from("tooth_treatments").select("*").in("treatment_plan_id", planIds)
+          : { data: null, error: null };
+
+      if (toothTxResponse.error) {
+        console.error("Failed to load tooth treatments:", toothTxResponse.error);
+      }
+      const dbToothTreatments = toothTxResponse.data || [];
+
+      const mapDbStatusToUi = (
+        dbStatus: "planned" | "in_progress" | "completed" | "cancelled" | string,
+      ): "Pending" | "Ongoing" | "Paused" | "Completed" => {
+        switch (dbStatus) {
+          case "completed":
+            return "Completed";
+          case "in_progress":
+            return "Ongoing";
+          case "cancelled":
+            return "Paused";
+          case "planned":
+          default:
+            return "Pending";
+        }
+      };
+
+      const mapStepStatusToUi = (
+        status: "pending" | "in_progress" | "completed" | "skipped" | string,
+      ): "completed" | "active" | "upcoming" => {
+        switch (status) {
+          case "completed":
+          case "skipped":
+            return "completed";
+          case "in_progress":
+            return "active";
+          case "pending":
+          default:
+            return "upcoming";
+        }
+      };
+
+      const mappedTreatments =
+        dbPlans && dbPlans.length > 0
+          ? dbPlans.map((plan) => {
+              const planSteps = dbSteps
+                .filter((step) => step.plan_id === plan.id)
+                .sort((a, b) => a.step_order - b.step_order);
+
+              const planToothTx = dbToothTreatments.filter((tt) => tt.plan_id === plan.id);
+              const toothNumber =
+                planToothTx.length > 0
+                  ? planToothTx.map((tt) => `#${tt.tooth_number}`).join(", ")
+                  : "General";
+
+              let stages: TreatmentStageDetail[] = [];
+              let currentStage = "Consultation";
+
+              if (planSteps.length > 0) {
+                stages = planSteps.map((step) => ({
+                  name: step.title,
+                  status: mapStepStatusToUi(step.status),
+                }));
+                const activeStep = planSteps.find((step) => step.status === "in_progress");
+                currentStage = activeStep
+                  ? activeStep.title
+                  : planSteps[0]?.title || "Consultation";
+              } else {
+                const stagesList = getStagesForProcedure(plan.title);
+                const defaultCurrentStage = stagesList[0] || "Consultation";
+                currentStage = defaultCurrentStage;
+                stages = stagesList.map((s, idx) => ({
+                  name: s,
+                  status: idx === 0 ? ("active" as const) : ("upcoming" as const),
+                }));
+              }
+
+              return {
+                id: plan.id,
+                date: formatDate(plan.start_date || plan.created_at),
+                toothNumber,
+                procedure: plan.title,
+                notes: plan.description || "",
+                status: mapDbStatusToUi(plan.status),
+                currentStage,
+                stages,
+                hasXray: false,
+                startDate: plan.start_date || plan.created_at.split("T")[0],
+                completedDate: plan.end_date || null,
+              };
+            })
+          : undefined;
+
+      console.log(
+        "CURRENT UI TREATMENTS:",
+        patientData.treatments.map((t) => ({
+          id: t.id,
+          procedure: t.procedure,
+          status: t.status,
+        })),
+      );
+
+      console.log("mappedTreatments in loadDbData:", mappedTreatments);
+
+      console.log("PATIENT ID:", dbPatient.id);
+
+      console.log("DB PLANS:", dbPlans);
+
+      console.log(
+        "MAPPED TREATMENTS:",
+        mappedTreatments?.map((t) => ({
+          procedure: t.procedure,
+          status: t.status,
+        })),
+      );
+
+      console.log("mappedTreatments length", mappedTreatments?.length);
+
       setPatientData((prev) => ({
         ...prev,
         id: dbPatient.id,
         appointments: mappedAppointments,
+        treatments: mappedTreatments !== undefined ? mappedTreatments : prev.treatments,
         profile: {
           ...prev.profile,
           fullName:
@@ -1224,7 +1390,7 @@ export default function AdminPatientDetailsPage() {
     setIsAddingLedger(false);
   };
 
-  const handleAddTreatment = (e: React.FormEvent) => {
+  const handleAddTreatment = async (e: React.FormEvent) => {
     e.preventDefault();
     console.log("Treatment Form:", treatmentForm);
     if (!treatmentForm.procedure || !treatmentForm.toothNumber) return;
@@ -1260,6 +1426,41 @@ export default function AdminPatientDetailsPage() {
     };
 
     console.log("NEW TREATMENT", newTx);
+
+    const { data: plan, error: planError } = await supabase
+      .from("treatment_plans")
+      .insert({
+        patient_id: patientData.id,
+        title: newTx.procedure,
+        description: newTx.notes,
+        status: "planned",
+        start_date: newTx.startDate,
+      })
+      .select()
+      .single();
+
+    if (planError) {
+      console.error("Failed to create treatment plan:", planError);
+      return;
+    }
+
+    await supabase.from("tooth_treatments").insert({
+      patient_id: patientData.id,
+      plan_id: plan.id,
+      tooth_number: parseInt(treatmentForm.toothNumber.replace(/\D/g, ""), 10),
+      procedure: newTx.procedure,
+      status: "planned",
+      notes: newTx.notes,
+    });
+
+    await supabase.from("treatment_steps").insert(
+      stagesList.map((stage, index) => ({
+        plan_id: plan.id,
+        title: stage,
+        step_order: index + 1,
+        status: index === 0 ? "in_progress" : "pending",
+      })),
+    );
 
     setPatientData((prev) => ({
       ...prev,
@@ -3102,6 +3303,9 @@ export default function AdminPatientDetailsPage() {
                 </span>
 
                 <div className="space-y-2">
+                  <div className="bg-red-50 p-2 text-red-700 font-bold">
+                    Treatment Count: {patientData.treatments.length}
+                  </div>
                   {patientData.treatments.map((tx) => (
                     <div
                       key={tx.id}

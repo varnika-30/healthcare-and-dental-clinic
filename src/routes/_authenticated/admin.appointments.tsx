@@ -883,21 +883,23 @@ export default function AppointmentManagementPage() {
       {/* MANUAL BOOKING SLIDE DIALOG */}
       <AnimatePresence>
         {isModalOpen && (
-          <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 10 }}
-              className="bg-white w-full max-w-lg rounded-2xl border border-slate-100 shadow-xl overflow-hidden"
+              className="bg-card w-full max-w-xl rounded-3xl border border-border/60 shadow-card overflow-hidden"
             >
-              <div className="p-5 bg-slate-50/80 border-b border-slate-100 flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <div className="p-2 rounded-lg bg-teal-50 text-teal-600">
-                    <CalendarIcon className="h-5 w-5" />
+              <div className="p-6 bg-muted/30 border-b border-border/60 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 rounded-2xl bg-primary-soft text-primary shadow-xs">
+                    <CalendarIcon className="h-6 w-6" />
                   </div>
                   <div>
-                    <h3 className="font-bold text-slate-900 text-base">Book Manual Appointment</h3>
-                    <p className="text-xs text-slate-400 mt-0.5">
+                    <h3 className="font-display font-bold text-foreground text-xl tracking-tight">
+                      Book Manual Appointment
+                    </h3>
+                    <p className="text-sm text-muted-foreground mt-0.5">
                       Logs clinical schedule overrides instantly
                     </p>
                   </div>
@@ -905,19 +907,19 @@ export default function AppointmentManagementPage() {
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="p-1 rounded-lg text-slate-400 hover:bg-slate-100"
+                  className="p-1.5 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors cursor-pointer"
                 >
                   <X className="h-5 w-5" />
                 </button>
               </div>
 
-              <form onSubmit={handleCreateAppointment} className="p-5 space-y-4">
+              <form onSubmit={handleCreateAppointment} className="p-6 space-y-5">
                 <div
-                  className="space-y-1 relative"
+                  className="space-y-2 relative"
                   tabIndex={-1}
                   onBlur={() => setShowPatientDropdown(false)}
                 >
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
+                  <label className="text-sm font-bold text-foreground/80 tracking-wide block">
                     Patient
                   </label>
                   <input
@@ -937,16 +939,18 @@ export default function AppointmentManagementPage() {
                       setShowPatientDropdown(true);
                     }}
                     onFocus={() => setShowPatientDropdown(true)}
-                    className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-teal-500 focus:outline-hidden"
+                    className="w-full h-12 rounded-xl border border-border bg-card px-4 py-3 text-base text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-hidden transition shadow-xs"
                     placeholder="Search patient by name or ID"
                   />
                   {selectedPatient && (
-                    <p className="text-[11px] text-slate-500 mt-1">
-                      Selected ID: {selectedPatient.id}
+                    <p className="text-xs text-muted-foreground mt-1.5 flex items-center gap-1.5">
+                      <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                      Selected Patient ID:{" "}
+                      <span className="font-mono font-medium">{selectedPatient.id}</span>
                     </p>
                   )}
                   {showPatientDropdown && filteredPatientOptions.length > 0 && (
-                    <div className="absolute left-0 right-0 top-full z-50 mt-2 max-h-64 overflow-y-auto rounded-3xl border border-slate-200 bg-white shadow-xl">
+                    <div className="absolute left-0 right-0 top-full z-50 mt-2 max-h-64 overflow-y-auto rounded-2xl border border-border/60 bg-card shadow-card py-1.5">
                       {filteredPatientOptions.map((patient) => (
                         <button
                           key={patient.id}
@@ -962,21 +966,17 @@ export default function AppointmentManagementPage() {
                             }));
                             setShowPatientDropdown(false);
                           }}
-                          className="w-full text-left px-4 py-3 hover:bg-slate-50 transition"
+                          className="w-full text-left px-4 py-3 hover:bg-muted/50 text-foreground transition text-base font-medium flex items-center justify-between gap-3 cursor-pointer"
                         >
-                          <div className="flex items-center justify-between gap-3">
-                            <span className="font-medium text-slate-900 truncate">
-                              {patient.name}
-                            </span>
-                          </div>
+                          <span className="font-medium truncate">{patient.name}</span>
                         </button>
                       ))}
                     </div>
                   )}
                 </div>
 
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-foreground/80 tracking-wide block">
                     Phone Number
                   </label>
                   <input
@@ -984,14 +984,14 @@ export default function AppointmentManagementPage() {
                     required
                     value={formData.phone}
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-teal-500 focus:outline-hidden"
+                    className="w-full h-12 rounded-xl border border-border bg-card px-4 py-3 text-base text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-hidden transition shadow-xs"
                     placeholder="(555) 000-0000"
                   />
                 </div>
 
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                  <div className="space-y-1">
-                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
+                <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-foreground/80 tracking-wide block">
                       Date
                     </label>
                     <input
@@ -999,17 +999,17 @@ export default function AppointmentManagementPage() {
                       required
                       value={formData.date}
                       onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                      className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-teal-500 focus:outline-hidden"
+                      className="w-full h-12 rounded-xl border border-border bg-card px-4 py-3 text-base text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-hidden transition shadow-xs"
                     />
                   </div>
-                  <div className="space-y-1">
-                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-foreground/80 tracking-wide block">
                       Time Slot
                     </label>
                     <select
                       value={formData.timeSlot}
                       onChange={(e) => setFormData({ ...formData, timeSlot: e.target.value })}
-                      className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-teal-500 focus:outline-hidden bg-white"
+                      className="w-full h-12 rounded-xl border border-border bg-card px-4 py-3 text-base text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-hidden transition shadow-xs appearance-none pr-8 bg-[url('data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22currentColor%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E')] bg-[length:1.25rem] bg-[right_0.75rem_center] bg-no-repeat cursor-pointer"
                     >
                       {TIMELINE_SLOTS.map((slot) => (
                         <option key={slot} value={slot}>
@@ -1018,8 +1018,8 @@ export default function AppointmentManagementPage() {
                       ))}
                     </select>
                   </div>
-                  <div className="space-y-1">
-                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-foreground/80 tracking-wide block">
                       Priority
                     </label>
                     <select
@@ -1030,7 +1030,7 @@ export default function AppointmentManagementPage() {
                           priority: e.target.value as AppointmentPriority,
                         })
                       }
-                      className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-teal-500 focus:outline-hidden bg-white"
+                      className="w-full h-12 rounded-xl border border-border bg-card px-4 py-3 text-base text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-hidden transition shadow-xs appearance-none pr-8 bg-[url('data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22currentColor%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E')] bg-[length:1.25rem] bg-[right_0.75rem_center] bg-no-repeat cursor-pointer"
                     >
                       <option value="normal">Normal</option>
                       <option value="urgent">Urgent</option>
@@ -1039,14 +1039,14 @@ export default function AppointmentManagementPage() {
                   </div>
                 </div>
 
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-foreground/80 tracking-wide block">
                     Treatment Category
                   </label>
                   <select
                     value={formData.treatmentType}
                     onChange={(e) => setFormData({ ...formData, treatmentType: e.target.value })}
-                    className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-teal-500 focus:outline-hidden bg-white"
+                    className="w-full h-12 rounded-xl border border-border bg-card px-4 py-3 text-base text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-hidden transition shadow-xs appearance-none pr-8 bg-[url('data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22currentColor%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E')] bg-[length:1.25rem] bg-[right_0.75rem_center] bg-no-repeat cursor-pointer"
                   >
                     <option value="Routine Cleaning & Checkup">Routine Cleaning & Checkup</option>
                     <option value="Invisalign Consultation">Invisalign Consultation</option>
@@ -1057,29 +1057,29 @@ export default function AppointmentManagementPage() {
                   </select>
                 </div>
 
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-foreground/80 tracking-wide block">
                     Notes / Symptoms
                   </label>
                   <textarea
                     value={formData.notes}
                     onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                    className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-teal-500 focus:outline-hidden resize-none h-20"
+                    className="w-full rounded-xl border border-border bg-card px-4 py-3 text-base text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-hidden transition shadow-xs resize-none h-28"
                     placeholder="Add patient context notes..."
                   />
                 </div>
 
-                <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100 text-sm font-bold">
+                <div className="flex items-center justify-end gap-3 pt-5 border-t border-border/60 text-sm font-bold">
                   <button
                     type="button"
                     onClick={() => setIsModalOpen(false)}
-                    className="text-slate-700 hover:bg-slate-50 px-4 py-2 rounded-xl transition"
+                    className="text-muted-foreground hover:text-foreground hover:bg-secondary h-11 px-5 rounded-xl transition font-bold flex items-center justify-center cursor-pointer"
                   >
                     Discard
                   </button>
                   <button
                     type="submit"
-                    className="bg-teal-600 hover:bg-teal-700 text-white px-5 py-2 rounded-xl transition shadow-2xs"
+                    className="bg-primary-gradient text-primary-foreground h-11 px-6 rounded-xl transition shadow-soft hover:shadow-md hover:brightness-105 font-bold flex items-center justify-center cursor-pointer"
                   >
                     Save Booking
                   </button>

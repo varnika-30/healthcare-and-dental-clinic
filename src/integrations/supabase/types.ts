@@ -302,6 +302,57 @@ export type Database = {
           },
         ];
       };
+      payment_transactions: {
+        Row: {
+          amount: number;
+          created_at: string;
+          id: string;
+          notes: string | null;
+          patient_id: string;
+          payment_date: string;
+          payment_method: Database["public"]["Enums"]["payment_method"];
+          plan_id: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          amount: number;
+          created_at?: string;
+          id?: string;
+          notes?: string | null;
+          patient_id: string;
+          payment_date?: string;
+          payment_method?: Database["public"]["Enums"]["payment_method"];
+          plan_id?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          amount?: number;
+          created_at?: string;
+          id?: string;
+          notes?: string | null;
+          patient_id?: string;
+          payment_date?: string;
+          payment_method?: Database["public"]["Enums"]["payment_method"];
+          plan_id?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "payment_transactions_patient_id_fkey";
+            columns: ["patient_id"];
+            isOneToOne: false;
+            referencedRelation: "patients";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "payment_transactions_plan_id_fkey";
+            columns: ["plan_id"];
+            isOneToOne: false;
+            referencedRelation: "treatment_plans";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       payments: {
         Row: {
           amount: number;
@@ -648,6 +699,8 @@ export type Database = {
           estimated_cost: number | null;
           actual_cost: number | null;
           follow_up_needed: boolean | null;
+          discount_amount: number;
+          discount_reason: string | null;
         };
         Insert: {
           created_at?: string;
@@ -668,6 +721,8 @@ export type Database = {
           estimated_cost?: number | null;
           actual_cost?: number | null;
           follow_up_needed?: boolean | null;
+          discount_amount?: number;
+          discount_reason?: string | null;
         };
         Update: {
           created_at?: string;
@@ -688,6 +743,8 @@ export type Database = {
           estimated_cost?: number | null;
           actual_cost?: number | null;
           follow_up_needed?: boolean | null;
+          discount_amount?: number;
+          discount_reason?: string | null;
         };
         Relationships: [
           {
