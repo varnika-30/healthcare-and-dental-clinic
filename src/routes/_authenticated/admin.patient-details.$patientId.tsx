@@ -3516,7 +3516,6 @@ export default function AdminPatientDetailsPage() {
                           </div>
                         </div>
                       )}
-
                       <div className="flex flex-wrap items-center gap-2 pt-2">
                         {tx.status !== "Ongoing" && tx.status !== "Completed" && (
                           <button

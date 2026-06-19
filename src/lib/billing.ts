@@ -22,7 +22,7 @@ export interface PlanBillingSummary {
  */
 export function calculatePlanBilling(
   plan: Pick<TreatmentPlanRow, "estimated_cost" | "actual_cost" | "discount_amount">,
-  transactions: Pick<TransactionRow, "amount">[]
+  transactions: Pick<TransactionRow, "amount">[],
 ): PlanBillingSummary {
   const estimatedCost = plan.estimated_cost ?? 0;
   const actualCost = plan.actual_cost ?? 0;
@@ -64,16 +64,13 @@ export function calculatePlanBilling(
  *
  * @param plan The full treatment plan record
  */
-export async function fetchPlanBillingSummary(
-  plan: TreatmentPlanRow
-): Promise<PlanBillingSummary> {
+export async function fetchPlanBillingSummary(plan: TreatmentPlanRow): Promise<PlanBillingSummary> {
   const { data: transactions, error } = await supabase
     .from("payment_transactions")
     .select("amount")
     .eq("plan_id", plan.id);
 
   if (error) {
-    // eslint-disable-next-line no-console
     console.error("Failed to fetch payment transactions for plan:", plan.id, error);
     // Return calculations assuming zero transactions on error
     return calculatePlanBilling(plan, []);
