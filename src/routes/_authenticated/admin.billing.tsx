@@ -115,76 +115,216 @@ export default function BillingDashboardPage() {
   const [activeTab, setActiveTab] = useState<"ledger" | "patients">("ledger");
 
   const [billingRecords, setBillingRecords] = useState<BillingRecord[]>([]);
+  const [allTransactions, setAllTransactions] = useState<any[]>([]);
   const [selectedRecord, setSelectedRecord] = useState<BillingRecord | null>(null);
 
-  useEffect(() => {
-    async function loadBillingData() {
-      // 1. Fetch treatment plans with patients
-      const { data: plansData, error: plansError } = await supabase
-        .from("treatment_plans")
-        .select("*, patients(*)");
+  const [paymentAmount, setPaymentAmount] = useState<number>(0);
+  const [paymentMethod, setPaymentMethod] = useState<
+    "cash" | "card" | "upi" | "bank_transfer" | "insurance" | "other"
+  >("upi");
+  const [paymentDate, setPaymentDate] = useState<string>(new Date().toISOString().split("T")[0]);
+  const [paymentNotes, setPaymentNotes] = useState<string>("");
+  const [isSaving, setIsSaving] = useState<boolean>(false);
+  const [editingTransaction, setEditingTransaction] = useState<any | null>(null);
 
-      console.log("PLANS DATA:", plansData);
-      console.log("PLANS ERROR:", plansError);
+  const currentRecord = useMemo(() => {
+    if (!selectedRecord) return null;
+    return billingRecords.find((r) => r.id === selectedRecord.id) || selectedRecord;
+  }, [billingRecords, selectedRecord]);
 
-      if (plansError) {
-        console.error("Failed to load treatment plans:", plansError);
-        return;
-      }
-
-      // 2. Fetch payment transactions
-      const { data: txsData, error: txsError } = await supabase
-        .from("payment_transactions")
-        .select("*");
-
-      console.log("PAYMENT TRANSACTIONS:", txsData);
-      console.log("PAYMENT TRANSACTIONS ERROR:", txsError);
-
-      if (txsError) {
-        console.error("Failed to load payment transactions:", txsError);
-        return;
-      }
-
-      const mappedRecords: BillingRecord[] = (plansData || []).map((plan) => {
-        const planTransactions = (txsData || []).filter((tx) => tx.plan_id === plan.id);
-        const billing = calculatePlanBilling(plan, planTransactions);
-
-        const isOverdue =
-          plan.due_date && new Date(plan.due_date) < new Date() && billing.outstandingAmount > 0;
-        const status: "Paid" | "Partial Payments" | "Payments Due" | "Overdue" =
-          billing.paymentStatus === "paid"
-            ? "Paid"
-            : isOverdue
-              ? "Overdue"
-              : billing.paymentStatus === "partial"
-                ? "Partial Payments"
-                : "Payments Due";
-
-        const patientName = plan.patients
-          ? `${(plan.patients as Record<string, unknown>)["first_name"] ?? ""} ${(plan.patients as Record<string, unknown>)["last_name"] ?? ""}`.trim()
-          : "Unknown Patient";
-
-        return {
-          id: plan.id,
-          patientId: plan.patient_id,
-          patientName,
-          treatment: plan.title,
-          estimatedCost: plan.estimated_cost ?? 0,
-          discount: billing.discountAmount,
-          finalCost: billing.finalCost,
-          paidAmount: billing.totalPaid,
-          outstandingAmount: billing.outstandingAmount,
-          dueDate: plan.due_date ?? "",
-          status,
-        };
+  const selectedPlanTransactions = useMemo(() => {
+    if (!currentRecord) return [];
+    return allTransactions
+      .filter((tx) => tx.plan_id === currentRecord.id)
+      .sort((a, b) => {
+        const dateDiff = new Date(b.payment_date).getTime() - new Date(a.payment_date).getTime();
+        if (dateDiff !== 0) return dateDiff;
+        return (b.id || "").localeCompare(a.id || "");
       });
+  }, [allTransactions, currentRecord]);
 
-      console.log("MAPPED BILLING RECORDS:", mappedRecords);
-      setBillingRecords(mappedRecords);
+  useEffect(() => {
+    if (selectedRecord && !editingTransaction) {
+      const rec = billingRecords.find((r) => r.id === selectedRecord.id) || selectedRecord;
+      setPaymentAmount(rec.outstandingAmount);
+      setPaymentMethod("upi");
+      setPaymentDate(new Date().toISOString().split("T")[0]);
+      setPaymentNotes("");
+    }
+  }, [selectedRecord, billingRecords, editingTransaction]);
+
+  async function loadBillingData() {
+    // 1. Fetch treatment plans with patients
+    const { data: plansData, error: plansError } = await supabase
+      .from("treatment_plans")
+      .select("*, patients(*)");
+
+    console.log("PLANS DATA:", plansData);
+    console.log("PLANS ERROR:", plansError);
+
+    if (plansError) {
+      console.error("Failed to load treatment plans:", plansError);
+      return;
     }
 
+    // 2. Fetch payment transactions
+    const { data: txsData, error: txsError } = await supabase
+      .from("payment_transactions")
+      .select("*");
+
+    console.log("PAYMENT TRANSACTIONS:", txsData);
+    console.log("PAYMENT TRANSACTIONS ERROR:", txsError);
+
+    if (txsError) {
+      console.error("Failed to load payment transactions:", txsError);
+      return;
+    }
+
+    if (txsData) {
+      setAllTransactions(txsData);
+    }
+
+    const mappedRecords: BillingRecord[] = (plansData || []).map((plan) => {
+      const planTransactions = (txsData || []).filter((tx) => tx.plan_id === plan.id);
+      const billing = calculatePlanBilling(plan, planTransactions);
+
+      const isOverdue =
+        plan.due_date && new Date(plan.due_date) < new Date() && billing.outstandingAmount > 0;
+      const status: "Paid" | "Partial Payments" | "Payments Due" | "Overdue" =
+        billing.paymentStatus === "paid"
+          ? "Paid"
+          : isOverdue
+            ? "Overdue"
+            : billing.paymentStatus === "partial"
+              ? "Partial Payments"
+              : "Payments Due";
+
+      const patientName = plan.patients
+        ? `${(plan.patients as Record<string, unknown>)["first_name"] ?? ""} ${(plan.patients as Record<string, unknown>)["last_name"] ?? ""}`.trim()
+        : "Unknown Patient";
+
+      return {
+        id: plan.id,
+        patientId: plan.patient_id,
+        patientName,
+        treatment: plan.title,
+        estimatedCost: plan.estimated_cost ?? 0,
+        discount: billing.discountAmount,
+        finalCost: billing.finalCost,
+        paidAmount: billing.totalPaid,
+        outstandingAmount: billing.outstandingAmount,
+        dueDate: plan.due_date ?? "",
+        status,
+      };
+    });
+
+    console.log("MAPPED BILLING RECORDS:", mappedRecords);
+    setBillingRecords(mappedRecords);
+  }
+
+  useEffect(() => {
     loadBillingData();
   }, []);
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentRecord) return;
+
+    setIsSaving(true);
+    try {
+      if (editingTransaction) {
+        // Update existing transaction
+        const { error } = await supabase
+          .from("payment_transactions")
+          .update({
+            amount: paymentAmount,
+            payment_method: paymentMethod,
+            payment_date: paymentDate,
+            notes: paymentNotes || null,
+          })
+          .eq("id", editingTransaction.id);
+
+        if (error) {
+          console.error("Failed to update payment:", error);
+          alert("Failed to update payment: " + error.message);
+          return;
+        }
+
+        console.log("Payment successfully updated.");
+        setEditingTransaction(null);
+      } else {
+        // Insert new transaction
+        const { error } = await supabase.from("payment_transactions").insert({
+          patient_id: currentRecord.patientId,
+          plan_id: currentRecord.id,
+          amount: paymentAmount,
+          payment_method: paymentMethod,
+          payment_date: paymentDate,
+          notes: paymentNotes || null,
+        });
+
+        if (error) {
+          console.error("Failed to record payment:", error);
+          alert("Failed to record payment: " + error.message);
+          return;
+        }
+
+        console.log("Payment successfully recorded.");
+      }
+
+      await loadBillingData();
+    } catch (err) {
+      console.error("Unexpected error saving payment:", err);
+      alert("Unexpected error occurred while saving payment.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const startEditTransaction = (tx: any) => {
+    setEditingTransaction(tx);
+    setPaymentAmount(tx.amount);
+    setPaymentMethod(tx.payment_method);
+    setPaymentDate(tx.payment_date);
+    setPaymentNotes(tx.notes || "");
+  };
+
+  const cancelEditTransaction = () => {
+    setEditingTransaction(null);
+    if (currentRecord) {
+      setPaymentAmount(currentRecord.outstandingAmount);
+      setPaymentMethod("upi");
+      setPaymentDate(new Date().toISOString().split("T")[0]);
+      setPaymentNotes("");
+    }
+  };
+
+  const handleDeleteTransaction = async (txId: string) => {
+    if (!window.confirm("Are you sure you want to delete this payment transaction?")) return;
+
+    setIsSaving(true);
+    try {
+      const { error } = await supabase.from("payment_transactions").delete().eq("id", txId);
+
+      if (error) {
+        console.error("Failed to delete payment:", error);
+        alert("Failed to delete payment: " + error.message);
+        return;
+      }
+
+      console.log("Payment successfully deleted.");
+
+      if (editingTransaction?.id === txId) {
+        setEditingTransaction(null);
+      }
+
+      await loadBillingData();
+    } catch (err) {
+      console.error("Unexpected error deleting payment:", err);
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   // ==========================================
   // FINANCIAL CALCULATIONS MATRIX
@@ -630,7 +770,7 @@ export default function BillingDashboardPage() {
         </div>
 
         {/* Modal Overlay */}
-        {selectedRecord && (
+        {selectedRecord && currentRecord && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             {/* Backdrop */}
             <div
@@ -638,15 +778,18 @@ export default function BillingDashboardPage() {
               onClick={() => setSelectedRecord(null)}
             />
             {/* Modal Content */}
-            <div className="relative bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-md w-full overflow-hidden transform transition-all z-10 animate-in fade-in zoom-in-95 duration-200">
+            <form
+              onSubmit={handleSave}
+              className="relative bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-md w-full overflow-hidden transform transition-all z-10 animate-in fade-in zoom-in-95 duration-200"
+            >
               {/* Header */}
               <div className="bg-gradient-to-r from-teal-500 to-emerald-600 px-6 py-4 text-white">
                 <h3 className="text-lg font-bold">Manage Treatment Plan</h3>
-                <p className="text-xs text-teal-100 mt-0.5">Reference ID: {selectedRecord.id}</p>
+                <p className="text-xs text-teal-100 mt-0.5">Reference ID: {currentRecord.id}</p>
               </div>
 
               {/* Body */}
-              <div className="p-6 space-y-5">
+              <div className="p-6 space-y-5 max-h-[70vh] overflow-y-auto">
                 {/* Patient Name */}
                 <div className="space-y-1.5">
                   <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block">
@@ -656,7 +799,7 @@ export default function BillingDashboardPage() {
                     <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 border border-slate-200">
                       <User className="h-4 w-4" />
                     </div>
-                    {selectedRecord.patientName}
+                    {currentRecord.patientName}
                   </div>
                 </div>
 
@@ -666,18 +809,18 @@ export default function BillingDashboardPage() {
                     Treatment Name
                   </span>
                   <div className="text-sm font-semibold text-slate-700 bg-slate-50/50 p-3 rounded-xl border border-slate-200/60 leading-relaxed">
-                    {selectedRecord.treatment}
+                    {currentRecord.treatment}
                   </div>
                 </div>
 
                 {/* Pricing Metrics */}
-                <div className="grid grid-cols-3 gap-3 pt-2">
+                <div className="grid grid-cols-3 gap-3 pt-1">
                   <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/60 space-y-1 text-center">
                     <span className="text-[9px] uppercase font-bold tracking-wider text-slate-400 block">
                       Total Cost
                     </span>
                     <span className="text-sm font-bold text-slate-800">
-                      ₹{selectedRecord.finalCost.toLocaleString()}
+                      ₹{currentRecord.finalCost.toLocaleString()}
                     </span>
                   </div>
                   <div className="bg-emerald-50/50 p-3 rounded-xl border border-emerald-100 space-y-1 text-center">
@@ -685,7 +828,7 @@ export default function BillingDashboardPage() {
                       Paid
                     </span>
                     <span className="text-sm font-bold text-emerald-700">
-                      ₹{selectedRecord.paidAmount.toLocaleString()}
+                      ₹{currentRecord.paidAmount.toLocaleString()}
                     </span>
                   </div>
                   <div className="bg-rose-50/50 p-3 rounded-xl border border-rose-100 space-y-1 text-center">
@@ -693,23 +836,212 @@ export default function BillingDashboardPage() {
                       Outstanding
                     </span>
                     <span className="text-sm font-bold text-rose-700">
-                      ₹{selectedRecord.outstandingAmount.toLocaleString()}
+                      ₹{currentRecord.outstandingAmount.toLocaleString()}
                     </span>
                   </div>
+                </div>
+
+                {/* Record Payment Form */}
+                <div
+                  className={`space-y-4 pt-4 border-t border-slate-100 transition-all duration-300 ${
+                    editingTransaction
+                      ? "bg-teal-50/30 p-4 -mx-6 border-y border-teal-100/60 shadow-inner"
+                      : ""
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                      {editingTransaction ? "Edit Payment Details" : "Record New Payment"}
+                    </h4>
+                    {editingTransaction && (
+                      <button
+                        type="button"
+                        onClick={cancelEditTransaction}
+                        className="text-[10px] font-bold text-rose-600 hover:underline cursor-pointer"
+                      >
+                        Cancel Edit
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* Payment Amount */}
+                    <div className="space-y-1.5">
+                      <label
+                        htmlFor="payment-amount"
+                        className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block"
+                      >
+                        Payment Amount (₹)
+                      </label>
+                      <input
+                        id="payment-amount"
+                        type="number"
+                        min="0"
+                        value={paymentAmount}
+                        disabled={isSaving}
+                        onChange={(e) => setPaymentAmount(Number(e.target.value))}
+                        className="w-full h-10 px-3 text-sm font-medium border border-slate-200 bg-white rounded-xl focus:outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500/10 transition-all placeholder:text-slate-400 text-slate-700 disabled:opacity-50 disabled:bg-slate-50"
+                        placeholder="Enter amount"
+                        required
+                      />
+                    </div>
+
+                    {/* Payment Method */}
+                    <div className="space-y-1.5">
+                      <label
+                        htmlFor="payment-method"
+                        className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block"
+                      >
+                        Payment Method
+                      </label>
+                      <select
+                        id="payment-method"
+                        value={paymentMethod}
+                        disabled={isSaving}
+                        onChange={(e) =>
+                          setPaymentMethod(
+                            e.target.value as
+                              | "cash"
+                              | "card"
+                              | "upi"
+                              | "bank_transfer"
+                              | "insurance"
+                              | "other",
+                          )
+                        }
+                        className="w-full h-10 px-3 text-sm font-medium border border-slate-200 bg-white rounded-xl focus:outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500/10 transition-all text-slate-700 disabled:opacity-50 disabled:bg-slate-50"
+                      >
+                        <option value="upi">UPI</option>
+                        <option value="card">Credit/Debit Card</option>
+                        <option value="cash">Cash</option>
+                        <option value="bank_transfer">Net Banking</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-4">
+                    {/* Payment Date */}
+                    <div className="space-y-1.5">
+                      <label
+                        htmlFor="payment-date"
+                        className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block"
+                      >
+                        Payment Date
+                      </label>
+                      <input
+                        id="payment-date"
+                        type="date"
+                        value={paymentDate}
+                        disabled={isSaving}
+                        onChange={(e) => setPaymentDate(e.target.value)}
+                        className="w-full h-10 px-3 text-sm font-medium border border-slate-200 bg-white rounded-xl focus:outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500/10 transition-all text-slate-700 disabled:opacity-50 disabled:bg-slate-50"
+                        required
+                      />
+                    </div>
+
+                    {/* Notes */}
+                    <div className="space-y-1.5">
+                      <label
+                        htmlFor="payment-notes"
+                        className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block"
+                      >
+                        Notes
+                      </label>
+                      <textarea
+                        id="payment-notes"
+                        value={paymentNotes}
+                        disabled={isSaving}
+                        onChange={(e) => setPaymentNotes(e.target.value)}
+                        rows={2}
+                        className="w-full p-3 text-sm font-medium border border-slate-200 bg-white rounded-xl focus:outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500/10 transition-all placeholder:text-slate-400 text-slate-700 resize-none disabled:opacity-50 disabled:bg-slate-50"
+                        placeholder="Add payment notes/reference details..."
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Past Transactions List */}
+                <div className="space-y-3 pt-4 border-t border-slate-100">
+                  <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                    Payment History ({selectedPlanTransactions.length})
+                  </h4>
+
+                  {selectedPlanTransactions.length === 0 ? (
+                    <div className="text-center py-6 border border-dashed border-slate-200 rounded-xl bg-slate-50/50">
+                      <p className="text-xs text-slate-400">
+                        No payments recorded for this plan yet.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
+                      {selectedPlanTransactions.map((tx) => (
+                        <div
+                          key={tx.id}
+                          className="flex flex-col sm:flex-row sm:items-center justify-between p-3 rounded-xl border border-slate-200 bg-white shadow-xs gap-2 group hover:border-slate-300 transition-all"
+                        >
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-xs font-bold text-slate-800">
+                                ₹{tx.amount.toLocaleString()}
+                              </span>
+                              <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-full text-[9px] uppercase border font-semibold tracking-wider bg-slate-50 text-slate-600 border-slate-200">
+                                {tx.payment_method === "bank_transfer"
+                                  ? "Net Banking"
+                                  : tx.payment_method.toUpperCase()}
+                              </span>
+                            </div>
+                            <div className="text-[10px] text-slate-500 font-semibold tabular-nums">
+                              Date: {tx.payment_date}
+                            </div>
+                            {tx.notes && (
+                              <p className="text-[10px] text-slate-400 italic bg-slate-50 p-1.5 rounded-lg border border-slate-100 mt-1 leading-relaxed">
+                                "{tx.notes}"
+                              </p>
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-1.5 self-end sm:self-center opacity-90 sm:opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button
+                              type="button"
+                              onClick={() => startEditTransaction(tx)}
+                              className="inline-flex h-7 items-center justify-center rounded-lg border border-slate-200 px-2.5 text-[10px] font-bold text-teal-600 bg-white hover:bg-slate-50 transition-colors shadow-xs cursor-pointer"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteTransaction(tx.id)}
+                              className="inline-flex h-7 items-center justify-center rounded-lg border border-rose-200 px-2.5 text-[10px] font-bold text-rose-600 bg-white hover:bg-rose-50 transition-colors shadow-xs cursor-pointer"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
 
               {/* Footer */}
-              <div className="bg-slate-50 px-6 py-4 flex justify-end border-t border-slate-100">
+              <div className="bg-slate-50 px-6 py-4 flex justify-end gap-3 border-t border-slate-100">
                 <button
                   type="button"
+                  disabled={isSaving}
                   onClick={() => setSelectedRecord(null)}
-                  className="px-4 py-2 text-sm font-semibold text-slate-600 hover:text-slate-800 bg-white hover:bg-slate-100 border border-slate-200 rounded-xl transition-all shadow-xs"
+                  className="px-4 py-2 text-sm font-semibold text-slate-600 hover:text-slate-800 bg-white hover:bg-slate-100 border border-slate-200 rounded-xl transition-all shadow-xs disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Close
                 </button>
+                <button
+                  type="submit"
+                  disabled={isSaving}
+                  className="px-4 py-2 text-sm font-semibold text-white bg-teal-600 hover:bg-teal-700 rounded-xl transition-all shadow-xs disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isSaving ? "Saving..." : "Save"}
+                </button>
               </div>
-            </div>
+            </form>
           </div>
         )}
       </div>
