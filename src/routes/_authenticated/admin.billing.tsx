@@ -115,6 +115,7 @@ export default function BillingDashboardPage() {
   const [activeTab, setActiveTab] = useState<"ledger" | "patients">("ledger");
 
   const [billingRecords, setBillingRecords] = useState<BillingRecord[]>([]);
+  const [selectedRecord, setSelectedRecord] = useState<BillingRecord | null>(null);
 
   useEffect(() => {
     async function loadBillingData() {
@@ -466,6 +467,7 @@ export default function BillingDashboardPage() {
                     <th className="py-3 px-5 text-right">Outstanding Amount</th>
                     <th className="py-3 px-5">Target Due Axis</th>
                     <th className="py-3 px-5 text-center">Settlement State</th>
+                    <th className="py-3 px-5 text-center">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-sm font-medium text-slate-700">
@@ -535,6 +537,17 @@ export default function BillingDashboardPage() {
                           >
                             {rec.status}
                           </span>
+                        </td>
+
+                        {/* Actions */}
+                        <td className="py-4 px-5 text-center">
+                          <button
+                            type="button"
+                            onClick={() => setSelectedRecord(rec)}
+                            className="inline-flex items-center justify-center rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-teal-600 bg-white hover:bg-slate-50 transition-colors"
+                          >
+                            Manage
+                          </button>
                         </td>
                       </tr>
                     );
@@ -615,6 +628,90 @@ export default function BillingDashboardPage() {
             </div>
           )}
         </div>
+
+        {/* Modal Overlay */}
+        {selectedRecord && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            {/* Backdrop */}
+            <div
+              className="absolute inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity duration-300"
+              onClick={() => setSelectedRecord(null)}
+            />
+            {/* Modal Content */}
+            <div className="relative bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-md w-full overflow-hidden transform transition-all z-10 animate-in fade-in zoom-in-95 duration-200">
+              {/* Header */}
+              <div className="bg-gradient-to-r from-teal-500 to-emerald-600 px-6 py-4 text-white">
+                <h3 className="text-lg font-bold">Manage Treatment Plan</h3>
+                <p className="text-xs text-teal-100 mt-0.5">Reference ID: {selectedRecord.id}</p>
+              </div>
+
+              {/* Body */}
+              <div className="p-6 space-y-5">
+                {/* Patient Name */}
+                <div className="space-y-1.5">
+                  <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block">
+                    Patient Name
+                  </span>
+                  <div className="flex items-center gap-2.5 text-sm font-bold text-slate-800">
+                    <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 border border-slate-200">
+                      <User className="h-4 w-4" />
+                    </div>
+                    {selectedRecord.patientName}
+                  </div>
+                </div>
+
+                {/* Treatment Name */}
+                <div className="space-y-1.5">
+                  <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block">
+                    Treatment Name
+                  </span>
+                  <div className="text-sm font-semibold text-slate-700 bg-slate-50/50 p-3 rounded-xl border border-slate-200/60 leading-relaxed">
+                    {selectedRecord.treatment}
+                  </div>
+                </div>
+
+                {/* Pricing Metrics */}
+                <div className="grid grid-cols-3 gap-3 pt-2">
+                  <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/60 space-y-1 text-center">
+                    <span className="text-[9px] uppercase font-bold tracking-wider text-slate-400 block">
+                      Total Cost
+                    </span>
+                    <span className="text-sm font-bold text-slate-800">
+                      ₹{selectedRecord.finalCost.toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="bg-emerald-50/50 p-3 rounded-xl border border-emerald-100 space-y-1 text-center">
+                    <span className="text-[9px] uppercase font-bold tracking-wider text-emerald-600 block">
+                      Paid
+                    </span>
+                    <span className="text-sm font-bold text-emerald-700">
+                      ₹{selectedRecord.paidAmount.toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="bg-rose-50/50 p-3 rounded-xl border border-rose-100 space-y-1 text-center">
+                    <span className="text-[9px] uppercase font-bold tracking-wider text-rose-600 block">
+                      Outstanding
+                    </span>
+                    <span className="text-sm font-bold text-rose-700">
+                      ₹{selectedRecord.outstandingAmount.toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="bg-slate-50 px-6 py-4 flex justify-end border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setSelectedRecord(null)}
+                  className="px-4 py-2 text-sm font-semibold text-slate-600 hover:text-slate-800 bg-white hover:bg-slate-100 border border-slate-200 rounded-xl transition-all shadow-xs"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </DashboardShell>
   );
