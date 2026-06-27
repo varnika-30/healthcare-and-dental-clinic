@@ -312,6 +312,7 @@ export type Database = {
           payment_date: string;
           payment_method: Database["public"]["Enums"]["payment_method"];
           plan_id: string | null;
+          purpose: string;
           updated_at: string;
         };
         Insert: {
@@ -323,6 +324,7 @@ export type Database = {
           payment_date?: string;
           payment_method?: Database["public"]["Enums"]["payment_method"];
           plan_id?: string | null;
+          purpose: string;
           updated_at?: string;
         };
         Update: {
@@ -334,6 +336,7 @@ export type Database = {
           payment_date?: string;
           payment_method?: Database["public"]["Enums"]["payment_method"];
           plan_id?: string | null;
+          purpose?: string;
           updated_at?: string;
         };
         Relationships: [

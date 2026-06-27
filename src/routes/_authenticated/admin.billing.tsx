@@ -3,6 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import React, { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { calculatePlanBilling } from "@/lib/billing";
+import { toast } from "sonner";
 import {
   DollarSign,
   AlertTriangle,
@@ -29,6 +30,7 @@ interface BillingRecord {
   treatment: string;
   estimatedCost: number;
   discount: number;
+  discountReason?: string;
   finalCost: number;
   paidAmount: number;
   outstandingAmount: number;
@@ -124,7 +126,11 @@ export default function BillingDashboardPage() {
   >("upi");
   const [paymentDate, setPaymentDate] = useState<string>(new Date().toISOString().split("T")[0]);
   const [paymentNotes, setPaymentNotes] = useState<string>("");
+  const [paymentPurpose, setPaymentPurpose] = useState<string>("Treatment Payment");
+  const [discountAmount, setDiscountAmount] = useState<number>(0);
+  const [discountReason, setDiscountReason] = useState<string>("");
   const [isSaving, setIsSaving] = useState<boolean>(false);
+  const [isSavingDiscount, setIsSavingDiscount] = useState<boolean>(false);
   const [editingTransaction, setEditingTransaction] = useState<any | null>(null);
 
   const currentRecord = useMemo(() => {
@@ -150,6 +156,9 @@ export default function BillingDashboardPage() {
       setPaymentMethod("upi");
       setPaymentDate(new Date().toISOString().split("T")[0]);
       setPaymentNotes("");
+      setPaymentPurpose("");
+      setDiscountAmount(rec.discount || 0);
+      setDiscountReason(rec.discountReason || "");
     }
   }, [selectedRecord, billingRecords, editingTransaction]);
 
@@ -158,9 +167,6 @@ export default function BillingDashboardPage() {
     const { data: plansData, error: plansError } = await supabase
       .from("treatment_plans")
       .select("*, patients(*)");
-
-    console.log("PLANS DATA:", plansData);
-    console.log("PLANS ERROR:", plansError);
 
     if (plansError) {
       console.error("Failed to load treatment plans:", plansError);
@@ -171,9 +177,6 @@ export default function BillingDashboardPage() {
     const { data: txsData, error: txsError } = await supabase
       .from("payment_transactions")
       .select("*");
-
-    console.log("PAYMENT TRANSACTIONS:", txsData);
-    console.log("PAYMENT TRANSACTIONS ERROR:", txsError);
 
     if (txsError) {
       console.error("Failed to load payment transactions:", txsError);
@@ -210,6 +213,7 @@ export default function BillingDashboardPage() {
         treatment: plan.title,
         estimatedCost: plan.estimated_cost ?? 0,
         discount: billing.discountAmount,
+        discountReason: plan.discount_reason ?? "",
         finalCost: billing.finalCost,
         paidAmount: billing.totalPaid,
         outstandingAmount: billing.outstandingAmount,
@@ -218,7 +222,6 @@ export default function BillingDashboardPage() {
       };
     });
 
-    console.log("MAPPED BILLING RECORDS:", mappedRecords);
     setBillingRecords(mappedRecords);
   }
 
@@ -229,6 +232,11 @@ export default function BillingDashboardPage() {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentRecord) return;
+
+    if (!paymentPurpose.trim()) {
+      toast.error("Payment Purpose is required.");
+      return;
+    }
 
     setIsSaving(true);
     try {
@@ -241,16 +249,17 @@ export default function BillingDashboardPage() {
             payment_method: paymentMethod,
             payment_date: paymentDate,
             notes: paymentNotes || null,
+            purpose: paymentPurpose,
           })
           .eq("id", editingTransaction.id);
 
         if (error) {
           console.error("Failed to update payment:", error);
-          alert("Failed to update payment: " + error.message);
+          toast.error("Failed to update payment: " + error.message);
           return;
         }
 
-        console.log("Payment successfully updated.");
+        toast.success("Payment updated successfully.");
         setEditingTransaction(null);
       } else {
         // Insert new transaction
@@ -261,23 +270,54 @@ export default function BillingDashboardPage() {
           payment_method: paymentMethod,
           payment_date: paymentDate,
           notes: paymentNotes || null,
+          purpose: paymentPurpose,
         });
 
         if (error) {
           console.error("Failed to record payment:", error);
-          alert("Failed to record payment: " + error.message);
+          toast.error("Failed to record payment: " + error.message);
           return;
         }
 
-        console.log("Payment successfully recorded.");
+        toast.success("Payment added successfully.");
       }
 
       await loadBillingData();
     } catch (err) {
       console.error("Unexpected error saving payment:", err);
-      alert("Unexpected error occurred while saving payment.");
+      toast.error("Unexpected error occurred while saving payment.");
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleSaveDiscount = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentRecord) return;
+
+    setIsSavingDiscount(true);
+    try {
+      const { error } = await supabase
+        .from("treatment_plans")
+        .update({
+          discount_amount: discountAmount,
+          discount_reason: discountReason || null,
+        })
+        .eq("id", currentRecord.id);
+
+      if (error) {
+        console.error("Failed to save discount:", error);
+        toast.error("Failed to save discount: " + error.message);
+        return;
+      }
+
+      toast.success("Discount saved successfully.");
+      await loadBillingData();
+    } catch (err) {
+      console.error("Unexpected error saving discount:", err);
+      toast.error("Unexpected error occurred while saving discount.");
+    } finally {
+      setIsSavingDiscount(false);
     }
   };
 
@@ -287,6 +327,7 @@ export default function BillingDashboardPage() {
     setPaymentMethod(tx.payment_method);
     setPaymentDate(tx.payment_date);
     setPaymentNotes(tx.notes || "");
+    setPaymentPurpose(tx.purpose || "");
   };
 
   const cancelEditTransaction = () => {
@@ -296,6 +337,7 @@ export default function BillingDashboardPage() {
       setPaymentMethod("upi");
       setPaymentDate(new Date().toISOString().split("T")[0]);
       setPaymentNotes("");
+      setPaymentPurpose("");
     }
   };
 
@@ -308,11 +350,11 @@ export default function BillingDashboardPage() {
 
       if (error) {
         console.error("Failed to delete payment:", error);
-        alert("Failed to delete payment: " + error.message);
+        toast.error("Failed to delete payment: " + error.message);
         return;
       }
 
-      console.log("Payment successfully deleted.");
+      toast.success("Payment deleted successfully.");
 
       if (editingTransaction?.id === txId) {
         setEditingTransaction(null);
@@ -442,7 +484,6 @@ export default function BillingDashboardPage() {
 
         {/* 2. OPERATIONAL SUMMARY METRIC CARDS */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {/* Total Revenue */}
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs flex items-center justify-between">
             <div className="space-y-1.5">
               <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block">
@@ -456,8 +497,6 @@ export default function BillingDashboardPage() {
               <CheckCircle2 className="h-5 w-5" />
             </div>
           </div>
-
-          {/* Outstanding Balance */}
           <div className="rounded-2xl border border-rose-100 bg-rose-50/20 p-5 shadow-xs flex items-center justify-between">
             <div className="space-y-1.5">
               <span className="text-[10px] uppercase font-bold tracking-wider text-rose-400 block">
@@ -471,8 +510,6 @@ export default function BillingDashboardPage() {
               <AlertTriangle className="h-5 w-5" />
             </div>
           </div>
-
-          {/* Pending Payments */}
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs flex items-center justify-between">
             <div className="space-y-1.5">
               <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block">
@@ -486,8 +523,6 @@ export default function BillingDashboardPage() {
               <Clock className="h-5 w-5" />
             </div>
           </div>
-
-          {/* Fully Paid Cases */}
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs flex items-center justify-between">
             <div className="space-y-1.5">
               <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block">
@@ -505,7 +540,6 @@ export default function BillingDashboardPage() {
 
         {/* 3. FILTERS & SEARCH ROW ENGINE */}
         <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs flex flex-col lg:flex-row gap-4 items-stretch lg:items-center lg:justify-between">
-          {/* Filter Segmentation Segment */}
           <div className="flex flex-wrap gap-1.5 p-1 bg-slate-50 border border-slate-200/60 rounded-xl overflow-x-auto">
             {(["All", "Payments Due", "Partial Payments", "Paid", "Overdue"] as FilterStatus[]).map(
               (filter) => (
@@ -524,8 +558,6 @@ export default function BillingDashboardPage() {
               ),
             )}
           </div>
-
-          {/* Instant Search Control Node */}
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
             <input
@@ -566,203 +598,103 @@ export default function BillingDashboardPage() {
           </div>
 
           {filteredRecords.length === 0 ? (
-            /* CLEAN EMPTY STATE INTERACTION CONTAINER */
             <div className="py-16 px-4 text-center max-w-sm mx-auto space-y-4">
               <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-50 border border-dashed border-slate-200 text-slate-400">
                 <Filter className="h-5 w-5" />
               </div>
               <div className="space-y-1">
                 <h3 className="text-sm font-bold text-slate-800">No matching billing logs found</h3>
-                <p className="text-xs text-slate-400 leading-relaxed">
-                  Adjust your state parameters or change your diagnostic search query criteria and
-                  try again.
-                </p>
               </div>
-              {(activeFilter !== "All" || searchQuery !== "") && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActiveFilter("All");
-                    setSearchQuery("");
-                  }}
-                  className="inline-flex h-8 items-center justify-center rounded-lg border border-slate-200 px-3 text-xs font-semibold text-slate-600 bg-slate-50 hover:bg-slate-100 transition-colors"
-                >
-                  Reset Search Matrices
-                </button>
-              )}
             </div>
           ) : activeTab === "ledger" ? (
-            /* PRODUCTION RESPONSIVE SCROLL-BOX MATRIX */
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-slate-50/70 border-b border-slate-200 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                     <th className="py-3 px-5">Invoice Reference</th>
                     <th className="py-3 px-5">Patient Identity</th>
-                    <th className="py-3 px-5">Clinical Focus / Treatment</th>
+                    <th className="py-3 px-5">Treatment</th>
                     <th className="py-3 px-5 text-right">Estimated Cost</th>
                     <th className="py-3 px-5 text-right">Discount</th>
                     <th className="py-3 px-5 text-right">Final Cost</th>
                     <th className="py-3 px-5 text-right">Paid Amount</th>
                     <th className="py-3 px-5 text-right">Outstanding Amount</th>
-                    <th className="py-3 px-5">Target Due Axis</th>
                     <th className="py-3 px-5 text-center">Settlement State</th>
                     <th className="py-3 px-5 text-center">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-sm font-medium text-slate-700">
-                  {filteredRecords.map((rec) => {
-                    return (
-                      <tr key={rec.id} className="hover:bg-slate-50/50 transition-colors group">
-                        {/* Invoice ID */}
-                        <td className="py-4 px-5 text-xs font-bold text-slate-400 tabular-nums">
-                          {rec.id.slice(0, 8)}
-                        </td>
-
-                        {/* Patient Name */}
-                        <td className="py-4 px-5 font-bold text-slate-900">
-                          <div className="flex items-center gap-2">
-                            <div className="h-7 w-7 rounded-full bg-slate-100 flex items-center justify-center text-slate-500">
-                              <User className="h-3.5 w-3.5" />
-                            </div>
-                            {rec.patientName}
-                          </div>
-                        </td>
-
-                        {/* Treatment Service Info */}
-                        <td className="py-4 px-5 max-w-[220px] truncate text-slate-500 text-xs font-semibold">
-                          {rec.treatment}
-                        </td>
-
-                        {/* Estimated Cost */}
-                        <td className="py-4 px-5 text-right tabular-nums text-slate-700 font-semibold">
-                          ₹{rec.estimatedCost.toLocaleString()}
-                        </td>
-
-                        {/* Discount */}
-                        <td className="py-4 px-5 text-right tabular-nums text-rose-600 font-semibold">
-                          ₹{rec.discount.toLocaleString()}
-                        </td>
-
-                        {/* Final Cost */}
-                        <td className="py-4 px-5 text-right tabular-nums text-slate-900 font-semibold">
-                          ₹{rec.finalCost.toLocaleString()}
-                        </td>
-
-                        {/* Paid Amount */}
-                        <td className="py-4 px-5 text-right tabular-nums text-emerald-600 font-semibold">
-                          ₹{rec.paidAmount.toLocaleString()}
-                        </td>
-
-                        {/* Outstanding Amount */}
-                        <td
-                          className={`py-4 px-5 text-right tabular-nums font-bold ${
-                            rec.outstandingAmount > 0 ? "text-rose-600" : "text-slate-400"
-                          }`}
+                  {filteredRecords.map((rec) => (
+                    <tr key={rec.id} className="hover:bg-slate-50/50 transition-colors">
+                      <td className="py-4 px-5 text-xs font-bold text-slate-400 tabular-nums">
+                        {rec.id.slice(0, 8)}
+                      </td>
+                      <td className="py-4 px-5 font-bold text-slate-900">{rec.patientName}</td>
+                      <td className="py-4 px-5 text-xs font-semibold text-slate-500">
+                        {rec.treatment}
+                      </td>
+                      <td className="py-4 px-5 text-right font-semibold text-slate-700">
+                        ₹{rec.estimatedCost.toLocaleString()}
+                      </td>
+                      <td className="py-4 px-5 text-right font-semibold text-rose-600">
+                        ₹{rec.discount.toLocaleString()}
+                      </td>
+                      <td className="py-4 px-5 text-right font-semibold text-slate-900">
+                        ₹{rec.finalCost.toLocaleString()}
+                      </td>
+                      <td className="py-4 px-5 text-right font-semibold text-emerald-600">
+                        ₹{rec.paidAmount.toLocaleString()}
+                      </td>
+                      <td className="py-4 px-5 text-right font-bold text-rose-600">
+                        ₹{rec.outstandingAmount.toLocaleString()}
+                      </td>
+                      <td className="py-4 px-5 text-center">
+                        <span
+                          className={`px-2 py-0.5 rounded-full text-[10px] uppercase ${getStatusStyles(rec.status)}`}
                         >
-                          ₹{rec.outstandingAmount.toLocaleString()}
-                        </td>
-
-                        {/* Due Date */}
-                        <td className="py-4 px-5 text-xs text-slate-500 font-semibold tabular-nums">
-                          {rec.dueDate}
-                        </td>
-
-                        {/* Payment Status Badge */}
-                        <td className="py-4 px-5 text-center">
-                          <span
-                            className={`inline-flex items-center justify-center px-2.5 py-0.5 rounded-full text-[10px] uppercase border tracking-wider ${getStatusStyles(
-                              rec.status,
-                            )}`}
-                          >
-                            {rec.status}
-                          </span>
-                        </td>
-
-                        {/* Actions */}
-                        <td className="py-4 px-5 text-center">
-                          <button
-                            type="button"
-                            onClick={() => setSelectedRecord(rec)}
-                            className="inline-flex items-center justify-center rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-teal-600 bg-white hover:bg-slate-50 transition-colors"
-                          >
-                            Manage
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
+                          {rec.status}
+                        </span>
+                      </td>
+                      <td className="py-4 px-5 text-center">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedRecord(rec)}
+                          className="text-teal-600 font-bold hover:underline"
+                        >
+                          Manage
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
           ) : (
-            /* PATIENT SUMMARIES RESPONSIVE SCROLL-BOX MATRIX */
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-slate-50/70 border-b border-slate-200 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                     <th className="py-3 px-5">Patient Identity</th>
-                    <th className="py-3 px-5 text-right">Total Treatment Cost</th>
-                    <th className="py-3 px-5 text-right">Total Discounts</th>
                     <th className="py-3 px-5 text-right">Net Cost</th>
                     <th className="py-3 px-5 text-right">Total Paid</th>
-                    <th className="py-3 px-5 text-right">Outstanding Balance</th>
-                    <th className="py-3 px-5 text-center">Plans Active</th>
+                    <th className="py-3 px-5 text-right">Outstanding</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-sm font-medium text-slate-700">
-                  {patientSummaries.map((summary) => {
-                    return (
-                      <tr
-                        key={summary.patientId}
-                        className="hover:bg-slate-50/50 transition-colors group"
-                      >
-                        {/* Patient Name */}
-                        <td className="py-4 px-5 font-bold text-slate-900">
-                          <div className="flex items-center gap-2">
-                            <div className="h-7 w-7 rounded-full bg-slate-100 flex items-center justify-center text-slate-500">
-                              <User className="h-3.5 w-3.5" />
-                            </div>
-                            {summary.patientName}
-                          </div>
-                        </td>
-
-                        {/* Total Treatment Cost */}
-                        <td className="py-4 px-5 text-right tabular-nums text-slate-600 font-semibold">
-                          ₹{summary.totalTreatmentCost.toLocaleString()}
-                        </td>
-
-                        {/* Total Discounts */}
-                        <td className="py-4 px-5 text-right tabular-nums text-rose-600 font-semibold">
-                          ₹{summary.totalDiscounts.toLocaleString()}
-                        </td>
-
-                        {/* Net Cost */}
-                        <td className="py-4 px-5 text-right tabular-nums text-slate-900 font-bold">
-                          ₹{summary.netCost.toLocaleString()}
-                        </td>
-
-                        {/* Total Paid */}
-                        <td className="py-4 px-5 text-right tabular-nums text-emerald-600 font-bold">
-                          ₹{summary.totalPaid.toLocaleString()}
-                        </td>
-
-                        {/* Outstanding Balance */}
-                        <td
-                          className={`py-4 px-5 text-right tabular-nums font-extrabold ${
-                            summary.outstandingBalance > 0 ? "text-rose-600" : "text-slate-400"
-                          }`}
-                        >
-                          ₹{summary.outstandingBalance.toLocaleString()}
-                        </td>
-
-                        {/* Active Plans Count */}
-                        <td className="py-4 px-5 text-center text-xs font-bold text-slate-500 tabular-nums">
-                          {summary.planCount} plans
-                        </td>
-                      </tr>
-                    );
-                  })}
+                  {patientSummaries.map((summary) => (
+                    <tr key={summary.patientId} className="hover:bg-slate-50/50">
+                      <td className="py-4 px-5 font-bold text-slate-900">{summary.patientName}</td>
+                      <td className="py-4 px-5 text-right font-bold text-slate-900">
+                        ₹{summary.netCost.toLocaleString()}
+                      </td>
+                      <td className="py-4 px-5 text-right font-bold text-emerald-600">
+                        ₹{summary.totalPaid.toLocaleString()}
+                      </td>
+                      <td className="py-4 px-5 text-right font-bold text-rose-600">
+                        ₹{summary.outstandingBalance.toLocaleString()}
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
@@ -772,104 +704,107 @@ export default function BillingDashboardPage() {
         {/* Modal Overlay */}
         {selectedRecord && currentRecord && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            {/* Backdrop */}
             <div
-              className="absolute inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity duration-300"
+              className="absolute inset-0 bg-slate-900/60 backdrop-blur-xs"
               onClick={() => setSelectedRecord(null)}
             />
-            {/* Modal Content */}
             <form
               onSubmit={handleSave}
-              className="relative bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-md w-full overflow-hidden transform transition-all z-10 animate-in fade-in zoom-in-95 duration-200"
+              className="relative bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-md w-full overflow-hidden"
             >
-              {/* Header */}
               <div className="bg-gradient-to-r from-teal-500 to-emerald-600 px-6 py-4 text-white">
                 <h3 className="text-lg font-bold">Manage Treatment Plan</h3>
-                <p className="text-xs text-teal-100 mt-0.5">Reference ID: {currentRecord.id}</p>
+                <p className="text-xs text-teal-100">ID: {currentRecord.id}</p>
               </div>
 
-              {/* Body */}
               <div className="p-6 space-y-5 max-h-[70vh] overflow-y-auto">
-                {/* Patient Name */}
                 <div className="space-y-1.5">
-                  <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block">
+                  <span className="text-[10px] uppercase font-bold text-slate-400">
                     Patient Name
                   </span>
-                  <div className="flex items-center gap-2.5 text-sm font-bold text-slate-800">
-                    <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 border border-slate-200">
-                      <User className="h-4 w-4" />
-                    </div>
+                  <div className="text-sm font-bold text-slate-800">
                     {currentRecord.patientName}
                   </div>
                 </div>
 
-                {/* Treatment Name */}
-                <div className="space-y-1.5">
-                  <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block">
-                    Treatment Name
-                  </span>
-                  <div className="text-sm font-semibold text-slate-700 bg-slate-50/50 p-3 rounded-xl border border-slate-200/60 leading-relaxed">
-                    {currentRecord.treatment}
-                  </div>
-                </div>
-
-                {/* Pricing Metrics */}
-                <div className="grid grid-cols-3 gap-3 pt-1">
-                  <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/60 space-y-1 text-center">
-                    <span className="text-[9px] uppercase font-bold tracking-wider text-slate-400 block">
-                      Total Cost
-                    </span>
-                    <span className="text-sm font-bold text-slate-800">
-                      ₹{currentRecord.finalCost.toLocaleString()}
-                    </span>
-                  </div>
-                  <div className="bg-emerald-50/50 p-3 rounded-xl border border-emerald-100 space-y-1 text-center">
-                    <span className="text-[9px] uppercase font-bold tracking-wider text-emerald-600 block">
-                      Paid
-                    </span>
-                    <span className="text-sm font-bold text-emerald-700">
-                      ₹{currentRecord.paidAmount.toLocaleString()}
-                    </span>
-                  </div>
-                  <div className="bg-rose-50/50 p-3 rounded-xl border border-rose-100 space-y-1 text-center">
-                    <span className="text-[9px] uppercase font-bold tracking-wider text-rose-600 block">
-                      Outstanding
-                    </span>
-                    <span className="text-sm font-bold text-rose-700">
-                      ₹{currentRecord.outstandingAmount.toLocaleString()}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Record Payment Form */}
-                <div
-                  className={`space-y-4 pt-4 border-t border-slate-100 transition-all duration-300 ${
-                    editingTransaction
-                      ? "bg-teal-50/30 p-4 -mx-6 border-y border-teal-100/60 shadow-inner"
-                      : ""
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-                      {editingTransaction ? "Edit Payment Details" : "Record New Payment"}
-                    </h4>
-                    {editingTransaction && (
-                      <button
-                        type="button"
-                        onClick={cancelEditTransaction}
-                        className="text-[10px] font-bold text-rose-600 hover:underline cursor-pointer"
+                <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/60 space-y-3">
+                  <h4 className="text-xs font-bold text-slate-700 uppercase">Billing Summary</h4>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
+                    <div className="flex justify-between text-slate-500">
+                      <span>Treatment:</span>
+                      <span className="font-semibold text-slate-800">
+                        ₹{currentRecord.estimatedCost.toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-slate-500">
+                      <span>Discount:</span>
+                      <span className="font-semibold text-rose-600">
+                        -₹{currentRecord.discount.toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-slate-500 border-t pt-2 col-span-2">
+                      <span className="font-bold text-slate-700">Net:</span>
+                      <span className="font-bold text-slate-900">
+                        ₹{currentRecord.finalCost.toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-slate-500 border-t pt-2 col-span-2">
+                      <span>Paid:</span>
+                      <span className="font-bold text-emerald-600">
+                        ₹{currentRecord.paidAmount.toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-slate-500 border-t pt-2 col-span-2">
+                      <span className="font-extrabold text-slate-800">Outstanding:</span>
+                      <span
+                        className={`font-extrabold ${currentRecord.outstandingAmount > 0 ? "text-rose-600" : "text-slate-400"}`}
                       >
-                        Cancel Edit
-                      </button>
-                    )}
+                        ₹{currentRecord.outstandingAmount.toLocaleString()}
+                      </span>
+                    </div>
                   </div>
+                </div>
 
+                <div className="space-y-4 pt-4 border-t border-slate-100">
+                  <h4 className="text-xs font-bold text-slate-700 uppercase">Treatment Discount</h4>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {/* Payment Amount */}
+                    <input
+                      type="number"
+                      placeholder="Discount (₹)"
+                      value={discountAmount}
+                      disabled={isSaving || isSavingDiscount}
+                      onChange={(e) => setDiscountAmount(Number(e.target.value))}
+                      className="w-full h-10 px-3 text-sm border border-slate-200 rounded-xl"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Reason"
+                      value={discountReason}
+                      disabled={isSaving || isSavingDiscount}
+                      onChange={(e) => setDiscountReason(e.target.value)}
+                      className="w-full h-10 px-3 text-sm border border-slate-200 rounded-xl"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    disabled={isSaving || isSavingDiscount}
+                    onClick={handleSaveDiscount}
+                    className="w-full py-2 text-xs font-bold text-white bg-slate-800 rounded-xl"
+                  >
+                    {isSavingDiscount ? "Saving..." : "Save Discount"}
+                  </button>
+                </div>
+
+                <div className="space-y-4 pt-4 border-t border-slate-100">
+                  <h4 className="text-xs font-bold text-slate-700 uppercase">
+                    {editingTransaction ? "Edit Payment Details" : "Record New Payment"}
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* Amount */}
                     <div className="space-y-1.5">
                       <label
                         htmlFor="payment-amount"
-                        className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block"
+                        className="text-[10px] uppercase font-bold text-slate-400 block"
                       >
                         Payment Amount (₹)
                       </label>
@@ -878,53 +813,61 @@ export default function BillingDashboardPage() {
                         type="number"
                         min="0"
                         value={paymentAmount}
-                        disabled={isSaving}
+                        disabled={isSaving || isSavingDiscount}
                         onChange={(e) => setPaymentAmount(Number(e.target.value))}
-                        className="w-full h-10 px-3 text-sm font-medium border border-slate-200 bg-white rounded-xl focus:outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500/10 transition-all placeholder:text-slate-400 text-slate-700 disabled:opacity-50 disabled:bg-slate-50"
+                        className="w-full h-10 px-3 text-sm border border-slate-200 rounded-xl"
                         placeholder="Enter amount"
                         required
                       />
                     </div>
-
-                    {/* Payment Method */}
+                    {/* Method */}
                     <div className="space-y-1.5">
                       <label
                         htmlFor="payment-method"
-                        className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block"
+                        className="text-[10px] uppercase font-bold text-slate-400 block"
                       >
                         Payment Method
                       </label>
                       <select
                         id="payment-method"
                         value={paymentMethod}
-                        disabled={isSaving}
-                        onChange={(e) =>
-                          setPaymentMethod(
-                            e.target.value as
-                              | "cash"
-                              | "card"
-                              | "upi"
-                              | "bank_transfer"
-                              | "insurance"
-                              | "other",
-                          )
-                        }
-                        className="w-full h-10 px-3 text-sm font-medium border border-slate-200 bg-white rounded-xl focus:outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500/10 transition-all text-slate-700 disabled:opacity-50 disabled:bg-slate-50"
+                        disabled={isSaving || isSavingDiscount}
+                        onChange={(e) => setPaymentMethod(e.target.value as any)}
+                        className="w-full h-10 px-3 text-sm border border-slate-200 rounded-xl"
                       >
                         <option value="upi">UPI</option>
-                        <option value="card">Credit/Debit Card</option>
+                        <option value="card">Card</option>
                         <option value="cash">Cash</option>
-                        <option value="bank_transfer">Net Banking</option>
+                        <option value="bank_transfer">Bank Transfer</option>
                       </select>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 gap-4">
-                    {/* Payment Date */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* Purpose */}
+                    <div className="space-y-1.5">
+                      <label
+                        htmlFor="payment-purpose"
+                        className="text-[10px] uppercase font-bold text-slate-400 block"
+                      >
+                        Payment Purpose *
+                      </label>
+                      <input
+                        id="payment-purpose"
+                        type="text"
+                        value={paymentPurpose}
+                        disabled={isSaving || isSavingDiscount}
+                        onChange={(e) => setPaymentPurpose(e.target.value)}
+                        className="w-full h-10 px-3 text-sm border border-slate-200 rounded-xl"
+                        placeholder="e.g. Advance for Implant"
+                        required
+                      />
+                    </div>
+                    {/* Date */}
                     <div className="space-y-1.5">
                       <label
                         htmlFor="payment-date"
-                        className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block"
+                        className="text-[10px] uppercase font-bold text-slate-400 block"
                       >
                         Payment Date
                       </label>
@@ -932,42 +875,40 @@ export default function BillingDashboardPage() {
                         id="payment-date"
                         type="date"
                         value={paymentDate}
-                        disabled={isSaving}
+                        disabled={isSaving || isSavingDiscount}
                         onChange={(e) => setPaymentDate(e.target.value)}
-                        className="w-full h-10 px-3 text-sm font-medium border border-slate-200 bg-white rounded-xl focus:outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500/10 transition-all text-slate-700 disabled:opacity-50 disabled:bg-slate-50"
+                        className="w-full h-10 px-3 text-sm border border-slate-200 rounded-xl"
                         required
                       />
                     </div>
+                  </div>
 
-                    {/* Notes */}
-                    <div className="space-y-1.5">
-                      <label
-                        htmlFor="payment-notes"
-                        className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block"
-                      >
-                        Notes
-                      </label>
-                      <textarea
-                        id="payment-notes"
-                        value={paymentNotes}
-                        disabled={isSaving}
-                        onChange={(e) => setPaymentNotes(e.target.value)}
-                        rows={2}
-                        className="w-full p-3 text-sm font-medium border border-slate-200 bg-white rounded-xl focus:outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500/10 transition-all placeholder:text-slate-400 text-slate-700 resize-none disabled:opacity-50 disabled:bg-slate-50"
-                        placeholder="Add payment notes/reference details..."
-                      />
-                    </div>
+                  {/* Notes */}
+                  <div className="space-y-1.5">
+                    <label
+                      htmlFor="payment-notes"
+                      className="text-[10px] uppercase font-bold text-slate-400 block"
+                    >
+                      Notes (Optional)
+                    </label>
+                    <textarea
+                      id="payment-notes"
+                      value={paymentNotes}
+                      disabled={isSaving || isSavingDiscount}
+                      onChange={(e) => setPaymentNotes(e.target.value)}
+                      rows={2}
+                      className="w-full p-3 text-sm border border-slate-200 rounded-xl resize-none"
+                      placeholder="Add optional remarks..."
+                    />
                   </div>
                 </div>
 
-                {/* Past Transactions List */}
                 <div className="space-y-3 pt-4 border-t border-slate-100">
-                  <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-                    Payment History ({selectedPlanTransactions.length})
+                  <h4 className="text-xs font-bold text-slate-700 uppercase">
+                    Transaction History
                   </h4>
-
                   {selectedPlanTransactions.length === 0 ? (
-                    <div className="text-center py-6 border border-dashed border-slate-200 rounded-xl bg-slate-50/50">
+                    <div className="text-center py-4 border border-dashed border-slate-200 rounded-xl bg-slate-50/50">
                       <p className="text-xs text-slate-400">
                         No payments recorded for this plan yet.
                       </p>
@@ -977,41 +918,45 @@ export default function BillingDashboardPage() {
                       {selectedPlanTransactions.map((tx) => (
                         <div
                           key={tx.id}
-                          className="flex flex-col sm:flex-row sm:items-center justify-between p-3 rounded-xl border border-slate-200 bg-white shadow-xs gap-2 group hover:border-slate-300 transition-all"
+                          className="flex justify-between items-start p-3 border border-slate-200 bg-white rounded-xl shadow-xs gap-3 group animate-fade-in"
                         >
-                          <div className="space-y-1">
-                            <div className="flex items-center gap-1.5">
-                              <span className="text-xs font-bold text-slate-800">
+                          <div className="space-y-1 text-xs">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="font-bold text-slate-800">
                                 ₹{tx.amount.toLocaleString()}
                               </span>
-                              <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-full text-[9px] uppercase border font-semibold tracking-wider bg-slate-50 text-slate-600 border-slate-200">
+                              <span className="text-[10px] text-slate-500 font-semibold bg-slate-50 border border-slate-200/60 px-1.5 py-0.5 rounded">
                                 {tx.payment_method === "bank_transfer"
                                   ? "Net Banking"
                                   : tx.payment_method.toUpperCase()}
                               </span>
+                              <span className="text-[10px] text-slate-400 font-semibold">
+                                {tx.payment_date}
+                              </span>
                             </div>
-                            <div className="text-[10px] text-slate-500 font-semibold tabular-nums">
-                              Date: {tx.payment_date}
+                            <div className="text-[11px] text-slate-700 font-semibold">
+                              <span className="text-slate-400 font-medium">Purpose: </span>
+                              {tx.purpose}
                             </div>
                             {tx.notes && (
-                              <p className="text-[10px] text-slate-400 italic bg-slate-50 p-1.5 rounded-lg border border-slate-100 mt-1 leading-relaxed">
-                                "{tx.notes}"
-                              </p>
+                              <div className="text-[10px] text-slate-400 italic">
+                                <span className="text-slate-400 font-medium">Notes: </span>"
+                                {tx.notes}"
+                              </div>
                             )}
                           </div>
-
-                          <div className="flex items-center gap-1.5 self-end sm:self-center opacity-90 sm:opacity-0 group-hover:opacity-100 transition-opacity">
+                          <div className="flex gap-2 shrink-0 self-center">
                             <button
                               type="button"
                               onClick={() => startEditTransaction(tx)}
-                              className="inline-flex h-7 items-center justify-center rounded-lg border border-slate-200 px-2.5 text-[10px] font-bold text-teal-600 bg-white hover:bg-slate-50 transition-colors shadow-xs cursor-pointer"
+                              className="text-[10px] text-teal-600 font-bold hover:underline cursor-pointer"
                             >
                               Edit
                             </button>
                             <button
                               type="button"
                               onClick={() => handleDeleteTransaction(tx.id)}
-                              className="inline-flex h-7 items-center justify-center rounded-lg border border-rose-200 px-2.5 text-[10px] font-bold text-rose-600 bg-white hover:bg-rose-50 transition-colors shadow-xs cursor-pointer"
+                              className="text-[10px] text-rose-600 font-bold hover:underline cursor-pointer"
                             >
                               Delete
                             </button>
@@ -1023,22 +968,20 @@ export default function BillingDashboardPage() {
                 </div>
               </div>
 
-              {/* Footer */}
-              <div className="bg-slate-50 px-6 py-4 flex justify-end gap-3 border-t border-slate-100">
+              <div className="bg-slate-50 px-6 py-4 flex justify-end gap-3 border-t">
                 <button
                   type="button"
-                  disabled={isSaving}
                   onClick={() => setSelectedRecord(null)}
-                  className="px-4 py-2 text-sm font-semibold text-slate-600 hover:text-slate-800 bg-white hover:bg-slate-100 border border-slate-200 rounded-xl transition-all shadow-xs disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-4 py-2 text-sm font-semibold text-slate-600 bg-white border rounded-xl"
                 >
                   Close
                 </button>
                 <button
                   type="submit"
                   disabled={isSaving}
-                  className="px-4 py-2 text-sm font-semibold text-white bg-teal-600 hover:bg-teal-700 rounded-xl transition-all shadow-xs disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-4 py-2 text-sm font-semibold text-white bg-teal-600 rounded-xl"
                 >
-                  {isSaving ? "Saving..." : "Save"}
+                  {isSaving ? "Saving..." : "Save Payment"}
                 </button>
               </div>
             </form>
