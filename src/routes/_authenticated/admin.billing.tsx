@@ -2,6 +2,7 @@ import { DashboardShell } from "@/components/dashboard/DashboardShell";
 import { createFileRoute } from "@tanstack/react-router";
 import React, { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { calculatePlanBilling } from "@/lib/billing";
 import {
   DollarSign,
   AlertTriangle,
@@ -23,10 +24,14 @@ export const Route = createFileRoute("/_authenticated/admin/billing")({
 // ==========================================
 interface BillingRecord {
   id: string;
+  patientId: string;
   patientName: string;
   treatment: string;
-  totalAmount: number;
+  estimatedCost: number;
+  discount: number;
+  finalCost: number;
   paidAmount: number;
+  outstandingAmount: number;
   dueDate: string;
   status: "Paid" | "Partial Payments" | "Payments Due" | "Overdue";
 }
@@ -34,46 +39,66 @@ interface BillingRecord {
 const MOCK_BILLING_RECORDS: BillingRecord[] = [
   {
     id: "INV-2026-001",
+    patientId: "mock-1",
     patientName: "Arjun Mehta",
     treatment: "Root Canal Therapy + Crown",
-    totalAmount: 12500,
+    estimatedCost: 12500,
+    discount: 0,
+    finalCost: 12500,
     paidAmount: 12500,
+    outstandingAmount: 0,
     dueDate: "2026-06-10",
     status: "Paid",
   },
   {
     id: "INV-2026-002",
+    patientId: "mock-2",
     patientName: "Priya Sharma",
     treatment: "Invisalign Alignment Intake",
-    totalAmount: 45000,
+    estimatedCost: 45000,
+    discount: 0,
+    finalCost: 45000,
     paidAmount: 15000,
+    outstandingAmount: 30000,
     dueDate: "2026-06-25",
     status: "Partial Payments",
   },
   {
     id: "INV-2026-003",
+    patientId: "mock-3",
     patientName: "Rohan Das",
     treatment: "Deep Scaling & Composite Filling",
-    totalAmount: 4200,
+    estimatedCost: 4200,
+    discount: 0,
+    finalCost: 4200,
     paidAmount: 0,
+    outstandingAmount: 4200,
     dueDate: "2026-06-15",
     status: "Payments Due",
   },
   {
     id: "INV-2026-004",
+    patientId: "mock-4",
     patientName: "Sneha Reddy",
     treatment: "Molar Extraction & Sedation",
-    totalAmount: 8500,
+    estimatedCost: 8500,
+    discount: 0,
+    finalCost: 8500,
     paidAmount: 0,
+    outstandingAmount: 8500,
     dueDate: "2026-06-05",
     status: "Overdue",
   },
   {
     id: "INV-2026-005",
+    patientId: "mock-5",
     patientName: "Kabir Malhotra",
     treatment: "Porcelain Veneers Placement",
-    totalAmount: 60000,
+    estimatedCost: 60000,
+    discount: 0,
+    finalCost: 60000,
     paidAmount: 40000,
+    outstandingAmount: 20000,
     dueDate: "2026-06-20",
     status: "Partial Payments",
   },
@@ -87,39 +112,69 @@ export default function BillingDashboardPage() {
   // ==========================================
   const [activeFilter, setActiveFilter] = useState<FilterStatus>("All");
   const [searchQuery, setSearchQuery] = useState<string>("");
+  const [activeTab, setActiveTab] = useState<"ledger" | "patients">("ledger");
 
   const [billingRecords, setBillingRecords] = useState<BillingRecord[]>([]);
 
   useEffect(() => {
     async function loadBillingData() {
-      const { data, error } = await supabase.from("treatment_plans").select(`
-            *,
-            patients(*)
-            `);
+      // 1. Fetch treatment plans with patients
+      const { data: plansData, error: plansError } = await supabase
+        .from("treatment_plans")
+        .select("*, patients(*)");
 
-      if (error) {
-        console.error(error);
+      console.log("PLANS DATA:", plansData);
+      console.log("PLANS ERROR:", plansError);
+
+      if (plansError) {
+        console.error("Failed to load treatment plans:", plansError);
         return;
       }
 
-      const mappedRecords: BillingRecord[] = (data || []).map((plan) => {
-        console.log("PATIENT OBJECT:", JSON.stringify(plan.patients, null, 2));
+      // 2. Fetch payment transactions
+      const { data: txsData, error: txsError } = await supabase
+        .from("payment_transactions")
+        .select("*");
+
+      console.log("PAYMENT TRANSACTIONS:", txsData);
+      console.log("PAYMENT TRANSACTIONS ERROR:", txsError);
+
+      if (txsError) {
+        console.error("Failed to load payment transactions:", txsError);
+        return;
+      }
+
+      const mappedRecords: BillingRecord[] = (plansData || []).map((plan) => {
+        const planTransactions = (txsData || []).filter((tx) => tx.plan_id === plan.id);
+        const billing = calculatePlanBilling(plan, planTransactions);
+
+        const isOverdue =
+          plan.due_date && new Date(plan.due_date) < new Date() && billing.outstandingAmount > 0;
+        const status: "Paid" | "Partial Payments" | "Payments Due" | "Overdue" =
+          billing.paymentStatus === "paid"
+            ? "Paid"
+            : isOverdue
+              ? "Overdue"
+              : billing.paymentStatus === "partial"
+                ? "Partial Payments"
+                : "Payments Due";
+
+        const patientName = plan.patients
+          ? `${(plan.patients as Record<string, unknown>)["first_name"] ?? ""} ${(plan.patients as Record<string, unknown>)["last_name"] ?? ""}`.trim()
+          : "Unknown Patient";
 
         return {
           id: plan.id,
-          patientName:
-            `${(plan.patients as Record<string, unknown>)["first_name"] ?? ""} ${(plan.patients as Record<string, unknown>)["last_name"] ?? ""}`.trim(),
+          patientId: plan.patient_id,
+          patientName,
           treatment: plan.title,
-          totalAmount: plan.estimated_cost ?? 0,
-          paidAmount: plan.paid_amount ?? 0,
+          estimatedCost: plan.estimated_cost ?? 0,
+          discount: billing.discountAmount,
+          finalCost: billing.finalCost,
+          paidAmount: billing.totalPaid,
+          outstandingAmount: billing.outstandingAmount,
           dueDate: plan.due_date ?? "",
-
-          status:
-            (plan.estimated_cost ?? 0) <= (plan.paid_amount ?? 0)
-              ? "Paid"
-              : (plan.paid_amount ?? 0) > 0
-                ? "Partial Payments"
-                : "Payments Due",
+          status,
         };
       });
 
@@ -141,7 +196,7 @@ export default function BillingDashboardPage() {
 
     billingRecords.forEach((rec) => {
       totalRevenue += rec.paidAmount;
-      outstandingBalance += rec.totalAmount - rec.paidAmount;
+      outstandingBalance += rec.outstandingAmount;
 
       if (rec.status === "Paid") {
         fullyPaidCount++;
@@ -151,7 +206,7 @@ export default function BillingDashboardPage() {
     });
 
     return { totalRevenue, outstandingBalance, pendingPaymentsCount, fullyPaidCount };
-  }, []);
+  }, [billingRecords]);
 
   // ==========================================
   // FILTER & SEARCH PIPE LOGIC
@@ -167,6 +222,47 @@ export default function BillingDashboardPage() {
       return matchesFilter && matchesSearch;
     });
   }, [billingRecords, activeFilter, searchQuery]);
+
+  const patientSummaries = useMemo(() => {
+    const summaryMap: Record<
+      string,
+      {
+        patientName: string;
+        patientId: string;
+        totalTreatmentCost: number;
+        totalDiscounts: number;
+        netCost: number;
+        totalPaid: number;
+        outstandingBalance: number;
+        planCount: number;
+      }
+    > = {};
+
+    filteredRecords.forEach((rec) => {
+      if (!summaryMap[rec.patientId]) {
+        summaryMap[rec.patientId] = {
+          patientName: rec.patientName,
+          patientId: rec.patientId,
+          totalTreatmentCost: 0,
+          totalDiscounts: 0,
+          netCost: 0,
+          totalPaid: 0,
+          outstandingBalance: 0,
+          planCount: 0,
+        };
+      }
+
+      const s = summaryMap[rec.patientId];
+      s.totalTreatmentCost += rec.estimatedCost;
+      s.totalDiscounts += rec.discount;
+      s.netCost += rec.finalCost;
+      s.totalPaid += rec.paidAmount;
+      s.outstandingBalance += rec.outstandingAmount;
+      s.planCount += 1;
+    });
+
+    return Object.values(summaryMap);
+  }, [filteredRecords]);
 
   // ==========================================
   // RENDER HELPERS
@@ -303,6 +399,31 @@ export default function BillingDashboardPage() {
 
         {/* 4. BILLING REGISTRY MATRIX / DATA SEPARATOR VIEW */}
         <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+          <div className="flex border-b border-slate-100 bg-slate-50/50 px-5 pt-3">
+            <button
+              type="button"
+              onClick={() => setActiveTab("ledger")}
+              className={`pb-3 px-4 border-b-2 font-bold text-xs uppercase tracking-wider transition-all ${
+                activeTab === "ledger"
+                  ? "border-teal-600 text-teal-700"
+                  : "border-transparent text-slate-400 hover:text-slate-700"
+              }`}
+            >
+              Treatment Plans Ledger ({filteredRecords.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("patients")}
+              className={`pb-3 px-4 border-b-2 font-bold text-xs uppercase tracking-wider transition-all ${
+                activeTab === "patients"
+                  ? "border-teal-600 text-teal-700"
+                  : "border-transparent text-slate-400 hover:text-slate-700"
+              }`}
+            >
+              Patient Summaries ({patientSummaries.length})
+            </button>
+          </div>
+
           {filteredRecords.length === 0 ? (
             /* CLEAN EMPTY STATE INTERACTION CONTAINER */
             <div className="py-16 px-4 text-center max-w-sm mx-auto space-y-4">
@@ -329,7 +450,7 @@ export default function BillingDashboardPage() {
                 </button>
               )}
             </div>
-          ) : (
+          ) : activeTab === "ledger" ? (
             /* PRODUCTION RESPONSIVE SCROLL-BOX MATRIX */
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
@@ -338,21 +459,22 @@ export default function BillingDashboardPage() {
                     <th className="py-3 px-5">Invoice Reference</th>
                     <th className="py-3 px-5">Patient Identity</th>
                     <th className="py-3 px-5">Clinical Focus / Treatment</th>
-                    <th className="py-3 px-5 text-right">Total Fee</th>
-                    <th className="py-3 px-5 text-right">Collected</th>
-                    <th className="py-3 px-5 text-right">Outstanding Arrears</th>
+                    <th className="py-3 px-5 text-right">Estimated Cost</th>
+                    <th className="py-3 px-5 text-right">Discount</th>
+                    <th className="py-3 px-5 text-right">Final Cost</th>
+                    <th className="py-3 px-5 text-right">Paid Amount</th>
+                    <th className="py-3 px-5 text-right">Outstanding Amount</th>
                     <th className="py-3 px-5">Target Due Axis</th>
                     <th className="py-3 px-5 text-center">Settlement State</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-sm font-medium text-slate-700">
                   {filteredRecords.map((rec) => {
-                    const remainingBalance = rec.totalAmount - rec.paidAmount;
                     return (
                       <tr key={rec.id} className="hover:bg-slate-50/50 transition-colors group">
                         {/* Invoice ID */}
                         <td className="py-4 px-5 text-xs font-bold text-slate-400 tabular-nums">
-                          {rec.id}
+                          {rec.id.slice(0, 8)}
                         </td>
 
                         {/* Patient Name */}
@@ -370,9 +492,19 @@ export default function BillingDashboardPage() {
                           {rec.treatment}
                         </td>
 
-                        {/* Total Amount */}
+                        {/* Estimated Cost */}
+                        <td className="py-4 px-5 text-right tabular-nums text-slate-700 font-semibold">
+                          ₹{rec.estimatedCost.toLocaleString()}
+                        </td>
+
+                        {/* Discount */}
+                        <td className="py-4 px-5 text-right tabular-nums text-rose-600 font-semibold">
+                          ₹{rec.discount.toLocaleString()}
+                        </td>
+
+                        {/* Final Cost */}
                         <td className="py-4 px-5 text-right tabular-nums text-slate-900 font-semibold">
-                          ₹{rec.totalAmount.toLocaleString()}
+                          ₹{rec.finalCost.toLocaleString()}
                         </td>
 
                         {/* Paid Amount */}
@@ -380,11 +512,13 @@ export default function BillingDashboardPage() {
                           ₹{rec.paidAmount.toLocaleString()}
                         </td>
 
-                        {/* Remaining Balance */}
+                        {/* Outstanding Amount */}
                         <td
-                          className={`py-4 px-5 text-right tabular-nums font-bold ${remainingBalance > 0 ? "text-rose-600" : "text-slate-400"}`}
+                          className={`py-4 px-5 text-right tabular-nums font-bold ${
+                            rec.outstandingAmount > 0 ? "text-rose-600" : "text-slate-400"
+                          }`}
                         >
-                          ₹{remainingBalance.toLocaleString()}
+                          ₹{rec.outstandingAmount.toLocaleString()}
                         </td>
 
                         {/* Due Date */}
@@ -395,10 +529,83 @@ export default function BillingDashboardPage() {
                         {/* Payment Status Badge */}
                         <td className="py-4 px-5 text-center">
                           <span
-                            className={`inline-flex items-center justify-center px-2.5 py-0.5 rounded-full text-[10px] uppercase border tracking-wider ${getStatusStyles(rec.status)}`}
+                            className={`inline-flex items-center justify-center px-2.5 py-0.5 rounded-full text-[10px] uppercase border tracking-wider ${getStatusStyles(
+                              rec.status,
+                            )}`}
                           >
                             {rec.status}
                           </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            /* PATIENT SUMMARIES RESPONSIVE SCROLL-BOX MATRIX */
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-slate-50/70 border-b border-slate-200 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                    <th className="py-3 px-5">Patient Identity</th>
+                    <th className="py-3 px-5 text-right">Total Treatment Cost</th>
+                    <th className="py-3 px-5 text-right">Total Discounts</th>
+                    <th className="py-3 px-5 text-right">Net Cost</th>
+                    <th className="py-3 px-5 text-right">Total Paid</th>
+                    <th className="py-3 px-5 text-right">Outstanding Balance</th>
+                    <th className="py-3 px-5 text-center">Plans Active</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-sm font-medium text-slate-700">
+                  {patientSummaries.map((summary) => {
+                    return (
+                      <tr
+                        key={summary.patientId}
+                        className="hover:bg-slate-50/50 transition-colors group"
+                      >
+                        {/* Patient Name */}
+                        <td className="py-4 px-5 font-bold text-slate-900">
+                          <div className="flex items-center gap-2">
+                            <div className="h-7 w-7 rounded-full bg-slate-100 flex items-center justify-center text-slate-500">
+                              <User className="h-3.5 w-3.5" />
+                            </div>
+                            {summary.patientName}
+                          </div>
+                        </td>
+
+                        {/* Total Treatment Cost */}
+                        <td className="py-4 px-5 text-right tabular-nums text-slate-600 font-semibold">
+                          ₹{summary.totalTreatmentCost.toLocaleString()}
+                        </td>
+
+                        {/* Total Discounts */}
+                        <td className="py-4 px-5 text-right tabular-nums text-rose-600 font-semibold">
+                          ₹{summary.totalDiscounts.toLocaleString()}
+                        </td>
+
+                        {/* Net Cost */}
+                        <td className="py-4 px-5 text-right tabular-nums text-slate-900 font-bold">
+                          ₹{summary.netCost.toLocaleString()}
+                        </td>
+
+                        {/* Total Paid */}
+                        <td className="py-4 px-5 text-right tabular-nums text-emerald-600 font-bold">
+                          ₹{summary.totalPaid.toLocaleString()}
+                        </td>
+
+                        {/* Outstanding Balance */}
+                        <td
+                          className={`py-4 px-5 text-right tabular-nums font-extrabold ${
+                            summary.outstandingBalance > 0 ? "text-rose-600" : "text-slate-400"
+                          }`}
+                        >
+                          ₹{summary.outstandingBalance.toLocaleString()}
+                        </td>
+
+                        {/* Active Plans Count */}
+                        <td className="py-4 px-5 text-center text-xs font-bold text-slate-500 tabular-nums">
+                          {summary.planCount} plans
                         </td>
                       </tr>
                     );
