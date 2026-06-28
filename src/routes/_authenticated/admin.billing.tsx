@@ -291,8 +291,7 @@ export default function BillingDashboardPage() {
     }
   };
 
-  const handleSaveDiscount = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSaveDiscount = async () => {
     if (!currentRecord) return;
 
     setIsSavingDiscount(true);
@@ -708,28 +707,23 @@ export default function BillingDashboardPage() {
               className="absolute inset-0 bg-slate-900/60 backdrop-blur-xs"
               onClick={() => setSelectedRecord(null)}
             />
-            <form
-              onSubmit={handleSave}
-              className="relative bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-md w-full overflow-hidden"
-            >
-              <div className="bg-gradient-to-r from-teal-500 to-emerald-600 px-6 py-4 text-white">
-                <h3 className="text-lg font-bold">Manage Treatment Plan</h3>
-                <p className="text-xs text-teal-100">ID: {currentRecord.id}</p>
+            <div className="relative bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-4xl w-full overflow-hidden z-10 animate-in fade-in zoom-in-95 duration-200">
+              <div className="bg-gradient-to-r from-teal-500 to-emerald-600 px-10 py-6 text-white">
+                <h3 className="text-2xl font-bold">Manage Treatment Plan</h3>
+                <p className="text-sm text-teal-100 mt-1">ID: {currentRecord.id}</p>
               </div>
 
-              <div className="p-6 space-y-5 max-h-[70vh] overflow-y-auto">
-                <div className="space-y-1.5">
-                  <span className="text-[10px] uppercase font-bold text-slate-400">
-                    Patient Name
-                  </span>
-                  <div className="text-sm font-bold text-slate-800">
+              <div className="p-10 space-y-8 max-h-[75vh] overflow-y-auto">
+                <div className="space-y-2">
+                  <span className="text-base uppercase font-bold text-slate-400">Patient Name</span>
+                  <div className="text-xl font-bold text-slate-800">
                     {currentRecord.patientName}
                   </div>
                 </div>
 
-                <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/60 space-y-3">
-                  <h4 className="text-xs font-bold text-slate-700 uppercase">Billing Summary</h4>
-                  <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
+                <div className="bg-slate-50 p-8 rounded-xl border border-slate-200/60 space-y-5">
+                  <h4 className="text-lg font-bold text-slate-700 uppercase">Billing Summary</h4>
+                  <div className="grid grid-cols-2 gap-x-8 gap-y-4 text-lg">
                     <div className="flex justify-between text-slate-500">
                       <span>Treatment:</span>
                       <span className="font-semibold text-slate-800">
@@ -742,22 +736,22 @@ export default function BillingDashboardPage() {
                         -₹{currentRecord.discount.toLocaleString()}
                       </span>
                     </div>
-                    <div className="flex justify-between text-slate-500 border-t pt-2 col-span-2">
-                      <span className="font-bold text-slate-700">Net:</span>
-                      <span className="font-bold text-slate-900">
+                    <div className="flex justify-between text-slate-500 border-t pt-3 col-span-2">
+                      <span className="font-bold text-slate-700 text-lg">Net:</span>
+                      <span className="font-bold text-slate-900 text-xl">
                         ₹{currentRecord.finalCost.toLocaleString()}
                       </span>
                     </div>
-                    <div className="flex justify-between text-slate-500 border-t pt-2 col-span-2">
-                      <span>Paid:</span>
-                      <span className="font-bold text-emerald-600">
+                    <div className="flex justify-between text-slate-500 border-t pt-3 col-span-2">
+                      <span className="text-lg">Paid:</span>
+                      <span className="font-bold text-emerald-600 text-xl">
                         ₹{currentRecord.paidAmount.toLocaleString()}
                       </span>
                     </div>
-                    <div className="flex justify-between text-slate-500 border-t pt-2 col-span-2">
-                      <span className="font-extrabold text-slate-800">Outstanding:</span>
+                    <div className="flex justify-between text-slate-500 border-t pt-3 col-span-2">
+                      <span className="font-extrabold text-slate-800 text-xl">Outstanding:</span>
                       <span
-                        className={`font-extrabold ${currentRecord.outstandingAmount > 0 ? "text-rose-600" : "text-slate-400"}`}
+                        className={`font-extrabold text-2xl ${currentRecord.outstandingAmount > 0 ? "text-rose-600" : "text-slate-400"}`}
                       >
                         ₹{currentRecord.outstandingAmount.toLocaleString()}
                       </span>
@@ -765,16 +759,17 @@ export default function BillingDashboardPage() {
                   </div>
                 </div>
 
-                <div className="space-y-4 pt-4 border-t border-slate-100">
-                  <h4 className="text-xs font-bold text-slate-700 uppercase">Treatment Discount</h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Treatment Discount Section */}
+                <div className="space-y-4 pt-8 border-t border-slate-100">
+                  <h4 className="text-lg font-bold text-slate-700 uppercase">Treatment Discount</h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                     <input
                       type="number"
                       placeholder="Discount (₹)"
                       value={discountAmount}
                       disabled={isSaving || isSavingDiscount}
                       onChange={(e) => setDiscountAmount(Number(e.target.value))}
-                      className="w-full h-10 px-3 text-sm border border-slate-200 rounded-xl"
+                      className="w-full h-14 px-5 text-lg border border-slate-200 rounded-xl placeholder:text-slate-400"
                     />
                     <input
                       type="text"
@@ -782,29 +777,35 @@ export default function BillingDashboardPage() {
                       value={discountReason}
                       disabled={isSaving || isSavingDiscount}
                       onChange={(e) => setDiscountReason(e.target.value)}
-                      className="w-full h-10 px-3 text-sm border border-slate-200 rounded-xl"
+                      className="w-full h-14 px-5 text-lg border border-slate-200 rounded-xl placeholder:text-slate-400"
                     />
                   </div>
                   <button
                     type="button"
-                    disabled={isSaving || isSavingDiscount}
                     onClick={handleSaveDiscount}
-                    className="w-full py-2 text-xs font-bold text-white bg-slate-800 rounded-xl"
+                    disabled={isSaving || isSavingDiscount}
+                    className="w-full py-4 px-8 text-base font-bold text-white bg-slate-800 rounded-xl cursor-pointer hover:bg-slate-700 transition-colors"
                   >
                     {isSavingDiscount ? "Saving..." : "Save Discount"}
                   </button>
                 </div>
 
-                <div className="space-y-4 pt-4 border-t border-slate-100">
-                  <h4 className="text-xs font-bold text-slate-700 uppercase">
+                {/* Record Payment Form */}
+                <form
+                  id="payment-form"
+                  onSubmit={handleSave}
+                  className="space-y-8 pt-8 border-t border-slate-100"
+                >
+                  <h4 className="text-lg font-bold text-slate-700 uppercase">
                     {editingTransaction ? "Edit Payment Details" : "Record New Payment"}
                   </h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                     {/* Amount */}
-                    <div className="space-y-1.5">
+                    <div className="space-y-2.5">
                       <label
                         htmlFor="payment-amount"
-                        className="text-[10px] uppercase font-bold text-slate-400 block"
+                        className="text-base uppercase font-bold text-slate-400 block"
                       >
                         Payment Amount (₹)
                       </label>
@@ -815,16 +816,17 @@ export default function BillingDashboardPage() {
                         value={paymentAmount}
                         disabled={isSaving || isSavingDiscount}
                         onChange={(e) => setPaymentAmount(Number(e.target.value))}
-                        className="w-full h-10 px-3 text-sm border border-slate-200 rounded-xl"
+                        className="w-full h-14 px-5 text-lg border border-slate-200 rounded-xl placeholder:text-slate-400"
                         placeholder="Enter amount"
                         required
                       />
                     </div>
+
                     {/* Method */}
-                    <div className="space-y-1.5">
+                    <div className="space-y-2.5">
                       <label
                         htmlFor="payment-method"
-                        className="text-[10px] uppercase font-bold text-slate-400 block"
+                        className="text-base uppercase font-bold text-slate-400 block"
                       >
                         Payment Method
                       </label>
@@ -833,7 +835,7 @@ export default function BillingDashboardPage() {
                         value={paymentMethod}
                         disabled={isSaving || isSavingDiscount}
                         onChange={(e) => setPaymentMethod(e.target.value as any)}
-                        className="w-full h-10 px-3 text-sm border border-slate-200 rounded-xl"
+                        className="w-full h-14 px-5 text-lg border border-slate-200 rounded-xl bg-white"
                       >
                         <option value="upi">UPI</option>
                         <option value="card">Card</option>
@@ -841,14 +843,12 @@ export default function BillingDashboardPage() {
                         <option value="bank_transfer">Bank Transfer</option>
                       </select>
                     </div>
-                  </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {/* Purpose */}
-                    <div className="space-y-1.5">
+                    <div className="space-y-2.5">
                       <label
                         htmlFor="payment-purpose"
-                        className="text-[10px] uppercase font-bold text-slate-400 block"
+                        className="text-base uppercase font-bold text-slate-400 block"
                       >
                         Payment Purpose *
                       </label>
@@ -858,16 +858,16 @@ export default function BillingDashboardPage() {
                         value={paymentPurpose}
                         disabled={isSaving || isSavingDiscount}
                         onChange={(e) => setPaymentPurpose(e.target.value)}
-                        className="w-full h-10 px-3 text-sm border border-slate-200 rounded-xl"
+                        className="w-full h-14 px-5 text-lg border border-slate-200 rounded-xl placeholder:text-slate-400"
                         placeholder="e.g. Advance for Implant"
-                        required
                       />
                     </div>
+
                     {/* Date */}
-                    <div className="space-y-1.5">
+                    <div className="space-y-2.5">
                       <label
                         htmlFor="payment-date"
-                        className="text-[10px] uppercase font-bold text-slate-400 block"
+                        className="text-base uppercase font-bold text-slate-400 block"
                       >
                         Payment Date
                       </label>
@@ -877,17 +877,17 @@ export default function BillingDashboardPage() {
                         value={paymentDate}
                         disabled={isSaving || isSavingDiscount}
                         onChange={(e) => setPaymentDate(e.target.value)}
-                        className="w-full h-10 px-3 text-sm border border-slate-200 rounded-xl"
+                        className="w-full h-14 px-5 text-lg border border-slate-200 rounded-xl"
                         required
                       />
                     </div>
                   </div>
 
                   {/* Notes */}
-                  <div className="space-y-1.5">
+                  <div className="space-y-2.5">
                     <label
                       htmlFor="payment-notes"
-                      className="text-[10px] uppercase font-bold text-slate-400 block"
+                      className="text-base uppercase font-bold text-slate-400 block"
                     >
                       Notes (Optional)
                     </label>
@@ -896,67 +896,67 @@ export default function BillingDashboardPage() {
                       value={paymentNotes}
                       disabled={isSaving || isSavingDiscount}
                       onChange={(e) => setPaymentNotes(e.target.value)}
-                      rows={2}
-                      className="w-full p-3 text-sm border border-slate-200 rounded-xl resize-none"
+                      rows={4}
+                      className="w-full p-5 text-lg border border-slate-200 rounded-xl resize-none placeholder:text-slate-400"
                       placeholder="Add optional remarks..."
                     />
                   </div>
-                </div>
+                </form>
 
-                <div className="space-y-3 pt-4 border-t border-slate-100">
-                  <h4 className="text-xs font-bold text-slate-700 uppercase">
+                <div className="space-y-4 pt-8 border-t border-slate-100">
+                  <h4 className="text-lg font-bold text-slate-700 uppercase">
                     Transaction History
                   </h4>
                   {selectedPlanTransactions.length === 0 ? (
-                    <div className="text-center py-4 border border-dashed border-slate-200 rounded-xl bg-slate-50/50">
-                      <p className="text-xs text-slate-400">
+                    <div className="text-center py-8 border border-dashed border-slate-200 rounded-xl bg-slate-50/50">
+                      <p className="text-base text-slate-400">
                         No payments recorded for this plan yet.
                       </p>
                     </div>
                   ) : (
-                    <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
+                    <div className="space-y-4 max-h-[280px] overflow-y-auto pr-1">
                       {selectedPlanTransactions.map((tx) => (
                         <div
                           key={tx.id}
-                          className="flex justify-between items-start p-3 border border-slate-200 bg-white rounded-xl shadow-xs gap-3 group animate-fade-in"
+                          className="flex justify-between items-start p-5 border border-slate-200 bg-white rounded-xl shadow-xs gap-4 group animate-fade-in"
                         >
-                          <div className="space-y-1 text-xs">
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              <span className="font-bold text-slate-800">
+                          <div className="space-y-1.5 text-base">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-bold text-slate-800 text-lg">
                                 ₹{tx.amount.toLocaleString()}
                               </span>
-                              <span className="text-[10px] text-slate-500 font-semibold bg-slate-50 border border-slate-200/60 px-1.5 py-0.5 rounded">
+                              <span className="text-xs text-slate-500 font-semibold bg-slate-50 border border-slate-200/60 px-2.5 py-0.5 rounded">
                                 {tx.payment_method === "bank_transfer"
                                   ? "Net Banking"
                                   : tx.payment_method.toUpperCase()}
                               </span>
-                              <span className="text-[10px] text-slate-400 font-semibold">
+                              <span className="text-xs text-slate-400 font-semibold">
                                 {tx.payment_date}
                               </span>
                             </div>
-                            <div className="text-[11px] text-slate-700 font-semibold">
+                            <div className="text-base text-slate-700 font-semibold">
                               <span className="text-slate-400 font-medium">Purpose: </span>
                               {tx.purpose}
                             </div>
                             {tx.notes && (
-                              <div className="text-[10px] text-slate-400 italic">
+                              <div className="text-sm text-slate-400 italic">
                                 <span className="text-slate-400 font-medium">Notes: </span>"
                                 {tx.notes}"
                               </div>
                             )}
                           </div>
-                          <div className="flex gap-2 shrink-0 self-center">
+                          <div className="flex gap-4 shrink-0 self-center">
                             <button
                               type="button"
                               onClick={() => startEditTransaction(tx)}
-                              className="text-[10px] text-teal-600 font-bold hover:underline cursor-pointer"
+                              className="text-base text-teal-600 font-bold hover:underline cursor-pointer"
                             >
                               Edit
                             </button>
                             <button
                               type="button"
                               onClick={() => handleDeleteTransaction(tx.id)}
-                              className="text-[10px] text-rose-600 font-bold hover:underline cursor-pointer"
+                              className="text-base text-rose-600 font-bold hover:underline cursor-pointer"
                             >
                               Delete
                             </button>
@@ -968,23 +968,25 @@ export default function BillingDashboardPage() {
                 </div>
               </div>
 
-              <div className="bg-slate-50 px-6 py-4 flex justify-end gap-3 border-t">
+              <div className="bg-slate-50 px-10 py-6 flex justify-end gap-3 border-t">
                 <button
                   type="button"
                   onClick={() => setSelectedRecord(null)}
-                  className="px-4 py-2 text-sm font-semibold text-slate-600 bg-white border rounded-xl"
+                  disabled={isSaving || isSavingDiscount}
+                  className="px-8 py-3.5 text-base font-bold text-slate-600 bg-white border rounded-xl hover:bg-slate-50 transition-colors"
                 >
                   Close
                 </button>
                 <button
                   type="submit"
-                  disabled={isSaving}
-                  className="px-4 py-2 text-sm font-semibold text-white bg-teal-600 rounded-xl"
+                  form="payment-form"
+                  disabled={isSaving || isSavingDiscount}
+                  className="px-8 py-3.5 text-base font-bold text-white bg-teal-600 rounded-xl cursor-pointer disabled:opacity-50 hover:bg-teal-700 transition-colors"
                 >
                   {isSaving ? "Saving..." : "Save Payment"}
                 </button>
               </div>
-            </form>
+            </div>
           </div>
         )}
       </div>
