@@ -463,7 +463,7 @@ export default function BillingDashboardPage() {
   };
 
   return (
-    <DashboardShell>
+    <DashboardShell maxW="max-w-none">
       <div className="min-h-screen bg-slate-50/50 p-6 md:p-10 space-y-8">
         {/* 1. PAGE HEADER FRAME */}
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-b border-slate-200/60 pb-5">
@@ -557,7 +557,7 @@ export default function BillingDashboardPage() {
               ),
             )}
           </div>
-          <div className="relative flex-1 max-w-md">
+          <div className="relative flex-1 max-w-2xl">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
             <input
               type="text"
@@ -610,51 +610,53 @@ export default function BillingDashboardPage() {
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-slate-50/70 border-b border-slate-200 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                    <th className="py-3 px-5">Invoice Reference</th>
-                    <th className="py-3 px-5">Patient Identity</th>
-                    <th className="py-3 px-5">Treatment</th>
-                    <th className="py-3 px-5 text-right">Estimated Cost</th>
-                    <th className="py-3 px-5 text-right">Discount</th>
-                    <th className="py-3 px-5 text-right">Final Cost</th>
-                    <th className="py-3 px-5 text-right">Paid Amount</th>
-                    <th className="py-3 px-5 text-right">Outstanding Amount</th>
-                    <th className="py-3 px-5 text-center">Settlement State</th>
-                    <th className="py-3 px-5 text-center">Actions</th>
+                    <th className="py-3 px-6 md:px-8">Invoice Reference</th>
+                    <th className="py-3 px-6 md:px-8">Patient Identity</th>
+                    <th className="py-3 px-6 md:px-8">Treatment</th>
+                    <th className="py-3 px-6 md:px-8 text-right">Estimated Cost</th>
+                    <th className="py-3 px-6 md:px-8 text-right">Discount</th>
+                    <th className="py-3 px-6 md:px-8 text-right">Final Cost</th>
+                    <th className="py-3 px-6 md:px-8 text-right">Paid Amount</th>
+                    <th className="py-3 px-6 md:px-8 text-right">Outstanding Amount</th>
+                    <th className="py-3 px-6 md:px-8 text-center">Settlement State</th>
+                    <th className="py-3 px-6 md:px-8 text-center">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-sm font-medium text-slate-700">
                   {filteredRecords.map((rec) => (
                     <tr key={rec.id} className="hover:bg-slate-50/50 transition-colors">
-                      <td className="py-4 px-5 text-xs font-bold text-slate-400 tabular-nums">
+                      <td className="py-4 px-6 md:px-8 text-xs font-bold text-slate-400 tabular-nums">
                         {rec.id.slice(0, 8)}
                       </td>
-                      <td className="py-4 px-5 font-bold text-slate-900">{rec.patientName}</td>
-                      <td className="py-4 px-5 text-xs font-semibold text-slate-500">
+                      <td className="py-4 px-6 md:px-8 font-bold text-slate-900">
+                        {rec.patientName}
+                      </td>
+                      <td className="py-4 px-6 md:px-8 text-xs font-semibold text-slate-500">
                         {rec.treatment}
                       </td>
-                      <td className="py-4 px-5 text-right font-semibold text-slate-700">
+                      <td className="py-4 px-6 md:px-8 text-right font-semibold text-slate-700">
                         ₹{rec.estimatedCost.toLocaleString()}
                       </td>
-                      <td className="py-4 px-5 text-right font-semibold text-rose-600">
+                      <td className="py-4 px-6 md:px-8 text-right font-semibold text-rose-600">
                         ₹{rec.discount.toLocaleString()}
                       </td>
-                      <td className="py-4 px-5 text-right font-semibold text-slate-900">
+                      <td className="py-4 px-6 md:px-8 text-right font-semibold text-slate-900">
                         ₹{rec.finalCost.toLocaleString()}
                       </td>
-                      <td className="py-4 px-5 text-right font-semibold text-emerald-600">
+                      <td className="py-4 px-6 md:px-8 text-right font-semibold text-emerald-600">
                         ₹{rec.paidAmount.toLocaleString()}
                       </td>
-                      <td className="py-4 px-5 text-right font-bold text-rose-600">
+                      <td className="py-4 px-6 md:px-8 text-right font-bold text-rose-600">
                         ₹{rec.outstandingAmount.toLocaleString()}
                       </td>
-                      <td className="py-4 px-5 text-center">
+                      <td className="py-4 px-6 md:px-8 text-center">
                         <span
                           className={`px-2 py-0.5 rounded-full text-[10px] uppercase ${getStatusStyles(rec.status)}`}
                         >
                           {rec.status}
                         </span>
                       </td>
-                      <td className="py-4 px-5 text-center">
+                      <td className="py-4 px-6 md:px-8 text-center">
                         <button
                           type="button"
                           onClick={() => setSelectedRecord(rec)}
@@ -673,23 +675,25 @@ export default function BillingDashboardPage() {
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-slate-50/70 border-b border-slate-200 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                    <th className="py-3 px-5">Patient Identity</th>
-                    <th className="py-3 px-5 text-right">Net Cost</th>
-                    <th className="py-3 px-5 text-right">Total Paid</th>
-                    <th className="py-3 px-5 text-right">Outstanding</th>
+                    <th className="py-3 px-6 md:px-8">Patient Identity</th>
+                    <th className="py-3 px-6 md:px-8 text-right">Net Cost</th>
+                    <th className="py-3 px-6 md:px-8 text-right">Total Paid</th>
+                    <th className="py-3 px-6 md:px-8 text-right">Outstanding</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-sm font-medium text-slate-700">
                   {patientSummaries.map((summary) => (
                     <tr key={summary.patientId} className="hover:bg-slate-50/50">
-                      <td className="py-4 px-5 font-bold text-slate-900">{summary.patientName}</td>
-                      <td className="py-4 px-5 text-right font-bold text-slate-900">
+                      <td className="py-4 px-6 md:px-8 font-bold text-slate-900">
+                        {summary.patientName}
+                      </td>
+                      <td className="py-4 px-6 md:px-8 text-right font-bold text-slate-900">
                         ₹{summary.netCost.toLocaleString()}
                       </td>
-                      <td className="py-4 px-5 text-right font-bold text-emerald-600">
+                      <td className="py-4 px-6 md:px-8 text-right font-bold text-emerald-600">
                         ₹{summary.totalPaid.toLocaleString()}
                       </td>
-                      <td className="py-4 px-5 text-right font-bold text-rose-600">
+                      <td className="py-4 px-6 md:px-8 text-right font-bold text-rose-600">
                         ₹{summary.outstandingBalance.toLocaleString()}
                       </td>
                     </tr>
@@ -709,21 +713,21 @@ export default function BillingDashboardPage() {
             />
             <div className="relative bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-4xl w-full overflow-hidden z-10 animate-in fade-in zoom-in-95 duration-200">
               <div className="bg-gradient-to-r from-teal-500 to-emerald-600 px-10 py-6 text-white">
-                <h3 className="text-2xl font-bold">Manage Treatment Plan</h3>
-                <p className="text-sm text-teal-100 mt-1">ID: {currentRecord.id}</p>
+                <h3 className="text-3xl font-bold">Manage Treatment Plan</h3>
+                <p className="text-base text-teal-100 mt-1">ID: {currentRecord.id}</p>
               </div>
 
               <div className="p-10 space-y-8 max-h-[75vh] overflow-y-auto">
                 <div className="space-y-2">
-                  <span className="text-base uppercase font-bold text-slate-400">Patient Name</span>
-                  <div className="text-xl font-bold text-slate-800">
+                  <span className="text-lg uppercase font-bold text-slate-400">Patient Name</span>
+                  <div className="text-2xl font-bold text-slate-800">
                     {currentRecord.patientName}
                   </div>
                 </div>
 
                 <div className="bg-slate-50 p-8 rounded-xl border border-slate-200/60 space-y-5">
-                  <h4 className="text-lg font-bold text-slate-700 uppercase">Billing Summary</h4>
-                  <div className="grid grid-cols-2 gap-x-8 gap-y-4 text-lg">
+                  <h4 className="text-xl font-bold text-slate-700 uppercase">Billing Summary</h4>
+                  <div className="grid grid-cols-2 gap-x-8 gap-y-4 text-2xl">
                     <div className="flex justify-between text-slate-500">
                       <span>Treatment:</span>
                       <span className="font-semibold text-slate-800">
@@ -737,21 +741,21 @@ export default function BillingDashboardPage() {
                       </span>
                     </div>
                     <div className="flex justify-between text-slate-500 border-t pt-3 col-span-2">
-                      <span className="font-bold text-slate-700 text-lg">Net:</span>
-                      <span className="font-bold text-slate-900 text-xl">
+                      <span className="font-bold text-slate-700 text-2xl">Net:</span>
+                      <span className="font-bold text-slate-900 text-3xl">
                         ₹{currentRecord.finalCost.toLocaleString()}
                       </span>
                     </div>
                     <div className="flex justify-between text-slate-500 border-t pt-3 col-span-2">
-                      <span className="text-lg">Paid:</span>
-                      <span className="font-bold text-emerald-600 text-xl">
+                      <span className="text-2xl">Paid:</span>
+                      <span className="font-bold text-emerald-600 text-3xl">
                         ₹{currentRecord.paidAmount.toLocaleString()}
                       </span>
                     </div>
                     <div className="flex justify-between text-slate-500 border-t pt-3 col-span-2">
-                      <span className="font-extrabold text-slate-800 text-xl">Outstanding:</span>
+                      <span className="font-extrabold text-slate-800 text-3xl">Outstanding:</span>
                       <span
-                        className={`font-extrabold text-2xl ${currentRecord.outstandingAmount > 0 ? "text-rose-600" : "text-slate-400"}`}
+                        className={`font-extrabold text-4xl ${currentRecord.outstandingAmount > 0 ? "text-rose-600" : "text-slate-400"}`}
                       >
                         ₹{currentRecord.outstandingAmount.toLocaleString()}
                       </span>
@@ -761,7 +765,7 @@ export default function BillingDashboardPage() {
 
                 {/* Treatment Discount Section */}
                 <div className="space-y-4 pt-8 border-t border-slate-100">
-                  <h4 className="text-lg font-bold text-slate-700 uppercase">Treatment Discount</h4>
+                  <h4 className="text-xl font-bold text-slate-700 uppercase">Treatment Discount</h4>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                     <input
                       type="number"
@@ -769,7 +773,7 @@ export default function BillingDashboardPage() {
                       value={discountAmount}
                       disabled={isSaving || isSavingDiscount}
                       onChange={(e) => setDiscountAmount(Number(e.target.value))}
-                      className="w-full h-14 px-5 text-lg border border-slate-200 rounded-xl placeholder:text-slate-400"
+                      className="w-full h-14 px-5 text-2xl border border-slate-200 rounded-xl placeholder:text-xl placeholder:text-slate-400"
                     />
                     <input
                       type="text"
@@ -777,14 +781,14 @@ export default function BillingDashboardPage() {
                       value={discountReason}
                       disabled={isSaving || isSavingDiscount}
                       onChange={(e) => setDiscountReason(e.target.value)}
-                      className="w-full h-14 px-5 text-lg border border-slate-200 rounded-xl placeholder:text-slate-400"
+                      className="w-full h-14 px-5 text-2xl border border-slate-200 rounded-xl placeholder:text-xl placeholder:text-slate-400"
                     />
                   </div>
                   <button
                     type="button"
                     onClick={handleSaveDiscount}
                     disabled={isSaving || isSavingDiscount}
-                    className="w-full py-4 px-8 text-base font-bold text-white bg-slate-800 rounded-xl cursor-pointer hover:bg-slate-700 transition-colors"
+                    className="w-full py-4 px-8 text-2xl font-bold text-white bg-slate-800 rounded-xl cursor-pointer hover:bg-slate-700 transition-colors"
                   >
                     {isSavingDiscount ? "Saving..." : "Save Discount"}
                   </button>
@@ -796,7 +800,7 @@ export default function BillingDashboardPage() {
                   onSubmit={handleSave}
                   className="space-y-8 pt-8 border-t border-slate-100"
                 >
-                  <h4 className="text-lg font-bold text-slate-700 uppercase">
+                  <h4 className="text-2xl font-bold text-slate-700 uppercase">
                     {editingTransaction ? "Edit Payment Details" : "Record New Payment"}
                   </h4>
 
@@ -805,7 +809,7 @@ export default function BillingDashboardPage() {
                     <div className="space-y-2.5">
                       <label
                         htmlFor="payment-amount"
-                        className="text-base uppercase font-bold text-slate-400 block"
+                        className="text-xl uppercase font-bold text-slate-400 block"
                       >
                         Payment Amount (₹)
                       </label>
@@ -816,7 +820,7 @@ export default function BillingDashboardPage() {
                         value={paymentAmount}
                         disabled={isSaving || isSavingDiscount}
                         onChange={(e) => setPaymentAmount(Number(e.target.value))}
-                        className="w-full h-14 px-5 text-lg border border-slate-200 rounded-xl placeholder:text-slate-400"
+                        className="w-full h-14 px-5 text-2xl border border-slate-200 rounded-xl placeholder:text-xl placeholder:text-slate-400"
                         placeholder="Enter amount"
                         required
                       />
@@ -826,7 +830,7 @@ export default function BillingDashboardPage() {
                     <div className="space-y-2.5">
                       <label
                         htmlFor="payment-method"
-                        className="text-base uppercase font-bold text-slate-400 block"
+                        className="text-xl uppercase font-bold text-slate-400 block"
                       >
                         Payment Method
                       </label>
@@ -835,7 +839,7 @@ export default function BillingDashboardPage() {
                         value={paymentMethod}
                         disabled={isSaving || isSavingDiscount}
                         onChange={(e) => setPaymentMethod(e.target.value as any)}
-                        className="w-full h-14 px-5 text-lg border border-slate-200 rounded-xl bg-white"
+                        className="w-full h-14 px-5 text-2xl border border-slate-200 rounded-xl bg-white"
                       >
                         <option value="upi">UPI</option>
                         <option value="card">Card</option>
@@ -848,7 +852,7 @@ export default function BillingDashboardPage() {
                     <div className="space-y-2.5">
                       <label
                         htmlFor="payment-purpose"
-                        className="text-base uppercase font-bold text-slate-400 block"
+                        className="text-xl uppercase font-bold text-slate-400 block"
                       >
                         Payment Purpose *
                       </label>
@@ -858,7 +862,7 @@ export default function BillingDashboardPage() {
                         value={paymentPurpose}
                         disabled={isSaving || isSavingDiscount}
                         onChange={(e) => setPaymentPurpose(e.target.value)}
-                        className="w-full h-14 px-5 text-lg border border-slate-200 rounded-xl placeholder:text-slate-400"
+                        className="w-full h-14 px-5 text-2xl border border-slate-200 rounded-xl placeholder:text-xl placeholder:text-slate-400"
                         placeholder="e.g. Advance for Implant"
                       />
                     </div>
@@ -867,7 +871,7 @@ export default function BillingDashboardPage() {
                     <div className="space-y-2.5">
                       <label
                         htmlFor="payment-date"
-                        className="text-base uppercase font-bold text-slate-400 block"
+                        className="text-xl uppercase font-bold text-slate-400 block"
                       >
                         Payment Date
                       </label>
@@ -877,7 +881,7 @@ export default function BillingDashboardPage() {
                         value={paymentDate}
                         disabled={isSaving || isSavingDiscount}
                         onChange={(e) => setPaymentDate(e.target.value)}
-                        className="w-full h-14 px-5 text-lg border border-slate-200 rounded-xl"
+                        className="w-full h-14 px-5 text-2xl border border-slate-200 rounded-xl"
                         required
                       />
                     </div>
@@ -887,7 +891,7 @@ export default function BillingDashboardPage() {
                   <div className="space-y-2.5">
                     <label
                       htmlFor="payment-notes"
-                      className="text-base uppercase font-bold text-slate-400 block"
+                      className="text-xl uppercase font-bold text-slate-400 block"
                     >
                       Notes (Optional)
                     </label>
@@ -897,19 +901,19 @@ export default function BillingDashboardPage() {
                       disabled={isSaving || isSavingDiscount}
                       onChange={(e) => setPaymentNotes(e.target.value)}
                       rows={4}
-                      className="w-full p-5 text-lg border border-slate-200 rounded-xl resize-none placeholder:text-slate-400"
+                      className="w-full p-5 text-2xl border border-slate-200 rounded-xl resize-none placeholder:text-xl placeholder:text-slate-400"
                       placeholder="Add optional remarks..."
                     />
                   </div>
                 </form>
 
                 <div className="space-y-4 pt-8 border-t border-slate-100">
-                  <h4 className="text-lg font-bold text-slate-700 uppercase">
+                  <h4 className="text-2xl font-bold text-slate-700 uppercase">
                     Transaction History
                   </h4>
                   {selectedPlanTransactions.length === 0 ? (
                     <div className="text-center py-8 border border-dashed border-slate-200 rounded-xl bg-slate-50/50">
-                      <p className="text-base text-slate-400">
+                      <p className="text-xl text-slate-400">
                         No payments recorded for this plan yet.
                       </p>
                     </div>
@@ -920,26 +924,26 @@ export default function BillingDashboardPage() {
                           key={tx.id}
                           className="flex justify-between items-start p-5 border border-slate-200 bg-white rounded-xl shadow-xs gap-4 group animate-fade-in"
                         >
-                          <div className="space-y-1.5 text-base">
+                          <div className="space-y-1.5 text-xl">
                             <div className="flex items-center gap-2 flex-wrap">
-                              <span className="font-bold text-slate-800 text-lg">
+                              <span className="font-bold text-slate-800 text-2xl">
                                 ₹{tx.amount.toLocaleString()}
                               </span>
-                              <span className="text-xs text-slate-500 font-semibold bg-slate-50 border border-slate-200/60 px-2.5 py-0.5 rounded">
+                              <span className="text-base text-slate-500 font-semibold bg-slate-50 border border-slate-200/60 px-2.5 py-0.5 rounded">
                                 {tx.payment_method === "bank_transfer"
                                   ? "Net Banking"
                                   : tx.payment_method.toUpperCase()}
                               </span>
-                              <span className="text-xs text-slate-400 font-semibold">
+                              <span className="text-base text-slate-400 font-semibold">
                                 {tx.payment_date}
                               </span>
                             </div>
-                            <div className="text-base text-slate-700 font-semibold">
+                            <div className="text-xl text-slate-700 font-semibold">
                               <span className="text-slate-400 font-medium">Purpose: </span>
                               {tx.purpose}
                             </div>
                             {tx.notes && (
-                              <div className="text-sm text-slate-400 italic">
+                              <div className="text-lg text-slate-400 italic">
                                 <span className="text-slate-400 font-medium">Notes: </span>"
                                 {tx.notes}"
                               </div>
@@ -949,14 +953,14 @@ export default function BillingDashboardPage() {
                             <button
                               type="button"
                               onClick={() => startEditTransaction(tx)}
-                              className="text-base text-teal-600 font-bold hover:underline cursor-pointer"
+                              className="text-xl text-teal-600 font-bold hover:underline cursor-pointer"
                             >
                               Edit
                             </button>
                             <button
                               type="button"
                               onClick={() => handleDeleteTransaction(tx.id)}
-                              className="text-base text-rose-600 font-bold hover:underline cursor-pointer"
+                              className="text-xl text-rose-600 font-bold hover:underline cursor-pointer"
                             >
                               Delete
                             </button>
@@ -973,7 +977,7 @@ export default function BillingDashboardPage() {
                   type="button"
                   onClick={() => setSelectedRecord(null)}
                   disabled={isSaving || isSavingDiscount}
-                  className="px-8 py-3.5 text-base font-bold text-slate-600 bg-white border rounded-xl hover:bg-slate-50 transition-colors"
+                  className="px-8 py-3.5 text-2xl font-bold text-slate-600 bg-white border rounded-xl hover:bg-slate-50 transition-colors"
                 >
                   Close
                 </button>
@@ -981,7 +985,7 @@ export default function BillingDashboardPage() {
                   type="submit"
                   form="payment-form"
                   disabled={isSaving || isSavingDiscount}
-                  className="px-8 py-3.5 text-base font-bold text-white bg-teal-600 rounded-xl cursor-pointer disabled:opacity-50 hover:bg-teal-700 transition-colors"
+                  className="px-8 py-3.5 text-2xl font-bold text-white bg-teal-600 rounded-xl cursor-pointer disabled:opacity-50 hover:bg-teal-700 transition-colors"
                 >
                   {isSaving ? "Saving..." : "Save Payment"}
                 </button>

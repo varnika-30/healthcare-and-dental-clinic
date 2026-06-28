@@ -49,7 +49,13 @@ function DashboardSidebarBrand({ role }: { role: string | null }) {
   );
 }
 
-export function DashboardShell({ children }: { children: ReactNode }) {
+export function DashboardShell({
+  children,
+  maxW = "max-w-[1600px]",
+}: {
+  children: ReactNode;
+  maxW?: string;
+}) {
   const { role, user, signOut } = useAuth();
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
@@ -242,7 +248,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
 
         {/* CENTRAL APPLICATION CANVAS FLUID LAYER */}
         <main className="flex-1 flex flex-col overflow-y-auto w-full min-w-0 max-w-full overflow-x-hidden">
-          <div className="p-6 md:p-8 xl:p-10 w-full mx-auto min-w-0 max-w-[1600px] overflow-x-hidden">
+          <div className={cn("p-6 md:p-8 xl:p-10 w-full mx-auto min-w-0 overflow-x-hidden", maxW)}>
             {children}
           </div>
         </main>
