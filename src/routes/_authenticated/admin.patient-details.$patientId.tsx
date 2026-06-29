@@ -48,6 +48,8 @@ import { ToothChart } from "@/components/dashboard/ToothChart";
 import { Card } from "@/components/ui/card";
 import type { PrescriptionRecord } from "@/lib/prescription-store";
 import { supabase } from "@/integrations/supabase/client";
+import { calculatePlanBilling } from "@/lib/billing";
+import ManageTreatmentPlanModal from "@/components/dashboard/ManageTreatmentPlanModal";
 
 // ==========================================
 // TANSTACK ROUTE DEFINITION
@@ -243,6 +245,10 @@ interface BillingLogRecord {
   amountBilled: number;
   amountPaid: number;
   status: "PAID" | "PARTIAL" | "OVERDUE";
+  estimatedCost?: number;
+  discountAmount?: number;
+  discountReason?: string;
+  outstandingAmount?: number;
 }
 
 interface NoteRecord {
@@ -477,17 +483,11 @@ export default function AdminPatientDetailsPage() {
   };
 
   const [patientData, setPatientData] = useState<CompletePatientState>(getInitialPatientData);
+  const [paymentTransactions, setPaymentTransactions] = useState<any[]>([]);
+  const [invoices, setInvoices] = useState<any[]>([]);
+  const [reloadTrigger, setReloadTrigger] = useState(0);
+  const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
 
-  useEffect(() => {
-    console.log(
-      "TREATMENTS CHANGED",
-      patientData.treatments.map((t) => ({
-        id: t.id,
-        procedure: t.procedure,
-        status: t.status,
-      })),
-    );
-  }, [patientData.treatments]);
   useEffect(() => {
     console.log(
       "TREATMENTS CHANGED",
@@ -513,12 +513,9 @@ export default function AdminPatientDetailsPage() {
       const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
         patientId,
       );
-      console.log("PATIENT ID FROM ROUTE:", patientId);
-      console.log("IS UUID:", isUuid);
 
       let patientQuery = supabase.from("patients").select("*");
       if (!isUuid) {
-        console.log("Mock patient route detected. Skipping database load.");
         return;
       }
 
@@ -528,8 +525,6 @@ export default function AdminPatientDetailsPage() {
         data: DatabasePatient[] | null;
         error: Error | null;
       }>);
-      console.log("DB PATIENTS:", dbPatients);
-      console.log("PATIENT ERROR:", patientError);
 
       if (patientError) {
         console.error("Failed to load patient from database:", patientError);
@@ -643,10 +638,6 @@ export default function AdminPatientDetailsPage() {
           })
         : [];
 
-      // ----------------------------------------------------
-      // PHASE 1: Load treatments, steps, and tooth treatments
-      // ----------------------------------------------------
-
       // Fetch treatment plans
       const { data: dbPlans, error: plansError } = await supabase
         .from("treatment_plans")
@@ -678,6 +669,30 @@ export default function AdminPatientDetailsPage() {
         console.error("Failed to load tooth treatments:", toothTxResponse.error);
       }
       const dbToothTreatments = toothTxResponse.data || [];
+
+      // Fetch payment transactions
+      const { data: dbTransactions, error: txError } =
+        planIds.length > 0
+          ? await supabase.from("payment_transactions").select("*").in("plan_id", planIds)
+          : { data: [], error: null };
+
+      if (txError) {
+        console.error("Failed to load payment transactions:", txError);
+      } else if (dbTransactions) {
+        setPaymentTransactions(dbTransactions);
+      }
+
+      // Fetch invoices
+      const { data: dbInvoices, error: invoicesError } = await supabase
+        .from("invoices")
+        .select("*")
+        .eq("patient_id", dbPatient.id);
+
+      if (invoicesError) {
+        console.error("Failed to load invoices:", invoicesError);
+      } else if (dbInvoices) {
+        setInvoices(dbInvoices);
+      }
 
       const mapDbStatusToUi = (
         dbStatus: "planned" | "in_progress" | "completed" | "cancelled" | string,
@@ -786,11 +801,38 @@ export default function AdminPatientDetailsPage() {
 
       console.log("mappedTreatments length", mappedTreatments?.length);
 
+      const billingLogs: BillingLogRecord[] = (dbPlans || []).map((plan) => {
+        const planTransactions = (dbTransactions || []).filter((tx) => tx.plan_id === plan.id);
+        const billing = calculatePlanBilling(plan, planTransactions);
+
+        let status: "PAID" | "PARTIAL" | "OVERDUE" = "OVERDUE";
+        if (billing.paymentStatus === "paid") {
+          status = "PAID";
+        } else if (billing.totalPaid > 0) {
+          status = "PARTIAL";
+        }
+
+        return {
+          id: plan.id,
+          date: plan.created_at.split("T")[0],
+          paymentDate: plan.due_date || plan.created_at.split("T")[0],
+          description: plan.title,
+          amountBilled: billing.finalCost,
+          amountPaid: billing.totalPaid,
+          status,
+          estimatedCost: plan.estimated_cost ?? 0,
+          discountAmount: billing.discountAmount,
+          discountReason: plan.discount_reason || "",
+          outstandingAmount: billing.outstandingAmount,
+        };
+      });
+
       setPatientData((prev) => ({
         ...prev,
         id: dbPatient.id,
         appointments: mappedAppointments,
         treatments: mappedTreatments !== undefined ? mappedTreatments : prev.treatments,
+        billingLogs,
         profile: {
           ...prev.profile,
           fullName:
@@ -822,11 +864,10 @@ export default function AdminPatientDetailsPage() {
     }
 
     loadDbData();
-  }, [patientId]);
+  }, [patientId, reloadTrigger]);
 
   // UI Control Configurations
   const [isProfileEditing, setIsProfileEditing] = useState(false);
-  const [isAddingLedger, setIsAddingLedger] = useState(false);
   const [isAddingTreatment, setIsAddingTreatment] = useState(false);
   const [isBillingExpanded, setIsBillingExpanded] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState<AppointmentRecord | null>(null);
@@ -896,12 +937,6 @@ export default function AdminPatientDetailsPage() {
   }, [selectedAppointment]);
 
   // Form Inputs State Management
-  const [ledgerForm, setLedgerForm] = useState({
-    description: "",
-    amountBilled: "",
-    amountPaid: "",
-    paymentDate: new Date().toISOString().split("T")[0], // Standard default runtime stamp
-  });
 
   const [treatmentForm, setTreatmentForm] = useState({
     toothNumber: "",
@@ -1350,44 +1385,6 @@ export default function AdminPatientDetailsPage() {
       conditions: patientData.profile.medicalProfile.conditions.join(", "),
     });
     setIsMedicalEditing(false);
-  };
-
-  const handleAddLedgerEntry = (e: React.FormEvent) => {
-    e.preventDefault();
-    const billed = parseFloat(ledgerForm.amountBilled) || 0;
-    const paid = parseFloat(ledgerForm.amountPaid) || 0;
-    if (!ledgerForm.description || billed <= 0) return;
-
-    // Strict Deterministic Auto-Status Allocation Rules
-    let calculatedStatus: "PAID" | "PARTIAL" | "OVERDUE" = "OVERDUE";
-    if (billed - paid === 0) {
-      calculatedStatus = "PAID";
-    } else if (paid > 0 && paid < billed) {
-      calculatedStatus = "PARTIAL";
-    }
-
-    const newEntry: BillingLogRecord = {
-      id: `TXN-${Math.floor(100 + Math.random() * 900)}`,
-      date: new Date().toISOString().split("T")[0],
-      paymentDate: ledgerForm.paymentDate,
-      description: ledgerForm.description,
-      amountBilled: billed,
-      amountPaid: paid,
-      status: calculatedStatus,
-    };
-
-    setPatientData((prev) => ({
-      ...prev,
-      billingLogs: [newEntry, ...prev.billingLogs],
-    }));
-
-    setLedgerForm({
-      description: "",
-      amountBilled: "",
-      amountPaid: "",
-      paymentDate: new Date().toISOString().split("T")[0],
-    });
-    setIsAddingLedger(false);
   };
 
   const handleAddTreatment = async (e: React.FormEvent) => {
@@ -2939,167 +2936,139 @@ export default function AdminPatientDetailsPage() {
               <CreditCard className="w-4 h-4 text-emerald-600" /> Operational Ledger &amp; Billing
               Files
             </h3>
-            <button
-              onClick={() => setIsAddingLedger(!isAddingLedger)}
-              className="inline-flex items-center gap-1 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 px-3 py-1.5 rounded-lg transition"
-            >
-              <Plus className="w-3.5 h-3.5" /> Add Ledger Entry
-            </button>
           </div>
 
-          <div className="p-3 sm:p-4 space-y-3">
-            {/* UPDATED DATED LEDGER DISPATCH INPUT SUB-SYSTEM */}
-            <AnimatePresence>
-              {isAddingLedger && (
-                <motion.form
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: "auto" }}
-                  exit={{ opacity: 0, height: 0 }}
-                  onSubmit={handleAddLedgerEntry}
-                  className="border border-emerald-100 bg-emerald-50/10 rounded-xl p-3 text-xs space-y-4 shadow-inner"
-                >
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3.5">
-                    <div className="sm:col-span-2 md:col-span-1">
-                      <label className="block text-slate-500 font-bold mb-1">
-                        Treatment/Procedure Name
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="e.g. Crown Restoration"
-                        value={ledgerForm.description}
-                        onChange={(e) =>
-                          setLedgerForm({ ...ledgerForm, description: e.target.value })
-                        }
-                        className="w-full p-2.5 bg-white border border-slate-200 rounded-lg outline-none font-semibold text-slate-800"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-slate-500 font-bold mb-1">
-                        Total Billed Amount ($)
-                      </label>
-                      <input
-                        type="number"
-                        placeholder="0.00"
-                        value={ledgerForm.amountBilled}
-                        onChange={(e) =>
-                          setLedgerForm({ ...ledgerForm, amountBilled: e.target.value })
-                        }
-                        className="w-full p-2.5 bg-white border border-slate-200 rounded-lg outline-none font-bold text-slate-800"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-slate-500 font-bold mb-1">
-                        Amount Paid Right Now ($)
-                      </label>
-                      <input
-                        type="number"
-                        placeholder="0.00"
-                        value={ledgerForm.amountPaid}
-                        onChange={(e) =>
-                          setLedgerForm({ ...ledgerForm, amountPaid: e.target.value })
-                        }
-                        className="w-full p-2.5 bg-white border border-slate-200 rounded-lg outline-none font-bold text-slate-800"
-                      />
-                    </div>
-                    <div>
-                      {/* DATE OF PAYMENT ADDITION */}
-                      <label className="block text-slate-500 font-bold mb-1">
-                        Date of Payment Processing
-                      </label>
-                      <input
-                        type="date"
-                        value={ledgerForm.paymentDate}
-                        onChange={(e) =>
-                          setLedgerForm({ ...ledgerForm, paymentDate: e.target.value })
-                        }
-                        className="w-full p-2.5 bg-white border border-slate-200 rounded-lg outline-none font-semibold text-slate-700"
-                        required
-                      />
-                    </div>
-                  </div>
+          <div className="p-3 sm:p-4 space-y-4">
+            {/* COMPACT SUMMARY TABLE VIEW */}
+            <div className="overflow-x-auto border border-slate-150 rounded-xl bg-white shadow-2xs">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-slate-200 font-bold text-slate-400 uppercase tracking-wider">
+                    <th className="py-2.5 px-4">Treatment Name</th>
+                    <th className="py-2.5 px-4">Target / Due Date</th>
+                    <th className="py-2.5 px-4 text-right">Final Billed</th>
+                    <th className="py-2.5 px-4 text-right">Amount Paid</th>
+                    <th className="py-2.5 px-4 text-right">Outstanding</th>
+                    <th className="py-2.5 px-4 text-center">Payment Status</th>
+                    <th className="py-2.5 px-4 text-center">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
+                  {patientData.billingLogs.map((log) => {
+                    const itemDue = log.amountBilled - log.amountPaid;
+                    const isOverdue =
+                      log.paymentDate && new Date(log.paymentDate) < new Date() && itemDue > 0;
+                    const statusLabel =
+                      log.status === "PAID"
+                        ? "Paid"
+                        : log.status === "PARTIAL"
+                          ? "Partial"
+                          : isOverdue
+                            ? "Overdue"
+                            : "Payments Due";
 
-                  <div className="flex justify-end gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setIsAddingLedger(false)}
-                      className="px-3 py-1.5 font-bold text-slate-500"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg shadow-3xs"
-                    >
-                      Post Transaction Record
-                    </button>
-                  </div>
-                </motion.form>
-              )}
-            </AnimatePresence>
-
-            {/* TRANSACTIONS RENDER SYSTEM */}
-            <div className="space-y-2">
-              {(isBillingExpanded
-                ? patientData.billingLogs
-                : patientData.billingLogs.slice(0, 2)
-              ).map((log) => {
-                const itemDue = log.amountBilled - log.amountPaid;
-                return (
-                  <div
-                    key={log.id}
-                    className="p-3.5 border border-slate-150 bg-slate-50/40 rounded-xl flex flex-wrap items-center justify-between gap-4 text-xs"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-white border border-slate-200 flex items-center justify-center font-bold text-slate-400">
-                        $
-                      </div>
-                      <div>
-                        <p className="font-bold text-slate-800 text-sm">{log.description}</p>
-                        <p className="text-[11px] text-slate-400 font-medium mt-0.5">
-                          Post Ref: {log.id} • Transacted:{" "}
-                          <span className="text-slate-600 font-semibold">{log.paymentDate}</span> •
-                          Total Billed: ${log.amountBilled}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-4 ml-auto sm:ml-0">
-                      <div className="text-right">
-                        <span className="text-slate-500 font-medium block">
-                          Paid: ${log.amountPaid}
-                        </span>
-                        <span className="font-mono font-bold text-slate-800 text-[11px] block mt-0.5">
-                          ${itemDue.toFixed(2)} remaining
-                        </span>
-                      </div>
-                      <span
-                        className={`px-2.5 py-0.5 rounded-full font-black text-[9px] border ${
-                          log.status === "PAID"
-                            ? "bg-emerald-50 border-emerald-200 text-emerald-700"
-                            : log.status === "PARTIAL"
-                              ? "bg-amber-50 border-amber-200 text-amber-700"
-                              : "bg-rose-50 border-rose-200 text-rose-700"
-                        }`}
-                      >
-                        {log.status}
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
+                    return (
+                      <React.Fragment key={log.id}>
+                        <tr className="hover:bg-slate-50/50 transition-colors">
+                          <td className="py-3 px-4 font-bold text-slate-800">
+                            {log.description}
+                            <p className="text-[10px] text-slate-400 font-normal mt-0.5">
+                              Ref: {log.id.slice(0, 8)}
+                            </p>
+                          </td>
+                          <td className="py-3 px-4 text-slate-500 font-semibold">
+                            {log.paymentDate}
+                          </td>
+                          <td className="py-3 px-4 text-right font-bold text-slate-700">
+                            ₹{log.amountBilled.toLocaleString()}
+                          </td>
+                          <td className="py-3 px-4 text-right font-semibold text-slate-500">
+                            ₹{log.amountPaid.toLocaleString()}
+                          </td>
+                          <td className="py-3 px-4 text-right font-bold text-rose-600">
+                            ₹{itemDue.toLocaleString()}
+                          </td>
+                          <td className="py-3 px-4 text-center">
+                            <span
+                              className={`inline-block px-2.5 py-0.5 rounded-full font-black text-[9px] border ${
+                                statusLabel === "Paid"
+                                  ? "bg-emerald-50 border-emerald-200 text-emerald-700"
+                                  : statusLabel === "Partial"
+                                    ? "bg-amber-50 border-amber-200 text-amber-700"
+                                    : statusLabel === "Overdue"
+                                      ? "bg-rose-50 border-rose-200 text-rose-700 animate-pulse"
+                                      : "bg-slate-50 border-slate-200 text-slate-600"
+                              }`}
+                            >
+                              {statusLabel}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4 text-center">
+                            <button
+                              type="button"
+                              onClick={() => setSelectedPlanId(log.id)}
+                              className="text-teal-600 font-bold hover:underline cursor-pointer"
+                            >
+                              Manage
+                            </button>
+                          </td>
+                        </tr>
+                      </React.Fragment>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
 
-            {patientData.billingLogs.length > 2 && (
-              <button
-                type="button"
-                onClick={() => setIsBillingExpanded(!isBillingExpanded)}
-                className="w-full inline-flex items-center justify-center gap-1 py-2 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 transition"
-              >
-                {isBillingExpanded
-                  ? "Collapse Activity Shell"
-                  : `View Historical Operations (${patientData.billingLogs.length} Records)`}
-              </button>
+            {/* Invoices History Sub-system */}
+            {invoices.length > 0 && (
+              <div className="mt-6 pt-6 border-t border-slate-100 space-y-4">
+                <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                  Invoice Documents &amp; Statements
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  {invoices.map((inv) => (
+                    <div
+                      key={inv.id}
+                      className="p-3 border border-slate-150 rounded-xl bg-slate-50/30 flex items-center justify-between text-xs hover:bg-slate-50/60 transition"
+                    >
+                      <div className="space-y-1">
+                        <p className="font-bold text-slate-800">{inv.invoice_number}</p>
+                        <p className="text-[11px] text-slate-400">
+                          Issued: {inv.created_at.split("T")[0]} • Due: {inv.due_date || "N/A"}
+                        </p>
+                        <p className="text-[11px] text-slate-500">
+                          Total: ₹{inv.total.toLocaleString()} • Paid: ₹
+                          {inv.amount_paid.toLocaleString()}
+                        </p>
+                      </div>
+                      <div className="text-right space-y-2">
+                        <span
+                          className={`inline-block px-2 py-0.5 rounded-full font-black text-[9px] border uppercase ${
+                            inv.status === "paid"
+                              ? "bg-emerald-50 border-emerald-200 text-emerald-700"
+                              : inv.status === "partial"
+                                ? "bg-amber-50 border-amber-200 text-amber-700"
+                                : "bg-rose-50 border-rose-200 text-rose-700"
+                          }`}
+                        >
+                          {inv.status}
+                        </span>
+                        <a
+                          href="#"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            alert(`Downloading statement for ${inv.invoice_number}...`);
+                          }}
+                          className="block text-[11px] text-teal-600 font-bold hover:underline"
+                        >
+                          Download Statement
+                        </a>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
             )}
           </div>
         </div>
@@ -5068,6 +5037,14 @@ export default function AdminPatientDetailsPage() {
           </div>
         )}
       </AnimatePresence>
+
+      {selectedPlanId && (
+        <ManageTreatmentPlanModal
+          planId={selectedPlanId}
+          onClose={() => setSelectedPlanId(null)}
+          onSaveSuccess={() => setReloadTrigger((prev) => prev + 1)}
+        />
+      )}
     </div>
   );
 }
