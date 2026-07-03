@@ -65,6 +65,7 @@ export const Route = createFileRoute("/_authenticated/admin/ongoing-treatments")
 export default function DentalTreatmentOperationsDashboard() {
   const [createOpen, setCreateOpen] = useState(false);
   const [treatments, setTreatments] = useState<OngoingTreatmentCase[]>([]);
+  const [appointmentsList, setAppointmentsList] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   // Filter and Search States
@@ -106,6 +107,17 @@ export default function DentalTreatmentOperationsDashboard() {
         .order("created_at", { ascending: false });
 
       if (error) throw error;
+
+      // Fetch appointments
+      const { data: apptsData, error: apptsError } = await supabase
+        .from("appointments")
+        .select("*");
+
+      if (apptsError) {
+        console.error("Failed to load appointments:", apptsError);
+      } else if (apptsData) {
+        setAppointmentsList(apptsData);
+      }
 
       if (data) {
         setTreatments(
@@ -203,12 +215,32 @@ export default function DentalTreatmentOperationsDashboard() {
   }, [patientOptions, patientSearchQuery]);
 
   const operationsMetrics = useMemo(() => {
+    const activeCases = treatments.filter((t) => t.dbStatus === "in_progress").length;
+
+    const awaitingLab = treatments.filter(
+      (t) =>
+        t.labStatus === "impression_scheduled" ||
+        t.labStatus === "sent_to_lab" ||
+        t.labStatus === "received_from_lab" ||
+        t.labStatus === "sent_for_improvement",
+    ).length;
+
+    const todayStr = new Date().toISOString().split("T")[0];
+    const followUpNeeded = appointmentsList.filter((appt) => {
+      const isFuture = appt.appointment_date >= todayStr;
+      const isScheduled = appt.status === "confirmed" || appt.status === "requested";
+      const isFollowUp =
+        (appt.service || "").toLowerCase().includes("follow") ||
+        (appt.notes || "").toLowerCase().includes("follow");
+      return isFuture && isScheduled && isFollowUp;
+    }).length;
+
     return {
-      activeCases: treatments.filter((t) => t.clinicalStage === "Active Treatment").length,
-      awaitingLab: treatments.filter((t) => t.clinicalStage === "Lab Phase Pending").length,
-      followUpNeeded: treatments.filter((t) => t.followUpNeeded).length,
+      activeCases,
+      awaitingLab,
+      followUpNeeded,
     };
-  }, [treatments]);
+  }, [treatments, appointmentsList]);
 
   const filteredTreatments = useMemo(() => {
     return treatments.filter((item) => {

@@ -22,10 +22,8 @@ import { cn } from "@/lib/utils";
 
 const NAV = [
   { to: "/portal", label: "Overview", icon: LayoutDashboard },
-  { to: "/portal/appointments", label: "Appointments", icon: Calendar },
   { to: "/portal/treatment", label: "Treatments", icon: Activity },
   { to: "/portal/prescriptions", label: "Prescriptions", icon: Pill },
-  { to: "/portal/records", label: "Tooth history", icon: FileText },
   { to: "/portal/billing", label: "Billing", icon: Receipt },
   { to: "/portal/profile", label: "Profile", icon: User },
 ] as const;
@@ -112,12 +110,12 @@ export function PatientShell({ children }: { children: ReactNode }) {
   const closeDrawer = () => setDrawerOpen(false);
 
   return (
-    <div className="flex min-h-screen overflow-x-hidden bg-background">
+    <div className="flex h-screen bg-slate-50/40 font-sans antialiased text-slate-900 overflow-x-hidden relative w-full">
       {/* Permanent sidebar — xl+ desktop only */}
-      <aside className="hidden w-72 shrink-0 flex-col border-r border-sidebar-border bg-sidebar xl:flex">
+      <aside className="hidden w-76 shrink-0 flex-col border-r border-teal-950/10 bg-[#f4f9f9] text-slate-800 xl:flex h-full">
         <SidebarBrand />
         <SidebarNav pathname={pathname} />
-        <div className="border-t border-sidebar-border p-3">
+        <div className="border-t border-teal-950/5 p-4">
           <Button
             variant="ghost"
             size="sm"
@@ -129,7 +127,7 @@ export function PatientShell({ children }: { children: ReactNode }) {
         </div>
       </aside>
 
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="flex-1 flex flex-col min-w-0 max-w-full overflow-hidden">
         {/* Mobile / tablet top bar — below xl */}
         <header className="sticky top-0 z-40 flex h-16 shrink-0 items-center justify-between gap-3 border-b border-border bg-background/95 px-4 backdrop-blur xl:hidden">
           <div className="flex min-w-0 items-center gap-2">
@@ -182,13 +180,13 @@ export function PatientShell({ children }: { children: ReactNode }) {
           />
           <aside
             className={cn(
-              "fixed inset-y-0 left-0 flex w-72 max-w-[min(20rem,85vw)] flex-col border-r border-sidebar-border bg-sidebar shadow-xl transition-transform duration-300 ease-out",
+              "fixed inset-y-0 left-0 flex w-76 flex-col border-r border-teal-950/10 bg-[#f4f9f9] text-slate-800 shadow-xl transition-transform duration-300 ease-out",
               drawerOpen ? "translate-x-0" : "-translate-x-full",
             )}
           >
             <SidebarBrand />
             <SidebarNav pathname={pathname} onNavigate={closeDrawer} />
-            <div className="border-t border-sidebar-border p-3">
+            <div className="border-t border-teal-950/5 p-4">
               <Button
                 variant="ghost"
                 size="sm"
@@ -204,7 +202,11 @@ export function PatientShell({ children }: { children: ReactNode }) {
           </aside>
         </div>
 
-        <main className="min-w-0 flex-1 overflow-x-hidden p-4 md:p-6 xl:p-10">{children}</main>
+        <main className="flex-1 flex flex-col overflow-y-auto w-full min-w-0 max-w-full overflow-x-hidden">
+          <div className="p-6 md:p-8 xl:p-10 w-full mx-auto min-w-0 overflow-x-hidden max-w-[1500px]">
+            {children}
+          </div>
+        </main>
       </div>
     </div>
   );

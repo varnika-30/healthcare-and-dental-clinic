@@ -122,25 +122,172 @@ const ALL_CLINICAL_ALERTS = [
   },
 ];
 
+import { supabase } from "@/integrations/supabase/client";
+import { useEffect, useMemo } from "react";
+
 export default function PatientDashboardOverview() {
   const navigate = useNavigate();
   const [showAllAppointments, setShowAllAppointments] = useState(false);
   const [showAllTreatments, setShowAllTreatments] = useState(false);
   const [showAllAlerts, setShowAllAlerts] = useState(false);
 
+  const [doctorName, setDoctorName] = useState("Dr. Sarah");
+  const [appointments, setAppointments] = useState<any[]>([]);
+  const [treatments, setTreatments] = useState<any[]>([]);
+  const [alerts, setAlerts] = useState<any[]>([]);
+
+  useEffect(() => {
+    async function loadDashboardData() {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // 1. Fetch Doctor Profile
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("full_name")
+        .eq("id", user.id)
+        .single();
+      if (profile?.full_name) {
+        setDoctorName(profile.full_name);
+      }
+
+      // 2. Fetch Appointments for Today
+      const todayStr = new Date().toISOString().split("T")[0];
+      const { data: apptsData } = await supabase
+        .from("appointments")
+        .select("*, patients(*)")
+        .eq("appointment_date", todayStr);
+
+      if (apptsData) {
+        const mappedAppts = apptsData.map((apt: any) => {
+          const patientName = apt.patients
+            ? `${apt.patients.first_name || ""} ${apt.patients.last_name || ""}`.trim() ||
+              apt.patients.full_name
+            : "Unknown Patient";
+
+          const status =
+            apt.status === "confirmed"
+              ? "Ready"
+              : apt.status === "in_progress"
+                ? "In Progress"
+                : apt.status === "requested"
+                  ? "Arrived"
+                  : apt.status;
+
+          const statusColor =
+            status === "Ready"
+              ? "bg-emerald-50 text-emerald-700 border-emerald-100"
+              : status === "In Progress"
+                ? "bg-sky-50 text-sky-700 border-sky-100"
+                : "bg-amber-50 text-amber-700 border-amber-100";
+
+          let time = "10:00 AM";
+          try {
+            time = new Date(apt.created_at).toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+            });
+          } catch {}
+
+          return {
+            id: apt.id,
+            patientName,
+            time,
+            duration: `${apt.duration_minutes || 30} min`,
+            treatment: apt.service,
+            status,
+            statusColor,
+          };
+        });
+        setAppointments(mappedAppts);
+      }
+
+      // 3. Fetch Treatment Plans
+      const { data: plansData } = await supabase
+        .from("treatment_plans")
+        .select("*, patients(*)")
+        .eq("status", "in_progress")
+        .limit(10);
+
+      if (plansData) {
+        const mappedPlans = plansData.map((plan: any) => {
+          const patientName = plan.patients
+            ? `${plan.patients.first_name || ""} ${plan.patients.last_name || ""}`.trim() ||
+              plan.patients.full_name
+            : "Unknown Patient";
+
+          return {
+            id: plan.id,
+            patientName,
+            treatmentName: plan.title,
+            stage: plan.description || "Active Treatment",
+            labStatus: plan.lab_status || "none",
+            labUrgent: plan.lab_status === "sent_for_improvement",
+            paymentStatus: plan.payment_status === "paid" ? "Paid" : "Partial Balance",
+            actionNeeded: plan.follow_up_needed
+              ? "Schedule final follow-up appointment"
+              : "Review matching parameters",
+          };
+        });
+        setTreatments(mappedPlans);
+      }
+
+      // 4. Fetch Clinical Alerts / Notifications
+      const { data: notifsData } = await supabase
+        .from("notifications")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(5);
+
+      if (notifsData) {
+        const mappedAlerts = notifsData.map((n: any) => {
+          const tag =
+            n.type === "billing" ? "Finance" : n.type === "followup" ? "Care Gap" : "Lab Match";
+          const style =
+            tag === "Finance"
+              ? "bg-rose-50 text-rose-800 border-rose-100"
+              : tag === "Care Gap"
+                ? "bg-slate-50 text-slate-700 border-slate-200/60"
+                : "bg-teal-50 text-teal-900 border-teal-200";
+
+          return {
+            id: n.id,
+            message: n.body || n.title,
+            tag,
+            style,
+          };
+        });
+        setAlerts(mappedAlerts);
+      }
+    }
+    loadDashboardData();
+  }, []);
+
+  const dayOverview = useMemo(() => {
+    return new Date().toLocaleDateString("en-US", {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+  }, []);
+
+  const headline = useMemo(() => {
+    return `You have ${appointments.length} appointments scheduled today and ${treatments.length} ongoing treatment follow-ups remaining.`;
+  }, [appointments.length, treatments.length]);
+
   const handleAction = (actionLabel: string) => {
     toast.info(`Opening drawer context: ${actionLabel}`);
   };
 
-  const visibleAppointments = showAllAppointments
-    ? TODAY_APPOINTMENTS
-    : TODAY_APPOINTMENTS.slice(0, 3);
+  const visibleAppointments = showAllAppointments ? appointments : appointments.slice(0, 3);
 
-  const visibleTreatments = showAllTreatments
-    ? ALL_ONGOING_TREATMENTS
-    : ALL_ONGOING_TREATMENTS.slice(0, 1);
+  const visibleTreatments = showAllTreatments ? treatments : treatments.slice(0, 1);
 
-  const visibleAlerts = showAllAlerts ? ALL_CLINICAL_ALERTS : ALL_CLINICAL_ALERTS.slice(0, 3);
+  const visibleAlerts = showAllAlerts ? alerts : alerts.slice(0, 3);
 
   return (
     <DashboardShell>
@@ -155,7 +302,7 @@ export default function PatientDashboardOverview() {
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6 relative z-10">
               <div className="space-y-4">
                 <div className="flex items-center flex-wrap gap-2 text-xs font-bold tracking-wider uppercase text-teal-100/90">
-                  <span>{CLINIC_SUMMARY.dayOverview}</span>
+                  <span>{dayOverview}</span>
                   <span className="text-teal-200/60 font-serif">•</span>
                   <span className="bg-white/15 text-white px-3 py-1 rounded-full font-semibold text-[11px] backdrop-blur-xs">
                     Clinical Operations Center
@@ -164,13 +311,11 @@ export default function PatientDashboardOverview() {
 
                 <h1 className="text-3xl font-light tracking-tight text-white md:text-4xl leading-tight">
                   Good Morning,{" "}
-                  <span className="font-bold text-white drop-shadow-xs">
-                    {CLINIC_SUMMARY.doctorName}
-                  </span>
+                  <span className="font-bold text-white drop-shadow-xs">{doctorName}</span>
                 </h1>
 
                 <p className="text-base text-teal-50 max-w-2xl font-medium leading-relaxed opacity-95">
-                  {CLINIC_SUMMARY.headline}
+                  {headline}
                 </p>
               </div>
 
@@ -256,56 +401,64 @@ export default function PatientDashboardOverview() {
                 </div>
 
                 <div className="bg-white rounded-2xl border border-slate-200/50 shadow-xs overflow-hidden divide-y divide-slate-100">
-                  {visibleAppointments.map((apt) => (
-                    <div
-                      key={apt.id}
-                      className="p-5 flex items-center justify-between gap-4 transition-colors hover:bg-slate-50/40 group"
-                    >
-                      <div className="min-w-0 flex-1 space-y-2">
-                        <div className="flex items-center gap-3">
+                  {visibleAppointments.length > 0 ? (
+                    visibleAppointments.map((apt) => (
+                      <div
+                        key={apt.id}
+                        className="p-5 flex items-center justify-between gap-4 transition-colors hover:bg-slate-50/40 group"
+                      >
+                        <div className="min-w-0 flex-1 space-y-2">
+                          <div className="flex items-center gap-3">
+                            <button
+                              type="button"
+                              onClick={() => navigate({ to: "/dashboard" })}
+                              className="text-lg font-semibold text-slate-900 group-hover:text-teal-600 transition-colors text-left hover:underline decoration-teal-500/40 decoration-2 underline-offset-2"
+                            >
+                              {apt.patientName}
+                            </button>
+                            <span className="text-xs text-slate-400 font-mono tracking-wider bg-slate-50 px-2 py-0.5 rounded border border-slate-100">
+                              {apt.id.slice(0, 8)}
+                            </span>
+                          </div>
+                          <div className="flex items-center flex-wrap gap-x-4 gap-y-1 text-sm text-slate-500 font-medium">
+                            <span className="flex items-center gap-1.5 text-slate-800 font-semibold">
+                              <Clock className="h-4 w-4 text-slate-400" />
+                              {apt.time}
+                            </span>
+                            <span className="text-slate-300">•</span>
+                            <span className="text-slate-600">{apt.treatment}</span>
+                            <span className="text-slate-300">•</span>
+                            <span className="text-xs text-slate-400 font-normal">
+                              {apt.duration}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-3.5 shrink-0">
+                          <span
+                            className={`text-xs font-bold px-3 py-1 rounded-full border shadow-3xs ${apt.statusColor}`}
+                          >
+                            {apt.status}
+                          </span>
                           <button
                             type="button"
-                            onClick={() => navigate({ to: "/dashboard" })}
-                            className="text-lg font-semibold text-slate-900 group-hover:text-teal-600 transition-colors text-left hover:underline decoration-teal-500/40 decoration-2 underline-offset-2"
+                            onClick={() => handleAction(`Chart View for ${apt.patientName}`)}
+                            className="p-2 text-slate-300 hover:text-slate-500 rounded-xl hover:bg-slate-50 transition-colors"
+                            aria-label="View Details"
                           >
-                            {apt.patientName}
+                            <ChevronRight className="h-5 w-5" />
                           </button>
-                          <span className="text-xs text-slate-400 font-mono tracking-wider bg-slate-50 px-2 py-0.5 rounded border border-slate-100">
-                            {apt.id}
-                          </span>
-                        </div>
-                        <div className="flex items-center flex-wrap gap-x-4 gap-y-1 text-sm text-slate-500 font-medium">
-                          <span className="flex items-center gap-1.5 text-slate-800 font-semibold">
-                            <Clock className="h-4 w-4 text-slate-400" />
-                            {apt.time}
-                          </span>
-                          <span className="text-slate-300">•</span>
-                          <span className="text-slate-600">{apt.treatment}</span>
-                          <span className="text-slate-300">•</span>
-                          <span className="text-xs text-slate-400 font-normal">{apt.duration}</span>
                         </div>
                       </div>
-
-                      <div className="flex items-center gap-3.5 shrink-0">
-                        <span
-                          className={`text-xs font-bold px-3 py-1 rounded-full border shadow-3xs ${apt.statusColor}`}
-                        >
-                          {apt.status}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => handleAction(`Chart View for ${apt.patientName}`)}
-                          className="p-2 text-slate-300 hover:text-slate-500 rounded-xl hover:bg-slate-50 transition-colors"
-                          aria-label="View Details"
-                        >
-                          <ChevronRight className="h-5 w-5" />
-                        </button>
-                      </div>
+                    ))
+                  ) : (
+                    <div className="py-12 text-center text-xs text-slate-400 font-medium italic">
+                      No appointments scheduled for today.
                     </div>
-                  ))}
+                  )}
 
                   {/* CONDITIONAL ACTION TOGGLE */}
-                  {TODAY_APPOINTMENTS.length > 3 && (
+                  {appointments.length > 3 && (
                     <button
                       type="button"
                       onClick={() => setShowAllAppointments(!showAllAppointments)}
@@ -331,83 +484,91 @@ export default function PatientDashboardOverview() {
                     Active Lab & Long-term Treatments
                   </h2>
                   <span className="text-xs font-semibold text-slate-400 bg-slate-100 px-2.5 py-0.5 rounded-full">
-                    {visibleTreatments.length} of {ALL_ONGOING_TREATMENTS.length} Cases
+                    {visibleTreatments.length} of {treatments.length} Cases
                   </span>
                 </div>
 
                 <div className="space-y-4">
-                  {visibleTreatments.map((trt) => (
-                    <div
-                      key={trt.id}
-                      className="bg-white border border-slate-200/50 rounded-2xl p-6 shadow-xs space-y-5 transition-all"
-                    >
-                      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-                        <div className="space-y-1">
-                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">
-                            Patient Case File
+                  {visibleTreatments.length > 0 ? (
+                    visibleTreatments.map((trt) => (
+                      <div
+                        key={trt.id}
+                        className="bg-white border border-slate-200/50 rounded-2xl p-6 shadow-xs space-y-5 transition-all"
+                      >
+                        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                          <div className="space-y-1">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">
+                              Patient Case File
+                            </span>
+                            <h3 className="text-lg font-semibold text-slate-900">
+                              {trt.patientName}{" "}
+                              <span className="text-slate-300 font-light mx-1">/</span>{" "}
+                              <span className="text-slate-700 font-medium">
+                                {trt.treatmentName}
+                              </span>
+                            </h3>
+                          </div>
+                          <span className="text-xs font-semibold text-slate-600 bg-slate-50 border border-slate-200/40 px-3 py-1 rounded-xl self-start">
+                            {trt.stage}
                           </span>
-                          <h3 className="text-lg font-semibold text-slate-900">
-                            {trt.patientName}{" "}
-                            <span className="text-slate-300 font-light mx-1">/</span>{" "}
-                            <span className="text-slate-700 font-medium">{trt.treatmentName}</span>
-                          </h3>
                         </div>
-                        <span className="text-xs font-semibold text-slate-600 bg-slate-50 border border-slate-200/40 px-3 py-1 rounded-xl self-start">
-                          {trt.stage}
-                        </span>
-                      </div>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50/40 p-4.5 rounded-2xl border border-slate-100 text-sm font-medium">
-                        <div className="space-y-1.5">
-                          <span className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                            Lab Assignment
-                          </span>
-                          <div className="flex items-center gap-2 text-slate-800">
-                            <FlaskConical
-                              className={`h-4 w-4 ${trt.labUrgent ? "text-amber-500" : "text-teal-500"}`}
-                            />
-                            <span
-                              className={
-                                trt.labUrgent
-                                  ? "text-amber-800 font-bold"
-                                  : "text-slate-700 font-semibold"
-                              }
-                            >
-                              {trt.labStatus}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50/40 p-4.5 rounded-2xl border border-slate-100 text-sm font-medium">
+                          <div className="space-y-1.5">
+                            <span className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                              Lab Assignment
+                            </span>
+                            <div className="flex items-center gap-2 text-slate-800">
+                              <FlaskConical
+                                className={`h-4 w-4 ${trt.labUrgent ? "text-amber-500" : "text-teal-500"}`}
+                              />
+                              <span
+                                className={
+                                  trt.labUrgent
+                                    ? "text-amber-800 font-bold"
+                                    : "text-slate-700 font-semibold"
+                                }
+                              >
+                                {trt.labStatus}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="space-y-1.5">
+                            <span className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                              Ledger Balance
+                            </span>
+                            <span className="text-slate-700 font-semibold block pt-0.5">
+                              {trt.paymentStatus}
                             </span>
                           </div>
                         </div>
 
-                        <div className="space-y-1.5">
-                          <span className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                            Ledger Balance
-                          </span>
-                          <span className="text-slate-700 font-semibold block pt-0.5">
-                            {trt.paymentStatus}
-                          </span>
+                        <div className="flex items-center justify-between gap-4 pt-2 text-sm border-t border-slate-100">
+                          <div className="flex items-center gap-2 text-slate-500 min-w-0">
+                            <AlertCircle className="h-4 w-4 text-slate-400 shrink-0" />
+                            <span className="font-normal truncate text-slate-600">
+                              {trt.actionNeeded}
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => navigate({ to: "/admin/ongoing-treatments" })}
+                            className="text-xs font-bold uppercase tracking-wider text-teal-600 hover:text-teal-700 shrink-0 hover:underline transition-colors"
+                          >
+                            Update Case
+                          </button>
                         </div>
                       </div>
-
-                      <div className="flex items-center justify-between gap-4 pt-2 text-sm border-t border-slate-100">
-                        <div className="flex items-center gap-2 text-slate-500 min-w-0">
-                          <AlertCircle className="h-4 w-4 text-slate-400 shrink-0" />
-                          <span className="font-normal truncate text-slate-600">
-                            {trt.actionNeeded}
-                          </span>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => navigate({ to: "/admin/ongoing-treatments" })}
-                          className="text-xs font-bold uppercase tracking-wider text-teal-600 hover:text-teal-700 shrink-0 hover:underline transition-colors"
-                        >
-                          Update Case
-                        </button>
-                      </div>
+                    ))
+                  ) : (
+                    <div className="bg-white border border-slate-200 rounded-xl p-8 text-center text-xs text-slate-400 font-medium italic shadow-3xs">
+                      No active treatment plans.
                     </div>
-                  ))}
+                  )}
 
                   {/* EXPANSION CONTROL FOOTER */}
-                  {ALL_ONGOING_TREATMENTS.length > 1 && (
+                  {treatments.length > 1 && (
                     <button
                       type="button"
                       onClick={() => setShowAllTreatments(!showAllTreatments)}
@@ -437,24 +598,30 @@ export default function PatientDashboardOverview() {
                 </div>
 
                 <div className="bg-white rounded-2xl border border-slate-200/50 shadow-xs overflow-hidden divide-y divide-slate-100">
-                  {visibleAlerts.map((item) => (
-                    <div
-                      key={item.id}
-                      className="p-5 space-y-2.5 text-sm transition-colors hover:bg-slate-50/30"
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <span
-                          className={`text-[10px] font-bold uppercase tracking-widest px-2.5 py-0.5 rounded-full border shadow-3xs ${item.style}`}
-                        >
-                          {item.tag}
-                        </span>
+                  {visibleAlerts.length > 0 ? (
+                    visibleAlerts.map((item) => (
+                      <div
+                        key={item.id}
+                        className="p-5 space-y-2.5 text-sm transition-colors hover:bg-slate-50/30"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span
+                            className={`text-[10px] font-bold uppercase tracking-widest px-2.5 py-0.5 rounded-full border shadow-3xs ${item.style}`}
+                          >
+                            {item.tag}
+                          </span>
+                        </div>
+                        <p className="text-slate-600 font-medium leading-relaxed">{item.message}</p>
                       </div>
-                      <p className="text-slate-600 font-medium leading-relaxed">{item.message}</p>
+                    ))
+                  ) : (
+                    <div className="py-12 text-center text-xs text-slate-400 font-medium italic">
+                      No active alerts or tasks.
                     </div>
-                  ))}
+                  )}
 
                   {/* EXPANSION CONTROL FOOTER FOR ALERTS */}
-                  {ALL_CLINICAL_ALERTS.length > 3 && (
+                  {alerts.length > 3 && (
                     <button
                       type="button"
                       onClick={() => setShowAllAlerts(!showAllAlerts)}

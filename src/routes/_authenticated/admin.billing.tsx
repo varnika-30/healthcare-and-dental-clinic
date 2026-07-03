@@ -120,6 +120,8 @@ export default function BillingDashboardPage() {
   const [billingRecords, setBillingRecords] = useState<BillingRecord[]>([]);
   const [allTransactions, setAllTransactions] = useState<any[]>([]);
   const [selectedRecord, setSelectedRecord] = useState<BillingRecord | null>(null);
+  const [invoicesList, setInvoicesList] = useState<any[]>([]);
+  const [paymentsList, setPaymentsList] = useState<any[]>([]);
 
   async function loadBillingData() {
     // 1. Fetch treatment plans with patients
@@ -144,6 +146,24 @@ export default function BillingDashboardPage() {
 
     if (txsData) {
       setAllTransactions(txsData);
+    }
+
+    // 3. Fetch invoices
+    const { data: dbInvoices, error: invoicesError } = await supabase.from("invoices").select("*");
+
+    if (invoicesError) {
+      console.error("Failed to load invoices:", invoicesError);
+    } else if (dbInvoices) {
+      setInvoicesList(dbInvoices);
+    }
+
+    // 4. Fetch payments
+    const { data: dbPayments, error: paymentsError } = await supabase.from("payments").select("*");
+
+    if (paymentsError) {
+      console.error("Failed to load payments:", paymentsError);
+    } else if (dbPayments) {
+      setPaymentsList(dbPayments);
     }
 
     const mappedRecords: BillingRecord[] = (plansData || []).map((plan) => {
@@ -192,24 +212,18 @@ export default function BillingDashboardPage() {
   // FINANCIAL CALCULATIONS MATRIX
   // ==========================================
   const metrics = useMemo(() => {
-    let totalRevenue = 0;
-    let outstandingBalance = 0;
-    let pendingPaymentsCount = 0;
-    let fullyPaidCount = 0;
+    const totalRevenue = paymentsList.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+    const totalInvoiced = invoicesList.reduce((sum, inv) => sum + (Number(inv.total) || 0), 0);
+    const outstandingBalance = Math.max(0, totalInvoiced - totalRevenue);
 
-    billingRecords.forEach((rec) => {
-      totalRevenue += rec.paidAmount;
-      outstandingBalance += rec.outstandingAmount;
+    const pendingPaymentsCount = invoicesList.filter((inv) => Number(inv.balance) > 0).length;
 
-      if (rec.status === "Paid") {
-        fullyPaidCount++;
-      } else {
-        pendingPaymentsCount++;
-      }
-    });
+    const fullyPaidCount = invoicesList.filter(
+      (inv) => inv.status === "paid" || Number(inv.balance) <= 0,
+    ).length;
 
     return { totalRevenue, outstandingBalance, pendingPaymentsCount, fullyPaidCount };
-  }, [billingRecords]);
+  }, [invoicesList, paymentsList]);
 
   // ==========================================
   // FILTER & SEARCH PIPE LOGIC

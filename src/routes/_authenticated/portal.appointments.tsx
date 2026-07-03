@@ -1,6 +1,8 @@
 import React, { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { getOrCreateMyPatient } from "@/lib/patient";
 import { toast } from "sonner";
 import {
   Calendar,
@@ -35,7 +37,7 @@ export const Route = createFileRoute("/_authenticated/portal/appointments")({
 interface Appointment {
   id: string;
   appointment_date: string;
-  status: "requested" | "confirmed" | "completed" | "cancelled" | "no_show";
+  status: "requested" | "confirmed" | "in_progress" | "completed" | "cancelled" | "no_show";
   notes?: string;
   dentist_name: string;
   specialty?: string;
@@ -57,27 +59,36 @@ function validatePhone(phone: string): string | undefined {
 }
 
 function PortalAppointmentsPage() {
-  const [appointments, setAppointments] = useState<Appointment[]>([
-    {
-      id: "1",
-      appointment_date: new Date(Date.now() + 86400000 * 2).toISOString(),
-      status: "confirmed",
-      notes:
-        "Routine 6-month cleaning and checkup. Please note slight hot/cold sensitivity on upper right molars.",
-      dentist_name: "Dr. Sarah Jenkins",
-      specialty: "General Dentistry",
-      service_name: "Dental Cleaning & Examination",
+  const { data: dbAppointments = [], isLoading } = useQuery({
+    queryKey: ["portal-appointments"],
+    queryFn: async () => {
+      const patient = await getOrCreateMyPatient();
+      if (!patient) return [];
+      const { data, error } = await supabase
+        .from("appointments")
+        .select("*, doctor:profiles(full_name, specialization)")
+        .eq("patient_id", patient.id)
+        .order("appointment_date", { ascending: false });
+
+      if (error) {
+        throw error;
+      }
+      return (data || []).map((a: any) => ({
+        id: a.id,
+        appointment_date: a.appointment_date,
+        status: a.status,
+        notes: a.notes,
+        dentist_name: a.doctor?.full_name || "To be assigned",
+        specialty: a.doctor?.specialization || "Lumident Care Team",
+        service_name: a.service || "General Dental Consultation",
+        patient_phone: a.patient_phone,
+        preferred_time_text: a.preferred_time_text || undefined,
+      }));
     },
-    {
-      id: "2",
-      appointment_date: new Date(Date.now() - 86400000 * 5).toISOString(),
-      status: "completed",
-      notes: "Slight sensitivity in lower left molar.",
-      dentist_name: "Dr. Marcus Vance",
-      specialty: "Orthodontics",
-      service_name: "Invisalign Progress Check",
-    },
-  ]);
+  });
+
+  const [localAppointments, setLocalAppointments] = useState<Appointment[]>([]);
+  const appointments = [...localAppointments, ...dbAppointments];
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [showRequestChoice, setShowRequestChoice] = useState(false);
@@ -96,6 +107,14 @@ function PortalAppointmentsPage() {
   const [notes, setNotes] = useState("");
   const [patientStatus, setPatientStatus] = useState<"existing" | "new">("existing");
   const [dateError, setDateError] = useState("");
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-teal-50/40 via-white to-cyan-50/30">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-teal-600 border-t-transparent" />
+      </div>
+    );
+  }
 
   const AVAILABLE_SERVICES: ServiceProfile[] = [
     { id: "s1", name: "Dental Cleaning & Examination" },
@@ -166,7 +185,7 @@ function PortalAppointmentsPage() {
         preferred_time_text: hasTimePreference === "yes" ? preferredTimeText.trim() : undefined,
       };
 
-      setAppointments((prev) => [newAppointment, ...prev]);
+      setLocalAppointments((prev) => [newAppointment, ...prev]);
       setIsSubmitting(false);
       setIsDialogOpen(false);
 
@@ -182,15 +201,19 @@ function PortalAppointmentsPage() {
 
   // Dedicated functional operational callback to alter array record states safely
   const handleCancelRequest = (id: string) => {
-    setAppointments((prev) =>
-      prev.map((app) => (app.id === id ? { ...app, status: "cancelled" as const } : app)),
-    );
-
-    // Dynamically reconcile focused state object parameters to prevent context desync
-    setFocusedAppointment((prev) =>
-      prev && prev.id === id ? { ...prev, status: "cancelled" as const } : prev,
-    );
-    toast.success("Appointment request cancelled successfully.");
+    if (localAppointments.some((a) => a.id === id)) {
+      setLocalAppointments((prev) =>
+        prev.map((app) => (app.id === id ? { ...app, status: "cancelled" as const } : app)),
+      );
+      setFocusedAppointment((prev) =>
+        prev && prev.id === id ? { ...prev, status: "cancelled" as const } : prev,
+      );
+      toast.success("Appointment request cancelled successfully.");
+    } else {
+      toast.info(
+        "Please call the clinic at (415) 555-0182 to cancel or reschedule your appointments.",
+      );
+    }
   };
 
   const now = new Date();

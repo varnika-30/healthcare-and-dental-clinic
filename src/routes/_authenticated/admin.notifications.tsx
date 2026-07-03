@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { toast } from "sonner";
 import {
   Bell,
@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 // Verified dashboard layout shell
 import { DashboardShell } from "@/components/dashboard/DashboardShell";
+import { supabase } from "@/integrations/supabase/client";
 
 // Type definitions to keep the notification matrix strictly defined
 type NotificationCategory = "appointments" | "billing" | "treatments" | "system";
@@ -34,88 +35,120 @@ interface ClinicNotification {
   actionType?: "approval" | "view";
 }
 
-// Mock operational clinic logs
-const INITIAL_NOTIFICATIONS: ClinicNotification[] = [
-  {
-    id: "ntf-1",
-    category: "appointments",
-    title: "Appointment Cancelled",
-    description:
-      "Patient Robert Chen cancelled tomorrow's 10:30 AM root canal surgery. Slot unblocked.",
-    timestamp: "10 mins ago",
-    priority: "high",
-    isUnread: true,
-  },
-  {
-    id: "ntf-2",
-    category: "appointments",
-    title: "New Appointment Request",
-    description: "Elena Rostova requested an initial checkup consultation for Friday at 2:00 PM.",
-    timestamp: "45 mins ago",
-    priority: "medium",
-    isUnread: true,
-    hasActions: true,
-    actionType: "approval",
-  },
-  {
-    id: "ntf-3",
-    category: "billing",
-    title: "Pending Payment Overdue",
-    description:
-      "Invoice #LUM-8902 for patient Marcus Vance (Crown Installation) is 14 days overdue.",
-    timestamp: "2 hours ago",
-    priority: "high",
-    isUnread: true,
-    hasActions: true,
-    actionType: "view",
-  },
-  {
-    id: "ntf-4",
-    category: "treatments",
-    title: "Treatment Milestone Reminder",
-    description:
-      "Lab results for lab case #991 (Invisalign adjustments for Clara Croft) have been uploaded.",
-    timestamp: "5 hours ago",
-    priority: "low",
-    isUnread: false,
-    hasActions: true,
-    actionType: "view",
-  },
-  {
-    id: "ntf-5",
-    category: "system",
-    title: "System Update Completed",
-    description:
-      "Ecosystem engine updated to v4.12.0. Patient records ledger encryption protocols optimized.",
-    timestamp: "1 day ago",
-    priority: "low",
-    isUnread: false,
-  },
-];
+const mapDbToUiNotification = (dbN: any): ClinicNotification => {
+  let category: NotificationCategory = "system";
+  if (dbN.type === "billing") category = "billing";
+  else if (dbN.type === "followup") category = "treatments";
+  else if (dbN.type === "reminder") category = "appointments";
+
+  let priority: NotificationPriority = "low";
+  if (dbN.title?.toLowerCase().includes("urgent") || dbN.title?.toLowerCase().includes("overdue")) {
+    priority = "high";
+  } else if (dbN.title?.toLowerCase().includes("new") || dbN.type === "reminder") {
+    priority = "medium";
+  }
+
+  const dateObj = new Date(dbN.created_at);
+  const timeDiff = new Date().getTime() - dateObj.getTime();
+  let timestamp = dbN.created_at.split("T")[0];
+  if (timeDiff < 60000) {
+    timestamp = "just now";
+  } else if (timeDiff < 3600000) {
+    timestamp = `${Math.floor(timeDiff / 60000)} mins ago`;
+  } else if (timeDiff < 86400000) {
+    timestamp = `${Math.floor(timeDiff / 3600000)} hours ago`;
+  } else {
+    const days = Math.floor(timeDiff / 86400000);
+    timestamp = days === 1 ? "1 day ago" : `${days} days ago`;
+  }
+
+  return {
+    id: dbN.id,
+    category,
+    title: dbN.title || "Clinic Alert",
+    description: dbN.body || "",
+    timestamp,
+    priority,
+    isUnread: dbN.read_at === null,
+    hasActions: category === "billing" || category === "treatments" || category === "appointments",
+    actionType: category === "appointments" ? "approval" : "view",
+  };
+};
 
 export default function AdminNotificationsPage() {
   const [expandedNotification, setExpandedNotification] = useState<string | null>(null);
-  const [notifications, setNotifications] = useState<ClinicNotification[]>(INITIAL_NOTIFICATIONS);
+  const [notifications, setNotifications] = useState<ClinicNotification[]>([]);
   const [activeTab, setActiveTab] = useState<"all" | NotificationCategory>("all");
 
+  async function loadNotifications() {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { data, error } = await supabase
+      .from("notifications")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("Failed to load notifications:", error);
+    } else if (data) {
+      setNotifications(data.map(mapDbToUiNotification));
+    }
+  }
+
+  useEffect(() => {
+    loadNotifications();
+  }, []);
+
   // Interaction handlers providing localized operational feedback loops
-  const handleApprove = (id: string, title: string) => {
-    toast.success(`Approved item context associated with: ${title}`);
-    setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, isUnread: false } : n)));
+  const handleApprove = async (id: string, title: string) => {
+    const { error } = await supabase
+      .from("notifications")
+      .update({ read_at: new Date().toISOString() })
+      .eq("id", id);
+    if (error) {
+      toast.error("Failed to update notification status.");
+    } else {
+      toast.success(`Approved item context associated with: ${title}`);
+      setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, isUnread: false } : n)));
+    }
   };
 
-  const handleDismiss = (id: string) => {
-    toast.info("Notification removed from operational log view.");
-    setNotifications((prev) => prev.filter((n) => n.id !== id));
+  const handleDismiss = async (id: string) => {
+    const { error } = await supabase.from("notifications").delete().eq("id", id);
+    if (error) {
+      toast.error("Failed to dismiss notification.");
+    } else {
+      toast.info("Notification removed from operational log view.");
+      setNotifications((prev) => prev.filter((n) => n.id !== id));
+    }
   };
 
   const handleView = () => {
     window.location.href = "/admin/ongoing-treatments";
   };
 
-  const markAllAsRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, isUnread: false })));
-    toast.success("All notifications updated to read status.");
+  const markAllAsRead = async () => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { error } = await supabase
+      .from("notifications")
+      .update({ read_at: new Date().toISOString() })
+      .eq("user_id", user.id)
+      .is("read_at", null);
+
+    if (error) {
+      toast.error("Failed to update notifications.");
+    } else {
+      setNotifications((prev) => prev.map((n) => ({ ...n, isUnread: false })));
+      toast.success("All notifications updated to read status.");
+    }
   };
 
   // Tab dynamic filtering logic

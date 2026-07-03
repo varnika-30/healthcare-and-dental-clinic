@@ -1,5 +1,8 @@
 import React, { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { getOrCreateMyPatient } from "@/lib/patient";
 import {
   Download,
   Printer,
@@ -11,7 +14,7 @@ import {
   HeartPulse,
   Activity,
 } from "lucide-react";
-import { getPatientPrescriptions, PrescriptionRecord } from "@/lib/prescription-store";
+import { PrescriptionRecord } from "@/lib/prescription-store";
 
 // ==========================================
 // TANSTACK ROUTE DEFINITION
@@ -20,13 +23,120 @@ export const Route = createFileRoute("/_authenticated/portal/prescriptions")({
   component: PatientPrescriptionsPage,
 });
 
-const PATIENT_ID = "P-8832";
-
 export default function PatientPrescriptionsPage() {
-  const prescriptions = getPatientPrescriptions(PATIENT_ID);
+  const { data: prescriptions = [], isLoading } = useQuery({
+    queryKey: ["portal-prescriptions"],
+    queryFn: async () => {
+      const patient = await getOrCreateMyPatient();
+      if (!patient) return [];
+
+      const { data: dbPrescriptions, error: rxError } = await supabase
+        .from("prescriptions")
+        .select("*, doctor:profiles(full_name)")
+        .eq("patient_id", patient.id)
+        .order("created_at", { ascending: false });
+
+      if (rxError) {
+        throw rxError;
+      }
+
+      const rxIds = (dbPrescriptions || []).map((r) => r.id);
+      let dbPrescriptionItems: any[] = [];
+      if (rxIds.length > 0) {
+        const { data: itemsRes, error: itemsError } = await supabase
+          .from("prescription_items")
+          .select("*")
+          .in("prescription_id", rxIds);
+        if (itemsError) throw itemsError;
+        dbPrescriptionItems = itemsRes || [];
+      }
+
+      return (dbPrescriptions || []).map((rx: any, index) => {
+        const items = dbPrescriptionItems.filter((item) => item.prescription_id === rx.id);
+        const medicines = items.map((item) => ({
+          name: item.medication || "",
+          strength: item.dosage || "",
+          dosage: item.instructions || "",
+          frequency: item.frequency || "",
+          duration: item.duration || "",
+          instructions: item.instructions || "",
+        }));
+
+        let associatedTreatment = "";
+        let dosageInstructions = "";
+        let followUpRecommendation = "";
+        try {
+          if (rx.notes) {
+            const parsed = JSON.parse(rx.notes);
+            associatedTreatment = parsed.associatedTreatment || "";
+            dosageInstructions = parsed.dosageInstructions || "";
+            followUpRecommendation = parsed.followUpRecommendation || "";
+          }
+        } catch {
+          dosageInstructions = rx.notes || "";
+        }
+
+        const prescribingDoctor = rx.doctor?.full_name || "Dr. Aisha Rahman";
+
+        let status: "Active" | "Completed" | "Expired" = "Active";
+        const parseDurationToDays = (durationStr: string): number => {
+          if (!durationStr) return 0;
+          const match = durationStr.match(/(\d+)/);
+          if (!match) return 0;
+          const num = parseInt(match[1], 10);
+          const normalized = durationStr.toLowerCase();
+          if (normalized.includes("week")) return num * 7;
+          if (normalized.includes("month")) return num * 30;
+          return num;
+        };
+
+        const maxDurationDays = medicines.reduce((max: number, med: any) => {
+          const days = parseDurationToDays(med.duration);
+          return days > max ? days : max;
+        }, 0);
+
+        const createdDate = new Date(rx.created_at);
+        const expiryTime = createdDate.getTime() + maxDurationDays * 24 * 60 * 60 * 1000;
+        const isExpired = new Date().getTime() > expiryTime;
+
+        if (isExpired) {
+          status = "Expired";
+        } else if (index > 0) {
+          status = "Completed";
+        } else {
+          status = "Active";
+        }
+
+        return {
+          id: rx.id,
+          date: rx.created_at ? rx.created_at.split("T")[0] : "",
+          clinicName: "Lumident Premium Care",
+          prescribingDoctor,
+          licenseNumber: "DN-88431",
+          issueDate: rx.created_at ? rx.created_at.split("T")[0] : "",
+          linkedTreatment: associatedTreatment || rx.diagnosis || "Dental Care Plan",
+          associatedTreatment: associatedTreatment || rx.diagnosis || "Dental Care Plan",
+          medicines,
+          dosageInstructions,
+          followUpRecommendation,
+          status,
+          expiryDate: new Date(expiryTime).toISOString(),
+        };
+      });
+    },
+  });
+
   const activeRx = prescriptions.find((rx) => rx.status === "Active");
   const historyRx = prescriptions.filter((rx) => rx.status !== "Active");
   const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-teal-50/40 via-white to-cyan-50/30">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-teal-600 border-t-transparent" />
+      </div>
+    );
+  }
 
   const toggleAccordion = (id: string) => {
     setExpandedId(expandedId === id ? null : id);

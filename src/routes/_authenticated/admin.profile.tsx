@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import { useNavigate } from "@tanstack/react-router";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   User,
   Mail,
@@ -15,6 +15,9 @@ import {
 } from "lucide-react";
 // Verified dashboard layout shell
 import { DashboardShell } from "@/components/dashboard/DashboardShell";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { useAuth } from "@/lib/auth-context";
 
 const INITIAL_DOCTOR_DATA = {
   name: "Dr. Sarah Jenkins",
@@ -33,18 +36,104 @@ const INITIAL_DOCTOR_DATA = {
 
 export default function AdminProfilePage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
     window.location.href = "/auth/login";
   };
 
   const [showPasswordForm, setShowPasswordForm] = useState(false);
-
   const [doctorData, setDoctorData] = useState(INITIAL_DOCTOR_DATA);
-
   const [isEditing, setIsEditing] = useState(false);
 
-  const handleEditProfile = () => {
+  useEffect(() => {
+    async function loadProfile() {
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", user.id)
+        .single();
+
+      if (error) {
+        console.error("Failed to load profile:", error);
+      } else if (data) {
+        setDoctorData({
+          name: data.full_name || "Dr. Sarah Jenkins",
+          specialization: data.specialization || "General Dentistry & Endodontics",
+          clinicName: "Lumident Premium Care",
+          avatarUrl: data.avatar_url || "",
+          email: user.email || "s.jenkins@lumidentcare.com",
+          phone: data.phone || "(415) 555-0182",
+          address: data.bio || "450 Sutter St, Suite 1800, San Francisco, CA 94108",
+          schedule: {
+            workingDays: "Monday – Friday",
+            timings: "8:30 AM – 5:00 PM",
+            unavailableDays: "Saturdays, Sundays, and Public Holidays",
+          },
+        });
+      }
+    }
+    loadProfile();
+  }, [user]);
+
+  const handleEditProfile = async () => {
+    console.log("handleEditProfile invoked, isEditing state:", isEditing);
+    if (isEditing) {
+      try {
+        if (!user || !user.id) {
+          throw new Error("No authenticated user profile ID available.");
+        }
+
+        const profileData = {
+          id: user.id,
+          full_name: doctorData.name,
+          specialization: doctorData.specialization,
+          phone: doctorData.phone,
+          bio: doctorData.address,
+          avatar_url: doctorData.avatarUrl,
+        };
+
+        console.log("Executing Supabase upsert on profiles table with:", profileData);
+
+        const { error: dbError } = await supabase.from("profiles").upsert(profileData);
+
+        if (dbError) {
+          throw new Error("Database write error: " + dbError.message);
+        }
+
+        toast.success("Profile saved and updated successfully!");
+
+        // Refresh UI state with latest values from database to confirm sync
+        const { data: refreshedProfile, error: refreshError } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", user.id)
+          .single();
+
+        if (refreshError) {
+          console.warn("Failed to retrieve latest profile values for refresh:", refreshError);
+        } else if (refreshedProfile) {
+          setDoctorData({
+            name: refreshedProfile.full_name || doctorData.name,
+            specialization: refreshedProfile.specialization || doctorData.specialization,
+            clinicName: doctorData.clinicName,
+            avatarUrl: refreshedProfile.avatar_url || doctorData.avatarUrl,
+            email: user.email || doctorData.email,
+            phone: refreshedProfile.phone || doctorData.phone,
+            address: refreshedProfile.bio || doctorData.address,
+            schedule: doctorData.schedule,
+          });
+        }
+      } catch (err: any) {
+        console.error("Profile save exception caught:", err);
+        toast.error(`Failed to save profile changes: ${err.message || err}`);
+        // Return early to keep form in edit mode so user doesn't lose inputs on error
+        return;
+      }
+    }
     setIsEditing((prev) => !prev);
   };
 

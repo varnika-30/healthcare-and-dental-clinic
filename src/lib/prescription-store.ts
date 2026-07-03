@@ -4,6 +4,7 @@ export interface MedicineEntry {
   dosage: string;
   frequency: string;
   duration: string;
+  instructions?: string;
 }
 
 export interface PrescriptionRecord {
@@ -18,7 +19,8 @@ export interface PrescriptionRecord {
   medicines: MedicineEntry[];
   dosageInstructions: string;
   followUpRecommendation: string;
-  status: "Active" | "Completed" | "Expired";
+  status: "Active" | "Completed" | "Expired" | "ACTIVE" | "COMPLETED" | "SUPERSEDED";
+  expiryDate?: string;
 }
 
 interface PrescriptionStore {

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { toast } from "sonner";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
   ArrowLeft,
@@ -15,6 +16,7 @@ import {
   FileSignature,
   Plus,
   Edit2,
+  Trash2,
   Check,
   X,
   ChevronDown,
@@ -45,8 +47,9 @@ import {
   ToothTreatmentStatus,
 } from "@/lib/tooth-treatment-store";
 import { ToothChart } from "@/components/dashboard/ToothChart";
+import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
-import type { PrescriptionRecord } from "@/lib/prescription-store";
+import type { PrescriptionRecord, MedicineEntry } from "@/lib/prescription-store";
 import { supabase } from "@/integrations/supabase/client";
 import { calculatePlanBilling } from "@/lib/billing";
 import ManageTreatmentPlanModal from "@/components/dashboard/ManageTreatmentPlanModal";
@@ -485,8 +488,15 @@ export default function AdminPatientDetailsPage() {
   const [patientData, setPatientData] = useState<CompletePatientState>(getInitialPatientData);
   const [paymentTransactions, setPaymentTransactions] = useState<any[]>([]);
   const [invoices, setInvoices] = useState<any[]>([]);
+  const [payments, setPayments] = useState<any[]>([]);
   const [reloadTrigger, setReloadTrigger] = useState(0);
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
+
+  // Prescription edit tracking state
+  const [prescriptionModal, setPrescriptionModal] = useState<"create" | "edit" | "history" | null>(
+    null,
+  );
+  const [editingPrescriptionId, setEditingPrescriptionId] = useState<string | null>(null);
 
   useEffect(() => {
     console.log(
@@ -660,15 +670,36 @@ export default function AdminPatientDetailsPage() {
       }
       const dbSteps = stepsResponse.data || [];
 
-      const toothTxResponse =
-        planIds.length > 0
-          ? await supabase.from("tooth_treatments").select("*").in("treatment_plan_id", planIds)
-          : { data: null, error: null };
+      // Fetch tooth treatments
+      const toothTxResponse = await supabase
+        .from("tooth_treatments")
+        .select("*")
+        .eq("patient_id", dbPatient.id);
 
       if (toothTxResponse.error) {
         console.error("Failed to load tooth treatments:", toothTxResponse.error);
       }
       const dbToothTreatments = toothTxResponse.data || [];
+
+      const mappedToothHistory: ToothProcedureEntry[] = (dbToothTreatments || []).map((tt: any) => {
+        const plan = (dbPlans || []).find((p) => p.id === tt.treatment_plan_id);
+        const linkedTreatment = plan ? plan.title : "";
+
+        return {
+          id: tt.id,
+          patientId: tt.patient_id,
+          toothNumber: tt.tooth_number,
+          procedure: tt.treatment_type || "",
+          status: tt.status || "planned",
+          notes: tt.notes || "",
+          performedAt: tt.created_at
+            ? tt.created_at.split("T")[0]
+            : new Date().toISOString().split("T")[0],
+          linkedTreatment,
+        };
+      });
+
+      setToothHistory(mappedToothHistory);
 
       // Fetch payment transactions
       const { data: dbTransactions, error: txError } =
@@ -691,8 +722,146 @@ export default function AdminPatientDetailsPage() {
       if (invoicesError) {
         console.error("Failed to load invoices:", invoicesError);
       } else if (dbInvoices) {
-        setInvoices(dbInvoices);
+        const mappedInvoices = dbInvoices.map((inv: any) => ({
+          id: inv.id,
+          invoice_number: inv.invoice_number || `INV-${inv.id.slice(0, 8).toUpperCase()}`,
+          created_at: inv.created_at || new Date().toISOString(),
+          due_date: inv.due_date || null,
+          total: inv.total_amount || 0,
+          amount_paid: inv.paid_amount || 0,
+          status: inv.status || "unpaid",
+        }));
+        setInvoices(mappedInvoices);
       }
+
+      // Fetch payments for the loaded invoices
+      const invoiceIds = dbInvoices ? dbInvoices.map((inv) => inv.id) : [];
+      const { data: dbPayments, error: paymentsError } =
+        invoiceIds.length > 0
+          ? await supabase.from("payments").select("*").in("invoice_id", invoiceIds)
+          : { data: [], error: null };
+
+      if (paymentsError) {
+        console.error("Failed to load payments:", paymentsError);
+      } else if (dbPayments) {
+        setPayments(dbPayments);
+      }
+
+      // Fetch profiles for doctors map
+      const { data: dbProfiles } = await supabase.from("profiles").select("id, full_name");
+      const localDoctorNameMap: Record<string, string> = {};
+      (dbProfiles || []).forEach((p) => {
+        if (p.id && p.full_name) {
+          localDoctorNameMap[p.id] = p.full_name;
+        }
+      });
+
+      // Fetch prescriptions
+      const { data: dbPrescriptions, error: rxError } = await supabase
+        .from("prescriptions")
+        .select("*")
+        .eq("patient_id", dbPatient.id);
+
+      if (rxError) {
+        console.error("Failed to load prescriptions:", rxError);
+      }
+
+      const rxIds = dbPrescriptions ? dbPrescriptions.map((r) => r.id) : [];
+
+      const { data: dbPrescriptionItems, error: itemsError } =
+        rxIds.length > 0
+          ? await supabase.from("prescription_items").select("*").in("prescription_id", rxIds)
+          : { data: [], error: null };
+
+      if (itemsError) {
+        console.error("Failed to load prescription items:", itemsError);
+      }
+
+      // 1. Sort the database rows by created_at descending first:
+      const sortedDbPrescriptions = (dbPrescriptions || []).sort(
+        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+      );
+
+      const mappedPrescriptions: PrescriptionRecord[] = sortedDbPrescriptions.map(
+        (rx: any, index) => {
+          const items = (dbPrescriptionItems || []).filter(
+            (item: any) => item.prescription_id === rx.id,
+          );
+          const medicines: MedicineEntry[] = items.map((item: any) => ({
+            name: item.medicine_name || "",
+            strength: item.dosage || "",
+            dosage: item.instructions || "",
+            frequency: "",
+            duration: item.duration || "",
+            instructions: item.instructions || "",
+          }));
+
+          let associatedTreatment = "";
+          let dosageInstructions = "";
+          let followUpRecommendation = "";
+          try {
+            if (rx.notes) {
+              const parsed = JSON.parse(rx.notes);
+              associatedTreatment = parsed.associatedTreatment || "";
+              dosageInstructions = parsed.dosageInstructions || "";
+              followUpRecommendation = parsed.followUpRecommendation || "";
+            }
+          } catch {
+            dosageInstructions = rx.notes || "";
+          }
+
+          const prescribingDoctor =
+            rx.doctor_id && localDoctorNameMap[rx.doctor_id]
+              ? localDoctorNameMap[rx.doctor_id]
+              : "Dr. Aisha Rahman";
+
+          // Compute status dynamically
+          let status: "ACTIVE" | "COMPLETED" | "SUPERSEDED" = "ACTIVE";
+          const parseDurationToDays = (durationStr: string): number => {
+            if (!durationStr) return 0;
+            const match = durationStr.match(/(\d+)/);
+            if (!match) return 0;
+            const num = parseInt(match[1], 10);
+            const normalized = durationStr.toLowerCase();
+            if (normalized.includes("week")) return num * 7;
+            if (normalized.includes("month")) return num * 30;
+            return num;
+          };
+
+          const maxDurationDays = medicines.reduce((max, med) => {
+            const days = parseDurationToDays(med.duration);
+            return days > max ? days : max;
+          }, 0);
+
+          const createdDate = new Date(rx.created_at);
+          const expiryTime = createdDate.getTime() + maxDurationDays * 24 * 60 * 60 * 1000;
+          const isExpired = new Date().getTime() > expiryTime;
+
+          if (isExpired) {
+            status = "COMPLETED";
+          } else if (index > 0) {
+            status = "SUPERSEDED";
+          } else {
+            status = "ACTIVE";
+          }
+
+          return {
+            id: rx.id,
+            date: rx.created_at ? rx.created_at.split("T")[0] : "",
+            clinicName: "Lumident Dental Group",
+            prescribingDoctor,
+            licenseNumber: "DN-88431",
+            issueDate: rx.created_at ? rx.created_at.split("T")[0] : "",
+            linkedTreatment: associatedTreatment,
+            associatedTreatment: associatedTreatment,
+            medicines,
+            dosageInstructions,
+            followUpRecommendation,
+            status,
+            expiryDate: new Date(expiryTime).toISOString(),
+          };
+        },
+      );
 
       const mapDbStatusToUi = (
         dbStatus: "planned" | "in_progress" | "completed" | "cancelled" | string,
@@ -833,6 +1002,7 @@ export default function AdminPatientDetailsPage() {
         appointments: mappedAppointments,
         treatments: mappedTreatments !== undefined ? mappedTreatments : prev.treatments,
         billingLogs,
+        prescriptions: mappedPrescriptions,
         profile: {
           ...prev.profile,
           fullName:
@@ -946,11 +1116,6 @@ export default function AdminPatientDetailsPage() {
     customStages: ["Consultation", "Completed"],
   });
 
-  const [prescriptionModal, setPrescriptionModal] = useState<"create" | "history" | null>(null);
-  const [expandedPrescriptionId, setExpandedPrescriptionId] = useState<string | null>(null);
-  const [isCreatingPrescription, setIsCreatingPrescription] = useState(false);
-  const [prescriptionSuccessMessage, setPrescriptionSuccessMessage] = useState("");
-  const [prescriptionErrorMessage, setPrescriptionErrorMessage] = useState("");
   const [selectedTooth, setSelectedTooth] = useState<number | null>(null);
   const [editingProcedureId, setEditingProcedureId] = useState(null);
   const [selectedToothEntryId, setSelectedToothEntryId] = useState<string | null>(null);
@@ -974,10 +1139,11 @@ export default function AdminPatientDetailsPage() {
   useEffect(() => {
     if (!selectedTooth) return;
 
-    if (toothHistory.length > 0 && !isAddingNew) {
-      const proc = toothHistory[0];
+    if (selectedToothHistory.length > 0 && !isAddingNew) {
+      const proc = selectedToothHistory[0];
 
       setSelectedProcedureId(proc.id);
+      setSelectedToothEntryId(proc.id);
       setIsEditing(false);
       setIsAddingNew(false);
 
@@ -988,8 +1154,9 @@ export default function AdminPatientDetailsPage() {
         notes: proc.notes || "",
         linkedTreatment: proc.linkedTreatment || "",
       });
-    } else if (toothHistory.length === 0) {
+    } else if (selectedToothHistory.length === 0) {
       setSelectedProcedureId(null);
+      setSelectedToothEntryId(null);
       setIsAddingNew(true);
       setIsEditing(true);
 
@@ -1005,6 +1172,7 @@ export default function AdminPatientDetailsPage() {
 
   const resetFormState = () => {
     setSelectedProcedureId(null);
+    setSelectedToothEntryId(null);
     setIsEditing(false);
     setIsAddingNew(false);
 
@@ -1019,6 +1187,7 @@ export default function AdminPatientDetailsPage() {
 
   const loadProcedureIntoForm = (proc: (typeof selectedToothHistory)[number]) => {
     setSelectedProcedureId(proc.id);
+    setSelectedToothEntryId(proc.id);
     setIsEditing(false);
     setIsAddingNew(false);
 
@@ -1033,6 +1202,7 @@ export default function AdminPatientDetailsPage() {
 
   const handleInitiateAddNew = () => {
     setSelectedProcedureId(null);
+    setSelectedToothEntryId(null);
     setIsAddingNew(true);
     setIsEditing(true);
 
@@ -1051,12 +1221,17 @@ export default function AdminPatientDetailsPage() {
   };
 
   const [toothActionMessage, setToothActionMessage] = useState("");
-  const [prescriptionRows, setPrescriptionRows] = useState([
+
+  const [expandedPrescriptionId, setExpandedPrescriptionId] = useState<string | null>(null);
+  const [isCreatingPrescription, setIsCreatingPrescription] = useState(false);
+  const [prescriptionSuccessMessage, setPrescriptionSuccessMessage] = useState("");
+  const [prescriptionErrorMessage, setPrescriptionErrorMessage] = useState("");
+  const [prescriptionRows, setPrescriptionRows] = useState<MedicineEntry[]>([
     {
       name: "Ibuprofen",
       strength: "400mg",
-      dosage: "1 tablet",
-      frequency: "every 4-6 hours",
+      dosage: "1 tablet twice daily after meals",
+      frequency: "",
       duration: "3 days",
     },
   ]);
@@ -1249,10 +1424,13 @@ export default function AdminPatientDetailsPage() {
   };
 
   // Central Derived Balances calculations engine
-  const totalBilled = patientData.billingLogs.reduce((sum, log) => sum + log.amountBilled, 0);
-  const totalPaid = patientData.billingLogs.reduce((sum, log) => sum + log.amountPaid, 0);
+  const totalBilled = invoices.reduce((sum, inv) => sum + (Number(inv.total) || 0), 0);
+  const totalPaid = payments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
   const outstandingDue = totalBilled - totalPaid;
-  const latestPrescription = patientData.prescriptions[0] ?? null;
+  const latestPrescription =
+    patientData.prescriptions[0] && patientData.prescriptions[0].status === "ACTIVE"
+      ? patientData.prescriptions[0]
+      : null;
 
   // Mini-Calendar Days Alignment
   const numDays = new Date(currentYear, currentMonth + 1, 0).getDate();
@@ -1728,8 +1906,46 @@ export default function AdminPatientDetailsPage() {
     }));
   };
 
-  const refreshToothHistory = () => {
-    setToothHistory(getPatientToothHistory(patientId || selectedPatient.id));
+  const refreshToothHistory = async () => {
+    try {
+      const { data: dbToothTreatments, error } = await supabase
+        .from("tooth_treatments")
+        .select("*")
+        .eq("patient_id", patientId || selectedPatient.id);
+
+      if (error) {
+        console.error("Failed to refresh tooth history:", error);
+        return;
+      }
+
+      // Fetch latest plans to resolve linked treatment names
+      const { data: dbPlans } = await supabase
+        .from("treatment_plans")
+        .select("id, title")
+        .eq("patient_id", patientId || selectedPatient.id);
+
+      const mappedToothHistory: ToothProcedureEntry[] = (dbToothTreatments || []).map((tt: any) => {
+        const plan = (dbPlans || []).find((p) => p.id === tt.treatment_plan_id);
+        const linkedTreatment = plan ? plan.title : "";
+
+        return {
+          id: tt.id,
+          patientId: tt.patient_id,
+          toothNumber: tt.tooth_number,
+          procedure: tt.treatment_type || "",
+          status: tt.status || "planned",
+          notes: tt.notes || "",
+          performedAt: tt.created_at
+            ? tt.created_at.split("T")[0]
+            : new Date().toISOString().split("T")[0],
+          linkedTreatment,
+        };
+      });
+
+      setToothHistory(mappedToothHistory);
+    } catch (err) {
+      console.error("Error refreshing tooth history:", err);
+    }
   };
 
   const getToothMarks = () => {
@@ -1772,7 +1988,104 @@ export default function AdminPatientDetailsPage() {
     setIsToothModalOpen(true);
   };
 
-  const handleAddToothProcedure = () => {
+  // Full-mouth Treatment State & Handlers
+  const [fullMouthForm, setFullMouthForm] = useState({
+    title: "",
+    status: "planned" as "planned" | "in_progress" | "completed" | "cancelled",
+    description: "",
+  });
+  const [fullMouthEditId, setFullMouthEditId] = useState<string | null>(null);
+  const [isFullMouthActiveModalOpen, setIsFullMouthActiveModalOpen] = useState(false);
+
+  const handleSaveFullMouth = async () => {
+    if (!fullMouthForm.title.trim()) {
+      toast.error("Treatment name is required.");
+      return;
+    }
+
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      const doctorId = user?.id || null;
+
+      if (fullMouthEditId) {
+        // Update existing plan
+        const { error } = await supabase
+          .from("treatment_plans")
+          .update({
+            title: fullMouthForm.title.trim(),
+            status: fullMouthForm.status,
+            description: fullMouthForm.description.trim(),
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", fullMouthEditId);
+
+        if (error) throw error;
+        toast.success("Treatment plan updated successfully.");
+      } else {
+        // Create new plan
+        const { error } = await supabase.from("treatment_plans").insert({
+          patient_id: patientId || selectedPatient.id,
+          doctor_id: doctorId,
+          title: fullMouthForm.title.trim(),
+          status: fullMouthForm.status,
+          description: fullMouthForm.description.trim(),
+          start_date: new Date().toISOString().split("T")[0],
+        });
+
+        if (error) throw error;
+        toast.success("Treatment plan added successfully.");
+      }
+
+      setFullMouthForm({ title: "", status: "planned", description: "" });
+      setFullMouthEditId(null);
+      setReloadTrigger((prev) => prev + 1);
+    } catch (err: any) {
+      console.error("Error saving full-mouth treatment:", err);
+      toast.error(err.message || "Failed to save treatment.");
+    }
+  };
+
+  const handleDeleteFullMouth = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this treatment plan?")) return;
+
+    try {
+      const { error } = await supabase.from("treatment_plans").delete().eq("id", id);
+
+      if (error) throw error;
+      toast.success("Treatment plan deleted successfully.");
+      setReloadTrigger((prev) => prev + 1);
+    } catch (err: any) {
+      console.error("Error deleting full-mouth treatment:", err);
+      toast.error(err.message || "Failed to delete treatment.");
+    }
+  };
+
+  const handleInitiateFullMouthEdit = (plan: any) => {
+    let dbStatus: "planned" | "in_progress" | "completed" | "cancelled" = "planned";
+    if (plan.status === "Ongoing") {
+      dbStatus = "in_progress";
+    } else if (plan.status === "Completed") {
+      dbStatus = "completed";
+    } else if (plan.status === "Paused") {
+      dbStatus = "cancelled";
+    }
+
+    setFullMouthForm({
+      title: plan.procedure,
+      status: dbStatus,
+      description: plan.notes || "",
+    });
+    setFullMouthEditId(plan.id);
+  };
+
+  const handleCancelFullMouthEdit = () => {
+    setFullMouthForm({ title: "", status: "planned", description: "" });
+    setFullMouthEditId(null);
+  };
+
+  const handleAddToothProcedure = async () => {
     if (!selectedTooth) {
       setToothActionMessage("Select a tooth before adding a procedure.");
       return;
@@ -1782,58 +2095,112 @@ export default function AdminPatientDetailsPage() {
       return;
     }
 
-    savePatientToothProcedure(patientId || selectedPatient.id, {
-      toothNumber: Number(toothForm.toothNumber) || selectedTooth,
-      procedure: toothForm.procedure.trim(),
-      status: toothForm.status,
-      notes: toothForm.notes.trim(),
-      linkedTreatment:
-        toothForm.linkedTreatment.trim() || patientData.treatments[0]?.procedure || "",
-    });
-    refreshToothHistory();
-    setSelectedToothEntryId(null);
-    setToothActionMessage("New tooth procedure added.");
+    const matchedPlan = patientData.treatments.find(
+      (t: any) =>
+        t.procedure &&
+        t.procedure.toLowerCase() === (toothForm.linkedTreatment || "").trim().toLowerCase(),
+    );
+    const planId = matchedPlan ? matchedPlan.id : null;
+
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      let doctorId = user?.id || null;
+
+      const { error } = await supabase.from("tooth_treatments").insert({
+        patient_id: patientId || selectedPatient.id,
+        tooth_number: Number(toothForm.toothNumber) || selectedTooth,
+        treatment_type: toothForm.procedure.trim(),
+        status: toothForm.status,
+        notes: toothForm.notes.trim(),
+        treatment_plan_id: planId,
+        doctor_id: doctorId,
+      } as any);
+
+      if (error) throw error;
+
+      await refreshToothHistory();
+      setSelectedProcedureId(null);
+      setSelectedToothEntryId(null);
+      setToothActionMessage("New tooth procedure added.");
+    } catch (err: any) {
+      console.error("Error adding tooth procedure:", err);
+      setToothActionMessage(`Error: ${err.message || "Failed to add"}`);
+    }
   };
 
-  const handleSaveToothUpdates = () => {
-    if (!selectedToothEntryId) {
+  const handleSaveToothUpdates = async () => {
+    const activeId = selectedProcedureId || selectedToothEntryId;
+    if (!activeId) {
       setToothActionMessage("Select a procedure to edit.");
       return;
     }
 
-    const existingEntry = toothHistory.find((entry) => entry.id === selectedToothEntryId);
+    const existingEntry = toothHistory.find((entry) => entry.id === activeId);
 
     if (!existingEntry) {
       setToothActionMessage("Procedure not found.");
       return;
     }
 
-    updatePatientToothProcedure(patientId || selectedPatient.id, {
-      ...existingEntry,
-      id: existingEntry.id,
-      toothNumber: Number(toothForm.toothNumber),
-      procedure: toothForm.procedure.trim(),
-      status: toothForm.status,
-      notes: toothForm.notes.trim(),
-      linkedTreatment: toothForm.linkedTreatment.trim(),
-    });
+    const matchedPlan = patientData.treatments.find(
+      (t: any) =>
+        t.procedure &&
+        t.procedure.toLowerCase() === (toothForm.linkedTreatment || "").trim().toLowerCase(),
+    );
+    const planId = matchedPlan ? matchedPlan.id : null;
 
-    refreshToothHistory();
+    try {
+      const { error } = await supabase
+        .from("tooth_treatments")
+        .update({
+          tooth_number: Number(toothForm.toothNumber) || selectedTooth,
+          treatment_type: toothForm.procedure.trim(),
+          status: toothForm.status,
+          notes: toothForm.notes.trim(),
+          treatment_plan_id: planId,
+          updated_at: new Date().toISOString(),
+        } as any)
+        .eq("id", activeId);
 
-    setSelectedToothEntryId(null);
+      if (error) throw error;
 
-    setToothForm({
-      toothNumber: "",
-      procedure: "",
-      status: "planned",
-      notes: "",
-      linkedTreatment: "",
-    });
+      await refreshToothHistory();
 
-    setToothActionMessage("Tooth procedure updated.");
+      setSelectedProcedureId(null);
+      setSelectedToothEntryId(null);
+
+      setToothForm({
+        toothNumber: "",
+        procedure: "",
+        status: "planned",
+        notes: "",
+        linkedTreatment: "",
+      });
+
+      setToothActionMessage("Tooth procedure updated.");
+    } catch (err: any) {
+      console.error("Error updating tooth procedure:", err);
+      setToothActionMessage(`Error: ${err.message || "Failed to update"}`);
+    }
   };
 
   const handleMarkToothCompleted = () => {};
+
+  const getPrescriptionStatusBadgeClasses = (
+    status: "ACTIVE" | "COMPLETED" | "SUPERSEDED" | string,
+  ) => {
+    switch (status) {
+      case "ACTIVE":
+        return "bg-emerald-50 border border-emerald-200 text-emerald-700 font-bold px-2 py-0.5 rounded-full text-[9px]";
+      case "SUPERSEDED":
+        return "bg-sky-50 border border-sky-200 text-sky-700 font-bold border px-2 py-0.5 rounded-full text-[9px]";
+      case "COMPLETED":
+      default:
+        return "bg-slate-50 border border-slate-200 text-slate-500 font-bold border px-2 py-0.5 rounded-full text-[9px]";
+    }
+  };
 
   const formatPrescriptionDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleDateString("en-US", {
@@ -1847,9 +2214,26 @@ export default function AdminPatientDetailsPage() {
     setExpandedPrescriptionId((current) => (current === id ? null : id));
   };
 
-  const handleOpenPrescriptionModal = (mode: "create" | "history") => {
+  const handleOpenPrescriptionModal = (mode: "create" | "edit" | "history") => {
     setPrescriptionErrorMessage("");
     setPrescriptionSuccessMessage("");
+    if (mode === "create") {
+      setEditingPrescriptionId(null);
+      setPrescriptionRows([
+        {
+          name: "",
+          strength: "",
+          dosage: "",
+          frequency: "",
+          duration: "",
+        },
+      ]);
+      setPrescriptionForm({
+        associatedTreatment: patientData.treatments[0]?.procedure || "",
+        dosageInstructions: "",
+        followUpRecommendation: "",
+      });
+    }
     setPrescriptionModal(mode);
   };
 
@@ -1896,7 +2280,7 @@ export default function AdminPatientDetailsPage() {
     printWindow.print();
   };
 
-  const handleAddPrescription = (e: React.FormEvent) => {
+  const handleAddPrescription = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!prescriptionForm.associatedTreatment.trim()) {
@@ -1904,8 +2288,21 @@ export default function AdminPatientDetailsPage() {
       return;
     }
 
+    const hasInvalidDuration = prescriptionRows.some((row) => {
+      const hasContent = row.name.trim() || row.dosage.trim() || row.duration.trim();
+      if (!hasContent) return false;
+      const trimmed = row.duration.trim();
+      const num = Number(trimmed);
+      return !Number.isInteger(num) || num <= 0 || !/^\d+$/.test(trimmed);
+    });
+
+    if (hasInvalidDuration) {
+      setPrescriptionErrorMessage("Duration must be a positive whole number of days.");
+      return;
+    }
+
     const validRows = prescriptionRows.filter(
-      (row) => row.name.trim() && row.dosage.trim() && row.frequency.trim() && row.duration.trim(),
+      (row) => row.name.trim() && row.dosage.trim() && row.duration.trim(),
     );
 
     if (!validRows.length) {
@@ -1919,45 +2316,138 @@ export default function AdminPatientDetailsPage() {
     setIsCreatingPrescription(true);
     setPrescriptionSuccessMessage("");
 
-    window.setTimeout(() => {
-      const newPrescription: PrescriptionRecord = {
-        id: `RX-${Math.floor(1000 + Math.random() * 9000)}`,
-        date: new Date().toISOString().split("T")[0],
-        clinicName: "Lumident Dental Group",
-        prescribingDoctor: "Dr. Aisha Rahman",
-        licenseNumber: "DN-88431",
-        issueDate: new Date().toISOString().split("T")[0],
-        linkedTreatment: prescriptionForm.associatedTreatment,
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      let doctorId = user?.id;
+      if (!doctorId || !doctorNameMap[doctorId]) {
+        doctorId = doctorsList[0]?.id || undefined;
+      }
+
+      const notesContent = JSON.stringify({
         associatedTreatment: prescriptionForm.associatedTreatment,
-        medicines: validRows,
         dosageInstructions: prescriptionForm.dosageInstructions,
         followUpRecommendation: prescriptionForm.followUpRecommendation,
-        status: "Active",
-      };
-
-      addPatientPrescription(patientId || selectedPatient.id, newPrescription);
-      setPatientData((prev) => ({
-        ...prev,
-        prescriptions: [newPrescription, ...prev.prescriptions],
-      }));
-      setIsCreatingPrescription(false);
-      setPrescriptionSuccessMessage("Prescription created successfully.");
-      setPrescriptionModal(null);
-      setPrescriptionRows([
-        {
-          name: "",
-          strength: "",
-          dosage: "",
-          frequency: "",
-          duration: "",
-        },
-      ]);
-      setPrescriptionForm({
-        associatedTreatment: initialData.treatments[0]?.procedure || "",
-        dosageInstructions: "",
-        followUpRecommendation: "",
       });
-    }, 600);
+
+      if (prescriptionModal === "edit" && editingPrescriptionId) {
+        // UPDATE PRESCRIPTION
+        const { error: rxError } = await supabase
+          .from("prescriptions")
+          .update({
+            notes: notesContent,
+            doctor_id: doctorId || null,
+            updated_at: new Date().toISOString(),
+          } as any)
+          .eq("id", editingPrescriptionId);
+
+        if (rxError) throw rxError;
+
+        // Delete previous medicine rows
+        const { error: deleteError } = await supabase
+          .from("prescription_items")
+          .delete()
+          .eq("prescription_id", editingPrescriptionId);
+
+        if (deleteError) throw deleteError;
+
+        // Re-insert medicine rows
+        const { error: itemsError } = await supabase.from("prescription_items").insert(
+          validRows.map((row) => ({
+            prescription_id: editingPrescriptionId,
+            medicine_name: row.name,
+            dosage: row.strength || null,
+            frequency: null,
+            duration: row.duration,
+            instructions: row.dosage,
+          })) as any,
+        );
+
+        if (itemsError) throw itemsError;
+
+        setPrescriptionSuccessMessage("Prescription updated successfully.");
+      } else {
+        // CREATE PRESCRIPTION
+        const { data: rxData, error: rxError } = await supabase
+          .from("prescriptions")
+          .insert({
+            patient_id: patientData.id,
+            notes: notesContent,
+            doctor_id: doctorId || null,
+          } as any)
+          .select("id, created_at")
+          .single();
+
+        if (rxError) throw rxError;
+
+        const rxId = rxData.id;
+
+        const { error: itemsError } = await supabase.from("prescription_items").insert(
+          validRows.map((row) => ({
+            prescription_id: rxId,
+            medicine_name: row.name,
+            dosage: row.strength || null,
+            frequency: null,
+            duration: row.duration,
+            instructions: row.dosage,
+          })) as any,
+        );
+
+        if (itemsError) throw itemsError;
+
+        setPrescriptionSuccessMessage("Prescription created successfully.");
+      }
+
+      setReloadTrigger((prev) => prev + 1);
+      setTimeout(() => {
+        setPrescriptionModal(null);
+        setEditingPrescriptionId(null);
+        setPrescriptionRows([
+          {
+            name: "",
+            strength: "",
+            dosage: "",
+            frequency: "",
+            duration: "",
+          },
+        ]);
+        setPrescriptionForm({
+          associatedTreatment: patientData.treatments[0]?.procedure || "",
+          dosageInstructions: "",
+          followUpRecommendation: "",
+        });
+      }, 500);
+    } catch (err: any) {
+      console.error("Prescription saving error:", err);
+      setPrescriptionErrorMessage(err.message || "Failed to save prescription.");
+    } finally {
+      setIsCreatingPrescription(false);
+    }
+  };
+
+  const handleDeletePrescription = async (rxId: string) => {
+    if (!window.confirm("Are you sure you want to delete this prescription?")) {
+      return;
+    }
+
+    try {
+      const { error: itemsError } = await supabase
+        .from("prescription_items")
+        .delete()
+        .eq("prescription_id", rxId);
+
+      if (itemsError) throw itemsError;
+
+      const { error: rxError } = await supabase.from("prescriptions").delete().eq("id", rxId);
+
+      if (rxError) throw rxError;
+
+      setReloadTrigger((prev) => prev + 1);
+    } catch (err: any) {
+      console.error("Prescription deleting error:", err);
+      alert(err.message || "Failed to delete prescription.");
+    }
   };
 
   const addPrescriptionRow = () => {
@@ -2216,7 +2706,7 @@ export default function AdminPatientDetailsPage() {
       </div>
 
       {/* CORE WORKSPACE CONTENT GRID CONTAINER */}
-      <div className="flex-1 p-3 sm:p-4 max-w-[1600px] w-full mx-auto space-y-4">
+      <div className="flex-1 p-4 sm:p-6 lg:p-8 max-w-full w-full mx-auto space-y-6">
         {/* ==========================================
             EDITABLE PATIENT PROFILE MATRIX SECTION
            ========================================== */}
@@ -2547,7 +3037,7 @@ export default function AdminPatientDetailsPage() {
                         <button
                           type="button"
                           onClick={handleSaveMedicalHistory}
-                          className="text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 px-3 py-1.5 rounded-lg transition"
+                          className="text-xs font-bold text-rose-600 hover:bg-rose-700 px-3 py-1.5 rounded-lg transition"
                         >
                           Save
                         </button>
@@ -3074,480 +3564,477 @@ export default function AdminPatientDetailsPage() {
         </div>
 
         {/* ==========================================
-            CLINIC LAYOUT RESPONSTRUCT BLOCK (2-COLUMN GRID)
+            TREATMENT CARD RECORD MODULE (FULL WIDTH)
            ========================================== */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {/* TREATMENT CARD RECORD MODULE */}
-          <div
-            id="treatments"
-            className="bg-white rounded-2xl border border-slate-200 border-l-4 border-l-cyan-500 shadow-xs flex flex-col justify-between overflow-hidden scroll-mt-[160px]"
-          >
-            <div>
-              <div className="px-4 sm:px-5 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
-                <h3 className="text-xs sm:text-sm font-bold text-slate-900 flex items-center gap-2">
-                  <FileText className="w-4 h-4 text-cyan-600" /> Treatment Tracking &amp;
-                  Diagnostics
-                </h3>
-                <button
-                  type="button"
-                  onClick={() => setIsAddingTreatment(!isAddingTreatment)}
-                  className="text-xs font-bold text-cyan-700 bg-cyan-50 hover:bg-cyan-100 px-2.5 py-1.5 rounded-md transition"
-                >
-                  {isAddingTreatment ? "Hide Input" : "Chart Treatment Line"}
-                </button>
-              </div>
+        <div
+          id="treatments"
+          className="bg-white rounded-2xl border border-slate-200 border-l-4 border-l-cyan-500 shadow-xs flex flex-col justify-between overflow-hidden scroll-mt-[160px] w-full mb-6"
+        >
+          <div>
+            <div className="px-4 sm:px-5 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
+              <h3 className="text-xs sm:text-sm font-bold text-slate-900 flex items-center gap-2">
+                <FileText className="w-4 h-4 text-cyan-600" /> Treatment Tracking &amp; Diagnostics
+              </h3>
+              <button
+                type="button"
+                onClick={() => setIsAddingTreatment(!isAddingTreatment)}
+                className="text-xs font-bold text-cyan-700 bg-cyan-50 hover:bg-cyan-100 px-2.5 py-1.5 rounded-md transition"
+              >
+                {isAddingTreatment ? "Hide Input" : "Chart Treatment Line"}
+              </button>
+            </div>
 
-              <div className="p-4 space-y-3">
-                <AnimatePresence>
-                  {isAddingTreatment && (
-                    <motion.form
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: "auto" }}
-                      exit={{ opacity: 0, height: 0 }}
-                      onSubmit={handleAddTreatment}
-                      className="border border-cyan-100 bg-cyan-50/10 rounded-xl p-3.5 text-xs space-y-3"
-                    >
-                      <div className="grid grid-cols-3 gap-2">
+            <div className="p-4 space-y-3">
+              <AnimatePresence>
+                {isAddingTreatment && (
+                  <motion.form
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    onSubmit={handleAddTreatment}
+                    className="border border-cyan-100 bg-cyan-50/10 rounded-xl p-3.5 text-xs space-y-3"
+                  >
+                    <div className="grid grid-cols-3 gap-2">
+                      <div>
+                        <label className="block text-slate-400 font-bold mb-0.5">Tooth Code</label>
+                        <input
+                          type="text"
+                          placeholder="#14"
+                          value={treatmentForm.toothNumber}
+                          onChange={(e) =>
+                            setTreatmentForm({ ...treatmentForm, toothNumber: e.target.value })
+                          }
+                          className="w-full p-2 border border-slate-200 rounded"
+                          required
+                        />
+                      </div>
+                      <div className="col-span-2">
+                        <label className="block text-slate-400 font-bold mb-0.5">Procedure</label>
+
+                        <select
+                          value={treatmentForm.procedure}
+                          onChange={(e) => {
+                            const nextProcedure = e.target.value;
+                            let nextStages = treatmentForm.customStages;
+
+                            if (nextProcedure === "Other" && nextStages.length === 0) {
+                              nextStages = ["Consultation", "Completed"];
+                            }
+
+                            setTreatmentForm({
+                              ...treatmentForm,
+                              procedure: nextProcedure,
+                              customStages: nextStages,
+                            });
+                          }}
+                          className="w-full p-2 border border-slate-200 rounded bg-white"
+                          required
+                        >
+                          <option value="">Select Procedure</option>
+
+                          <option value="Root Canal">Root Canal</option>
+
+                          <option value="Implant">Implant</option>
+
+                          <option value="Bridge">Bridge</option>
+
+                          <option value="Composite Filling">Composite Filling</option>
+
+                          <option value="Scaling & Cleaning">Scaling & Cleaning</option>
+
+                          <option value="Extraction">Extraction</option>
+
+                          <option value="Braces">Braces</option>
+                          <option value="Other">Other</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-slate-400 font-bold mb-0.5">
+                        Operational Tracking Notes
+                      </label>
+                      <textarea
+                        rows={2}
+                        value={treatmentForm.notes}
+                        onChange={(e) =>
+                          setTreatmentForm({ ...treatmentForm, notes: e.target.value })
+                        }
+                        className="w-full p-2 border border-slate-200 rounded"
+                        placeholder="Isolation vectors applied..."
+                      />
+                    </div>
+
+                    {treatmentForm.procedure === "Other" && (
+                      <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 space-y-4">
                         <div>
                           <label className="block text-slate-400 font-bold mb-0.5">
-                            Tooth Code
+                            Custom Treatment Name
                           </label>
                           <input
                             type="text"
-                            placeholder="#14"
-                            value={treatmentForm.toothNumber}
+                            value={treatmentForm.customTreatmentName}
                             onChange={(e) =>
-                              setTreatmentForm({ ...treatmentForm, toothNumber: e.target.value })
+                              setTreatmentForm({
+                                ...treatmentForm,
+                                customTreatmentName: e.target.value,
+                              })
                             }
                             className="w-full p-2 border border-slate-200 rounded"
                             required
                           />
                         </div>
-                        <div className="col-span-2">
-                          <label className="block text-slate-400 font-bold mb-0.5">Procedure</label>
-
-                          <select
-                            value={treatmentForm.procedure}
-                            onChange={(e) => {
-                              const nextProcedure = e.target.value;
-                              let nextStages = treatmentForm.customStages;
-
-                              if (nextProcedure === "Other" && nextStages.length === 0) {
-                                nextStages = ["Consultation", "Completed"];
-                              }
-
-                              setTreatmentForm({
-                                ...treatmentForm,
-                                procedure: nextProcedure,
-                                customStages: nextStages,
-                              });
-                            }}
-                            className="w-full p-2 border border-slate-200 rounded bg-white"
-                            required
-                          >
-                            <option value="">Select Procedure</option>
-
-                            <option value="Root Canal">Root Canal</option>
-
-                            <option value="Implant">Implant</option>
-
-                            <option value="Bridge">Bridge</option>
-
-                            <option value="Composite Filling">Composite Filling</option>
-
-                            <option value="Scaling & Cleaning">Scaling & Cleaning</option>
-
-                            <option value="Extraction">Extraction</option>
-
-                            <option value="Braces">Braces</option>
-                            <option value="Other">Other</option>
-                          </select>
-                        </div>
-                      </div>
-                      <div>
-                        <label className="block text-slate-400 font-bold mb-0.5">
-                          Operational Tracking Notes
-                        </label>
-                        <textarea
-                          rows={2}
-                          value={treatmentForm.notes}
-                          onChange={(e) =>
-                            setTreatmentForm({ ...treatmentForm, notes: e.target.value })
-                          }
-                          className="w-full p-2 border border-slate-200 rounded"
-                          placeholder="Isolation vectors applied..."
-                        />
-                      </div>
-
-                      {treatmentForm.procedure === "Other" && (
-                        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 space-y-4">
-                          <div>
-                            <label className="block text-slate-400 font-bold mb-0.5">
-                              Custom Treatment Name
-                            </label>
-                            <input
-                              type="text"
-                              value={treatmentForm.customTreatmentName}
-                              onChange={(e) =>
-                                setTreatmentForm({
-                                  ...treatmentForm,
-                                  customTreatmentName: e.target.value,
-                                })
-                              }
-                              className="w-full p-2 border border-slate-200 rounded"
-                              required
-                            />
-                          </div>
-                          <div className="space-y-3">
-                            <div className="flex items-center justify-between gap-3">
-                              <span className="text-slate-600 text-sm font-bold">
-                                Custom Treatment Stages
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setTreatmentForm((prev) => ({
-                                    ...prev,
-                                    customStages: [...prev.customStages, "New Stage"],
-                                  }))
-                                }
-                                className="text-xs font-semibold text-cyan-700 bg-cyan-50 hover:bg-cyan-100 px-2 py-1 rounded"
-                              >
-                                Add Stage
-                              </button>
-                            </div>
-                            <div className="space-y-2">
-                              {treatmentForm.customStages.map((stage, index) => (
-                                <div key={index} className="flex items-center gap-2">
-                                  <input
-                                    type="text"
-                                    value={stage}
-                                    onChange={(e) =>
-                                      setTreatmentForm((prev) => ({
-                                        ...prev,
-                                        customStages: prev.customStages.map((item, idx) =>
-                                          idx === index ? e.target.value : item,
-                                        ),
-                                      }))
-                                    }
-                                    className="flex-1 p-2 border border-slate-200 rounded"
-                                    required
-                                  />
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      setTreatmentForm((prev) => ({
-                                        ...prev,
-                                        customStages: prev.customStages.filter(
-                                          (_, idx) => idx !== index,
-                                        ),
-                                      }))
-                                    }
-                                    className="text-xs font-semibold text-rose-600 bg-rose-50 hover:bg-rose-100 px-2 py-1 rounded"
-                                    disabled={treatmentForm.customStages.length <= 1}
-                                  >
-                                    Remove
-                                  </button>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        </div>
-                      )}
-
-                      <div className="flex justify-end gap-2">
-                        <button
-                          type="submit"
-                          className="bg-cyan-600 hover:bg-cyan-700 text-white font-bold px-3 py-1 rounded"
-                        >
-                          Chart
-                        </button>
-                      </div>
-                    </motion.form>
-                  )}
-                </AnimatePresence>
-
-                <span className="uppercase tracking-[0.18em] text-[9px] text-slate-400">
-                  Progress Controlled Below
-                </span>
-
-                <div className="space-y-2">
-                  <div className="bg-red-50 p-2 text-red-700 font-bold">
-                    Treatment Count: {patientData.treatments.length}
-                  </div>
-                  {patientData.treatments.map((tx) => (
-                    <div
-                      key={tx.id}
-                      className="p-3 bg-slate-50/50 border border-slate-100 rounded-xl space-y-1.5 text-xs"
-                    >
-                      <div className="flex justify-between items-center text-[11px]">
-                        <span className="font-mono bg-white px-2 py-0.5 rounded border border-slate-200 text-cyan-800 font-bold">
-                          Tooth Map: {tx.toothNumber}
-                        </span>
-                        <span className="text-slate-400 font-medium">{tx.date}</span>
-                      </div>
-
-                      <div className="mt-1 text-[11px] text-slate-500 space-y-0.5">
-                        <div>
-                          <span className="font-semibold">Started:</span> {tx.startDate}
-                        </div>
-                        {tx.completedDate && (
-                          <div>
-                            <span className="font-semibold">Completed:</span> {tx.completedDate}
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="flex items-center gap-3 text-xs text-slate-500 pt-2">
-                        <div>
-                          <div className="text-[10px] uppercase text-slate-400">Started</div>
-                          <div className="font-semibold text-slate-700">
-                            {formatDate(tx.startDate)}
-                          </div>
-                        </div>
-                        <div>
-                          <div className="text-[10px] uppercase text-slate-400">Completed</div>
-                          <div className="font-semibold text-slate-700">
-                            {tx.completedDate ? formatDate(tx.completedDate) : "-"}
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                        <h4 className="font-bold text-slate-900">{tx.procedure}</h4>
-                        <span
-                          className={`inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-[10px] font-bold border ${getTreatmentStatusClasses(
-                            tx.status,
-                          )}`}
-                        >
-                          {tx.status}
-                        </span>
-                      </div>
-
-                      {tx.notes && (
-                        <p className="text-slate-500 font-medium leading-relaxed bg-white p-2 rounded border border-slate-200/60">
-                          {tx.notes}
-                        </p>
-                      )}
-
-                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between text-xs pt-2">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <label className="inline-flex items-center gap-2 text-slate-500 font-semibold">
-                            <span className="uppercase tracking-[0.18em] text-[9px]">
-                              Current Stage
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between gap-3">
+                            <span className="text-slate-600 text-sm font-bold">
+                              Custom Treatment Stages
                             </span>
-                            <select
-                              value={tx.currentStage}
-                              onChange={(e) => updateTreatmentStage(tx.id, e.target.value)}
-                              className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700"
-                            >
-                              {(tx.stages || []).map((stage) => (
-                                <option key={stage.name} value={stage.name}>
-                                  {stage.name}
-                                </option>
-                              ))}
-                            </select>
-                          </label>
-                        </div>
-                        <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-100 px-2 py-1 text-[10px] font-bold text-slate-700">
-                          {tx.currentStage}
-                        </span>
-                      </div>
-
-                      <div className="mt-2.5 pt-2.5 border-t border-slate-100/70 space-y-2">
-                        <div className="flex items-center justify-between">
-                          <span className="font-semibold text-slate-700 text-[10px] uppercase tracking-wider">
-                            Treatment Plan & Progress
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => toggleManageStages(tx.id)}
-                            className="text-[10px] font-bold text-cyan-600 hover:text-cyan-700"
-                          >
-                            {expandedTxId === tx.id ? "Hide Editor" : "Edit Plan Stages"}
-                          </button>
-                        </div>
-
-                        <div className="flex flex-wrap items-center gap-1.5 py-1">
-                          {(tx.stages || []).map((stage, idx) => (
-                            <React.Fragment key={stage.name}>
-                              <div
-                                onClick={() => handleStageClick(tx.id, idx)}
-                                className={`cursor-pointer px-2 py-0.5 rounded text-[10px] font-bold border transition ${
-                                  stage.status === "completed"
-                                    ? "bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100"
-                                    : stage.status === "active"
-                                      ? "bg-cyan-50 border-cyan-300 text-cyan-700 ring-1 ring-cyan-400 hover:bg-cyan-100"
-                                      : "bg-slate-50 border-slate-200 text-slate-400 hover:bg-slate-100"
-                                }`}
-                                title="Click to set as active stage"
-                              >
-                                {stage.name}
-                              </div>
-                              {idx < (tx.stages || []).length - 1 && (
-                                <span className="text-slate-300">→</span>
-                              )}
-                            </React.Fragment>
-                          ))}
-                        </div>
-                      </div>
-
-                      {expandedTxId === tx.id && (
-                        <div className="bg-slate-50/80 p-2.5 rounded-lg border border-slate-100 space-y-2 mt-2">
-                          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide block">
-                            Configure Plan Stages
-                          </span>
-                          <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
-                            {(tx.stages || []).map((stage, idx) => (
-                              <div key={idx} className="flex items-center gap-1.5">
-                                <input
-                                  type="text"
-                                  value={stage.name}
-                                  onChange={(e) => handleRenameStage(tx.id, idx, e.target.value)}
-                                  className="flex-1 p-1 bg-white border border-slate-200 rounded text-[11px]"
-                                />
-                                <select
-                                  value={stage.status}
-                                  onChange={(e) =>
-                                    handleSetStageStatus(
-                                      tx.id,
-                                      idx,
-                                      e.target.value as "completed" | "active" | "upcoming",
-                                    )
-                                  }
-                                  className="p-1 bg-white border border-slate-200 rounded text-[10px] text-slate-600 font-bold"
-                                >
-                                  <option value="completed">Completed</option>
-                                  <option value="active">Active</option>
-                                  <option value="upcoming">Upcoming</option>
-                                </select>
-                                <button
-                                  type="button"
-                                  disabled={idx === 0}
-                                  onClick={() => handleMoveStage(tx.id, idx, "up")}
-                                  className="p-0.5 text-slate-400 hover:text-slate-600 disabled:opacity-30"
-                                  title="Move Up"
-                                >
-                                  ↑
-                                </button>
-                                <button
-                                  type="button"
-                                  disabled={idx === (tx.stages || []).length - 1}
-                                  onClick={() => handleMoveStage(tx.id, idx, "down")}
-                                  className="p-0.5 text-slate-400 hover:text-slate-600 disabled:opacity-30"
-                                  title="Move Down"
-                                >
-                                  ↓
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleDeleteStage(tx.id, idx)}
-                                  className="p-0.5 text-red-500 hover:text-red-700"
-                                  title="Delete Stage"
-                                >
-                                  ✕
-                                </button>
-                              </div>
-                            ))}
-                          </div>
-                          <div className="flex gap-1.5 pt-1.5 border-t border-slate-200/60">
-                            <input
-                              type="text"
-                              placeholder="New stage name..."
-                              id={`new-stage-${tx.id}`}
-                              className="flex-1 p-1 bg-white border border-slate-200 rounded text-[11px]"
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter") {
-                                  e.preventDefault();
-                                  handleAddCustomStage(
-                                    tx.id,
-                                    (e.currentTarget as HTMLInputElement).value,
-                                  );
-                                  (e.currentTarget as HTMLInputElement).value = "";
-                                }
-                              }}
-                            />
                             <button
                               type="button"
-                              onClick={() => {
-                                const input = document.getElementById(
-                                  `new-stage-${tx.id}`,
-                                ) as HTMLInputElement | null;
-                                if (input && input.value.trim()) {
-                                  handleAddCustomStage(tx.id, input.value);
-                                  input.value = "";
-                                }
-                              }}
-                              className="bg-cyan-600 text-white font-bold px-2 py-1 rounded text-[10px] hover:bg-cyan-700"
+                              onClick={() =>
+                                setTreatmentForm((prev) => ({
+                                  ...prev,
+                                  customStages: [...prev.customStages, "New Stage"],
+                                }))
+                              }
+                              className="text-xs font-semibold text-cyan-700 bg-cyan-50 hover:bg-cyan-100 px-2 py-1 rounded"
                             >
                               Add Stage
                             </button>
                           </div>
+                          <div className="space-y-2">
+                            {treatmentForm.customStages.map((stage, index) => (
+                              <div key={index} className="flex items-center gap-2">
+                                <input
+                                  type="text"
+                                  value={stage}
+                                  onChange={(e) =>
+                                    setTreatmentForm((prev) => ({
+                                      ...prev,
+                                      customStages: prev.customStages.map((item, idx) =>
+                                        idx === index ? e.target.value : item,
+                                      ),
+                                    }))
+                                  }
+                                  className="flex-1 p-2 border border-slate-200 rounded"
+                                  required
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setTreatmentForm((prev) => ({
+                                      ...prev,
+                                      customStages: prev.customStages.filter(
+                                        (_, idx) => idx !== index,
+                                      ),
+                                    }))
+                                  }
+                                  className="text-xs font-semibold text-rose-600 bg-rose-50 hover:bg-rose-100 px-2 py-1 rounded"
+                                  disabled={treatmentForm.customStages.length <= 1}
+                                >
+                                  Remove
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="flex justify-end gap-2">
+                      <button
+                        type="submit"
+                        className="bg-cyan-600 hover:bg-cyan-700 text-white font-bold px-3 py-1 rounded"
+                      >
+                        Chart
+                      </button>
+                    </div>
+                  </motion.form>
+                )}
+              </AnimatePresence>
+
+              <span className="uppercase tracking-[0.18em] text-[9px] text-slate-400">
+                Progress Controlled Below
+              </span>
+
+              <div className="space-y-2">
+                <div className="bg-red-50 p-2 text-red-700 font-bold">
+                  Treatment Count: {patientData.treatments.length}
+                </div>
+                {patientData.treatments.map((tx) => (
+                  <div
+                    key={tx.id}
+                    className="p-3 bg-slate-50/50 border border-slate-100 rounded-xl space-y-1.5 text-xs"
+                  >
+                    <div className="flex justify-between items-center text-[11px]">
+                      <span className="font-mono bg-white px-2 py-0.5 rounded border border-slate-200 text-cyan-800 font-bold">
+                        Tooth Map: {tx.toothNumber}
+                      </span>
+                      <span className="text-slate-400 font-medium">{tx.date}</span>
+                    </div>
+
+                    <div className="mt-1 text-[11px] text-slate-500 space-y-0.5">
+                      <div>
+                        <span className="font-semibold">Started:</span> {tx.startDate}
+                      </div>
+                      {tx.completedDate && (
+                        <div>
+                          <span className="font-semibold">Completed:</span> {tx.completedDate}
                         </div>
                       )}
-                      <div className="flex flex-wrap items-center gap-2 pt-2">
-                        {tx.status !== "Ongoing" && tx.status !== "Completed" && (
-                          <button
-                            type="button"
-                            onClick={() => updateTreatmentStatus(tx.id, "Ongoing")}
-                            className="text-[10px] font-bold text-cyan-700 bg-cyan-50 hover:bg-cyan-100 px-2 py-1 rounded"
-                          >
-                            {tx.status === "Pending" ? "Start Treatment" : "Resume Treatment"}
-                          </button>
-                        )}
-                        {tx.status === "Ongoing" && (
-                          <button
-                            type="button"
-                            onClick={() => updateTreatmentStatus(tx.id, "Paused")}
-                            className="text-[10px] font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 px-2 py-1 rounded"
-                          >
-                            Pause Treatment
-                          </button>
-                        )}
-                        {tx.status !== "Completed" && (
-                          <button
-                            type="button"
-                            onClick={() => updateTreatmentStatus(tx.id, "Completed")}
-                            className="text-[10px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-2 py-1 rounded"
-                          >
-                            Complete Treatment
-                          </button>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (
-                              typeof window !== "undefined" &&
-                              window.confirm("Delete this treatment? This action cannot be undone.")
-                            ) {
-                              setPatientData((prev) => ({
-                                ...prev,
-                                treatments: prev.treatments.filter((t) => t.id !== tx.id),
-                              }));
-                              if (expandedTxId === tx.id) setExpandedTxId(null);
-                            }
-                          }}
-                          className="text-[10px] font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 px-2 py-1 rounded"
-                        >
-                          Delete
-                        </button>
+                    </div>
+
+                    <div className="flex items-center gap-3 text-xs text-slate-500 pt-2">
+                      <div>
+                        <div className="text-[10px] uppercase text-slate-400">Started</div>
+                        <div className="font-semibold text-slate-700">
+                          {formatDate(tx.startDate)}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] uppercase text-slate-400">Completed</div>
+                        <div className="font-semibold text-slate-700">
+                          {tx.completedDate ? formatDate(tx.completedDate) : "-"}
+                        </div>
                       </div>
                     </div>
-                  ))}
-                </div>
+
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                      <h4 className="font-bold text-slate-900">{tx.procedure}</h4>
+                      <span
+                        className={`inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-[10px] font-bold border ${getTreatmentStatusClasses(
+                          tx.status,
+                        )}`}
+                      >
+                        {tx.status}
+                      </span>
+                    </div>
+
+                    {tx.notes && (
+                      <p className="text-slate-500 font-medium leading-relaxed bg-white p-2 rounded border border-slate-200/60">
+                        {tx.notes}
+                      </p>
+                    )}
+
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between text-xs pt-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <label className="inline-flex items-center gap-2 text-slate-500 font-semibold">
+                          <span className="uppercase tracking-[0.18em] text-[9px]">
+                            Current Stage
+                          </span>
+                          <select
+                            value={tx.currentStage}
+                            onChange={(e) => updateTreatmentStage(tx.id, e.target.value)}
+                            className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700"
+                          >
+                            {(tx.stages || []).map((stage) => (
+                              <option key={stage.name} value={stage.name}>
+                                {stage.name}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      </div>
+                      <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-100 px-2 py-1 text-[10px] font-bold text-slate-700">
+                        {tx.currentStage}
+                      </span>
+                    </div>
+
+                    <div className="mt-2.5 pt-2.5 border-t border-slate-100/70 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="font-semibold text-slate-700 text-[10px] uppercase tracking-wider">
+                          Treatment Plan & Progress
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => toggleManageStages(tx.id)}
+                          className="text-[10px] font-bold text-cyan-600 hover:text-cyan-700"
+                        >
+                          {expandedTxId === tx.id ? "Hide Editor" : "Edit Plan Stages"}
+                        </button>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-1.5 py-1">
+                        {(tx.stages || []).map((stage, idx) => (
+                          <React.Fragment key={stage.name}>
+                            <div
+                              onClick={() => handleStageClick(tx.id, idx)}
+                              className={`cursor-pointer px-2 py-0.5 rounded text-[10px] font-bold border transition ${
+                                stage.status === "completed"
+                                  ? "bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100"
+                                  : stage.status === "active"
+                                    ? "bg-cyan-50 border-cyan-300 text-cyan-700 ring-1 ring-cyan-400 hover:bg-cyan-100"
+                                    : "bg-slate-50 border-slate-200 text-slate-400 hover:bg-slate-100"
+                              }`}
+                              title="Click to set as active stage"
+                            >
+                              {stage.name}
+                            </div>
+                            {idx < (tx.stages || []).length - 1 && (
+                              <span className="text-slate-300">→</span>
+                            )}
+                          </React.Fragment>
+                        ))}
+                      </div>
+                    </div>
+
+                    {expandedTxId === tx.id && (
+                      <div className="bg-slate-50/80 p-2.5 rounded-lg border border-slate-100 space-y-2 mt-2">
+                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide block">
+                          Configure Plan Stages
+                        </span>
+                        <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                          {(tx.stages || []).map((stage, idx) => (
+                            <div key={idx} className="flex items-center gap-1.5">
+                              <input
+                                type="text"
+                                value={stage.name}
+                                onChange={(e) => handleRenameStage(tx.id, idx, e.target.value)}
+                                className="flex-1 p-1 bg-white border border-slate-200 rounded text-[11px]"
+                              />
+                              <select
+                                value={stage.status}
+                                onChange={(e) =>
+                                  handleSetStageStatus(
+                                    tx.id,
+                                    idx,
+                                    e.target.value as "completed" | "active" | "upcoming",
+                                  )
+                                }
+                                className="p-1 bg-white border border-slate-200 rounded text-[10px] text-slate-600 font-bold"
+                              >
+                                <option value="completed">Completed</option>
+                                <option value="active">Active</option>
+                                <option value="upcoming">Upcoming</option>
+                              </select>
+                              <button
+                                type="button"
+                                disabled={idx === 0}
+                                onClick={() => handleMoveStage(tx.id, idx, "up")}
+                                className="p-0.5 text-slate-400 hover:text-slate-600 disabled:opacity-30"
+                                title="Move Up"
+                              >
+                                ↑
+                              </button>
+                              <button
+                                type="button"
+                                disabled={idx === (tx.stages || []).length - 1}
+                                onClick={() => handleMoveStage(tx.id, idx, "down")}
+                                className="p-0.5 text-slate-400 hover:text-slate-600 disabled:opacity-30"
+                                title="Move Down"
+                              >
+                                ↓
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteStage(tx.id, idx)}
+                                className="p-0.5 text-red-500 hover:text-red-700"
+                                title="Delete Stage"
+                              >
+                                ✕
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="flex gap-1.5 pt-1.5 border-t border-slate-200/60">
+                          <input
+                            type="text"
+                            placeholder="New stage name..."
+                            id={`new-stage-${tx.id}`}
+                            className="flex-1 p-1 bg-white border border-slate-200 rounded text-[11px]"
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                e.preventDefault();
+                                handleAddCustomStage(
+                                  tx.id,
+                                  (e.currentTarget as HTMLInputElement).value,
+                                );
+                                (e.currentTarget as HTMLInputElement).value = "";
+                              }
+                            }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const input = document.getElementById(
+                                `new-stage-${tx.id}`,
+                              ) as HTMLInputElement | null;
+                              if (input && input.value.trim()) {
+                                handleAddCustomStage(tx.id, input.value);
+                                input.value = "";
+                              }
+                            }}
+                            className="bg-cyan-600 text-white font-bold px-2 py-1 rounded text-[10px] hover:bg-cyan-700"
+                          >
+                            Add Stage
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                    <div className="flex flex-wrap items-center gap-2 pt-2">
+                      {tx.status !== "Ongoing" && tx.status !== "Completed" && (
+                        <button
+                          type="button"
+                          onClick={() => updateTreatmentStatus(tx.id, "Ongoing")}
+                          className="text-[10px] font-bold text-cyan-700 bg-cyan-50 hover:bg-cyan-100 px-2 py-1 rounded"
+                        >
+                          {tx.status === "Pending" ? "Start Treatment" : "Resume Treatment"}
+                        </button>
+                      )}
+                      {tx.status === "Ongoing" && (
+                        <button
+                          type="button"
+                          onClick={() => updateTreatmentStatus(tx.id, "Paused")}
+                          className="text-[10px] font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 px-2 py-1 rounded"
+                        >
+                          Pause Treatment
+                        </button>
+                      )}
+                      {tx.status !== "Completed" && (
+                        <button
+                          type="button"
+                          onClick={() => updateTreatmentStatus(tx.id, "Completed")}
+                          className="text-[10px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-2 py-1 rounded"
+                        >
+                          Complete Treatment
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (
+                            typeof window !== "undefined" &&
+                            window.confirm("Delete this treatment? This action cannot be undone.")
+                          ) {
+                            setPatientData((prev) => ({
+                              ...prev,
+                              treatments: prev.treatments.filter((t) => t.id !== tx.id),
+                            }));
+                            if (expandedTxId === tx.id) setExpandedTxId(null);
+                          }
+                        }}
+                        className="text-[10px] font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 px-2 py-1 rounded"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
+        </div>
 
-          {/* ==========================================
-              SIMPLIFIED CLINIC APPOINTMENT SCHEDULER MATRIX
+        {/* ==========================================
+              CALENDAR & INTERACTIVE TOOTH CHART SIDE-BY-SIDE GRID
              ========================================== */}
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 items-stretch mb-6">
+          {/* SIMPLIFIED CLINIC APPOINTMENT SCHEDULER MATRIX */}
           <div
             id="scheduler"
-            className="bg-white rounded-2xl border border-slate-200 border-l-4 border-l-rose-200 shadow-xs overflow-hidden flex flex-col justify-between scroll-mt-[160px]"
+            className="bg-white rounded-xl border border-slate-200 border-l-4 border-l-rose-200 shadow-sm overflow-hidden flex flex-col justify-between scroll-mt-[160px]"
           >
             <div>
-              <div className="px-4 sm:px-5 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
+              <div className="px-4 sm:px-5 py-3 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
                 <h3 className="text-xs sm:text-sm font-bold text-slate-900 flex items-center gap-2">
                   <Calendar className="w-4 h-4 text-indigo-600" /> Operational Scheduler Matrix Grid
                 </h3>
@@ -3563,7 +4050,7 @@ export default function AdminPatientDetailsPage() {
                         return prev - 1;
                       });
                     }}
-                    className="p-1 hover:bg-slate-200 rounded text-slate-600 transition"
+                    className="p-1 hover:bg-slate-200 rounded text-slate-600 transition cursor-pointer"
                   >
                     <ChevronLeft className="w-4 h-4" />
                   </button>
@@ -3584,20 +4071,20 @@ export default function AdminPatientDetailsPage() {
                         return prev + 1;
                       });
                     }}
-                    className="p-1 hover:bg-slate-200 rounded text-slate-600 transition"
+                    className="p-1 hover:bg-slate-200 rounded text-slate-600 transition cursor-pointer"
                   >
                     <ChevronRight className="w-4 h-4" />
                   </button>
                 </div>
               </div>
 
-              <div className="p-4 space-y-4">
+              <div className="p-3 space-y-3">
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block">
                   Interactive Active Calendar Road-Track
                 </span>
 
                 {/* INTERACTIVE CALENDAR MINI-GRID */}
-                <div className="grid grid-cols-7 auto-rows-[64px] gap-2 bg-white p-2 rounded-2xl border border-slate-100">
+                <div className="grid grid-cols-7 auto-rows-[64px] gap-1.5 bg-white p-1.5 rounded-xl border border-slate-100">
                   {calendarDays.map((day, i) => {
                     const matchedAppt = patientData.appointments.find(
                       (a) => a.date === day.dateStr,
@@ -3622,16 +4109,16 @@ export default function AdminPatientDetailsPage() {
                             setIsCreateApptModalOpen(true);
                           }
                         }}
-                        className={`rounded-xl border p-1.5 text-left transition-all duration-200 relative h-full group
-                        
-                        ${
-                          isCurrentSelection
-                            ? "bg-rose-50/80 border-rose-200 text-rose-600 shadow-xs ring-1 ring-rose-200"
-                            : matchedAppt
-                              ? "bg-indigo-50/30 hover:bg-indigo-50/60 border-indigo-100 text-indigo-900 shadow-xs"
-                              : "bg-white border-slate-100 text-slate-400 hover:border-indigo-200 hover:bg-indigo-50/10 hover:text-indigo-600"
-                        }
-                      `}
+                        className={`rounded-lg border p-1 text-left transition-all duration-200 relative h-full group cursor-pointer
+                          
+                          ${
+                            isCurrentSelection
+                              ? "bg-rose-50/80 border-rose-200 text-rose-600 shadow-sm ring-1 ring-rose-200"
+                              : matchedAppt
+                                ? "bg-indigo-50/30 hover:bg-indigo-50/60 border-indigo-100 text-indigo-900 shadow-sm"
+                                : "bg-white border-slate-100 text-slate-400 hover:border-indigo-200 hover:bg-indigo-50/10 hover:text-indigo-600"
+                          }
+                        `}
                       >
                         <div className="flex h-full flex-col items-start justify-between">
                           <div>
@@ -3682,46 +4169,274 @@ export default function AdminPatientDetailsPage() {
               </div>
             </div>
           </div>
+
+          {/* INTERACTIVE TOOTH CHART */}
+          <div
+            id="tooth-chart"
+            className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col justify-between scroll-mt-[160px]"
+          >
+            <div>
+              <div className="px-3 sm:px-4 py-3 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-emerald-600" /> Interactive Tooth Chart
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Click a tooth to add procedures, update status, or add notes. Changes sync to
+                    the patient portal (read-only).
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => refreshToothHistory()}
+                    className="text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 px-2 py-1 rounded-md cursor-pointer"
+                  >
+                    Refresh
+                  </button>
+                </div>
+              </div>
+
+              <div className="p-4 flex flex-col space-y-4">
+                {/* Upper: Tooth Grid & Legend */}
+                <div className="flex justify-center items-center w-full">
+                  <div className="w-full max-w-[920px] mx-auto">
+                    <ToothChart
+                      marks={getToothMarks()}
+                      selected={selectedTooth ?? null}
+                      onSelect={openToothModal}
+                      size="lg"
+                    />
+                  </div>
+                </div>
+
+                <div className="border-t border-slate-100 pt-3">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">
+                    {fullMouthEditId ? "Edit Full-mouth Treatment" : "Add Full-mouth Treatment"}
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-slate-500 text-xs font-bold mb-1">
+                          Treatment Name
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="e.g. Scaling"
+                          value={fullMouthForm.title}
+                          onChange={(e) =>
+                            setFullMouthForm({ ...fullMouthForm, title: e.target.value })
+                          }
+                          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-teal-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-slate-500 text-xs font-bold mb-1">
+                          Status
+                        </label>
+                        <div className="relative">
+                          <select
+                            value={fullMouthForm.status}
+                            onChange={(e) =>
+                              setFullMouthForm({
+                                ...fullMouthForm,
+                                status: e.target.value as any,
+                              })
+                            }
+                            className="w-full rounded-xl border border-slate-200 bg-white pl-3 pr-8 py-2 text-sm outline-none focus:border-teal-500 appearance-none cursor-pointer"
+                          >
+                            <option value="planned">Planned</option>
+                            <option value="in_progress">In Progress</option>
+                            <option value="completed">Completed</option>
+                            <option value="cancelled">Cancelled</option>
+                          </select>
+                          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="md:col-span-2 flex flex-col justify-between">
+                      <div>
+                        <label className="block text-slate-500 text-xs font-bold mb-1">Notes</label>
+                        <textarea
+                          placeholder="Add clinical notes here..."
+                          rows={2}
+                          value={fullMouthForm.description}
+                          onChange={(e) =>
+                            setFullMouthForm({ ...fullMouthForm, description: e.target.value })
+                          }
+                          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-teal-500 resize-none h-[82px]"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Action Buttons: Add Treatment & Active Treatments (N) */}
+                  <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setIsFullMouthActiveModalOpen(true)}
+                        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 transition-colors cursor-pointer"
+                      >
+                        <History className="w-3.5 h-3.5 text-slate-500" />
+                        Active Treatments (
+                        {
+                          patientData.treatments.filter(
+                            (t) => t.toothNumber === "General" || !t.toothNumber,
+                          ).length
+                        }
+                        )
+                      </button>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      {fullMouthEditId ? (
+                        <>
+                          <button
+                            type="button"
+                            onClick={handleCancelFullMouthEdit}
+                            className="py-2 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-colors cursor-pointer"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleSaveFullMouth}
+                            className="py-2 px-4 bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold rounded-xl transition-colors cursor-pointer"
+                          >
+                            Save Changes
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={handleSaveFullMouth}
+                          className="py-2 px-6 bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold rounded-xl transition-colors cursor-pointer"
+                        >
+                          Add Treatment
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
-        {/* ==========================================
-            SIMPLIFIED CLINIC APPOINTMENT SCHEDULER MATRIX
-           ========================================== */}
-        <div
-          id="tooth-chart"
-          className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden scroll-mt-[160px]"
-        >
-          <div className="px-3 sm:px-4 py-3 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                <FileText className="w-4 h-4 text-emerald-600" /> Interactive Tooth Chart
-              </h3>
-              <p className="text-xs text-slate-500 mt-1">
-                Click a tooth to add procedures, update status, or add notes. Changes sync to the
-                patient portal (read-only).
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => refreshToothHistory()}
-                className="text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 px-2 py-1 rounded-md"
-              >
-                Refresh
-              </button>
-            </div>
-          </div>
-          <div className="p-5">
-            <div className="w-full max-w-[920px] mx-auto">
-              <ToothChart
-                marks={getToothMarks()}
-                selected={selectedTooth ?? null}
-                onSelect={openToothModal}
-                size="lg"
+        {/* ACTIVE FULL-MOUTH TREATMENTS POPUP MODAL */}
+        <AnimatePresence>
+          {isFullMouthActiveModalOpen && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-3">
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setIsFullMouthActiveModalOpen(false)}
+                className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
               />
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 20 }}
+                className="relative w-full max-w-lg overflow-hidden rounded-3xl bg-white border border-slate-200 shadow-2xl"
+              >
+                <div className="flex items-center justify-between gap-3 border-b border-slate-100 border-l-4 border-l-teal-600 px-5 py-4 bg-slate-50/70">
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-800">
+                      Active Full-mouth Treatments (
+                      {
+                        patientData.treatments.filter(
+                          (t) => t.toothNumber === "General" || !t.toothNumber,
+                        ).length
+                      }
+                      )
+                    </h3>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsFullMouthActiveModalOpen(false)}
+                    className="inline-flex items-center justify-center rounded-xl bg-slate-100 p-2 text-slate-600 hover:bg-slate-200 cursor-pointer"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <div className="p-5 max-h-[400px] overflow-y-auto space-y-3">
+                  {patientData.treatments.filter(
+                    (t) => t.toothNumber === "General" || !t.toothNumber,
+                  ).length > 0 ? (
+                    patientData.treatments
+                      .filter((t) => t.toothNumber === "General" || !t.toothNumber)
+                      .map((plan) => (
+                        <div
+                          key={plan.id}
+                          className="p-3 bg-white border border-slate-100 rounded-xl flex flex-col gap-1.5 shadow-xs"
+                        >
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <span className="font-bold text-slate-800 text-sm">
+                                {plan.procedure}
+                              </span>
+                              <span
+                                className={`ml-2 text-[10px] px-1.5 py-0.5 rounded-full font-semibold border ${
+                                  plan.status === "Completed"
+                                    ? "bg-emerald-50 text-emerald-700 border-emerald-100"
+                                    : plan.status === "Ongoing"
+                                      ? "bg-teal-50 text-teal-700 border-teal-100"
+                                      : plan.status === "Paused"
+                                        ? "bg-slate-50 text-slate-700 border-slate-200"
+                                        : "bg-amber-50 text-amber-700 border-amber-100"
+                                }`}
+                              >
+                                {plan.status}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  handleInitiateFullMouthEdit(plan);
+                                  setIsFullMouthActiveModalOpen(false);
+                                }}
+                                title="Edit Treatment"
+                                aria-label="Edit Treatment"
+                                className="text-slate-400 hover:text-teal-600 transition-colors p-1 cursor-pointer"
+                              >
+                                <Edit2 className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteFullMouth(plan.id)}
+                                title="Delete Treatment"
+                                aria-label="Delete Treatment"
+                                className="text-slate-400 hover:text-red-600 transition-colors p-1 cursor-pointer"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                          <div className="text-[10px] text-slate-400">
+                            Started: {plan.date || plan.startDate}
+                          </div>
+                          {plan.notes && (
+                            <p className="text-xs text-slate-600 mt-1 leading-relaxed bg-slate-50/50 p-2 rounded-lg border border-slate-100">
+                              {plan.notes}
+                            </p>
+                          )}
+                        </div>
+                      ))
+                  ) : (
+                    <div className="text-xs text-slate-400 italic py-6 text-center">
+                      No active full-mouth treatments.
+                    </div>
+                  )}
+                </div>
+              </motion.div>
             </div>
-          </div>
-        </div>
+          )}
+        </AnimatePresence>
 
         {/* ==========================================
             PRESCRIPTION MANAGEMENT & AUTHORING WORKFLOW
@@ -3740,22 +4455,6 @@ export default function AdminPatientDetailsPage() {
                 read-only mode.
               </p>
             </div>
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => handleOpenPrescriptionModal("create")}
-                className="inline-flex items-center gap-2 text-xs font-bold text-white bg-violet-600 hover:bg-violet-700 px-3 py-1.5 rounded-lg transition"
-              >
-                <Plus className="w-3.5 h-3.5" /> Create Prescription
-              </button>
-              <button
-                type="button"
-                onClick={() => handleOpenPrescriptionModal("history")}
-                className="inline-flex items-center gap-2 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-lg transition"
-              >
-                <History className="w-3.5 h-3.5" /> View Prescription History
-              </button>
-            </div>
           </div>
 
           <div className="p-3 sm:p-4 space-y-3">
@@ -3763,15 +4462,12 @@ export default function AdminPatientDetailsPage() {
               <div className="rounded-2xl bg-slate-50 border border-slate-200 p-3">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="text-[10px] uppercase tracking-wide text-slate-400 font-bold">
+                    <p className="text-[15px] uppercase tracking-wide text-slate-400 font-bold">
                       Latest Prescription Preview
                     </p>
-                    <h4 className="mt-2 text-sm font-bold text-slate-900">
-                      {latestPrescription?.associatedTreatment || "No prescription yet"}
-                    </h4>
                   </div>
                   {latestPrescription ? (
-                    <span className="text-[10px] font-bold uppercase tracking-wide text-emerald-700 bg-emerald-50 border border-emerald-100 px-2 py-1 rounded-full">
+                    <span className={getPrescriptionStatusBadgeClasses(latestPrescription.status)}>
                       {latestPrescription.status}
                     </span>
                   ) : null}
@@ -3781,11 +4477,21 @@ export default function AdminPatientDetailsPage() {
                   <div className="mt-4 space-y-4 text-sm text-slate-700">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
-                        <span className="text-xs text-slate-500 uppercase tracking-wide">
-                          Issued
-                        </span>
-                        <p className="font-semibold text-slate-900 mt-1">
-                          {formatPrescriptionDate(latestPrescription.date)}
+                        <p className="text-sm font-bold text-slate-900">
+                          Issued:{" "}
+                          <span className="font-medium text-slate-700">
+                            {formatPrescriptionDate(latestPrescription.date)}
+                          </span>
+                        </p>
+                        <p className="text-sm font-bold text-slate-900 mt-1">
+                          {latestPrescription.status === "COMPLETED"
+                            ? "Expired on:"
+                            : "Valid until:"}{" "}
+                          <span className="font-medium text-slate-700">
+                            {latestPrescription.expiryDate
+                              ? formatPrescriptionDate(latestPrescription.expiryDate)
+                              : ""}
+                          </span>
                         </p>
                       </div>
                       <div>
@@ -3814,12 +4520,10 @@ export default function AdminPatientDetailsPage() {
                             className="rounded-xl bg-slate-50 p-3 border border-slate-100"
                           >
                             <div className="flex flex-wrap items-center justify-between gap-2">
-                              <p className="font-semibold text-slate-900">
+                              <p className="font-semibold text-slate-900 text-base">
                                 {medicine.name} {medicine.strength}
                               </p>
-                              <span className="text-[11px] text-slate-500">
-                                {medicine.duration}
-                              </span>
+                              <span className="text-xs text-slate-500">{medicine.duration}</span>
                             </div>
                             <p className="text-slate-500 text-xs mt-1">
                               {medicine.dosage} • {medicine.frequency}
@@ -3833,38 +4537,41 @@ export default function AdminPatientDetailsPage() {
                       <p className="text-[10px] uppercase tracking-wide text-slate-400">
                         Notes / Instructions
                       </p>
-                      <p className="mt-2 text-sm text-slate-700 leading-relaxed">
+                      <p className="mt-2 text-base text-slate-700 leading-relaxed">
                         {latestPrescription.dosageInstructions}
                       </p>
                     </div>
                   </div>
                 ) : (
-                  <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-3 text-sm text-slate-500">
-                    No prescription has been created for this patient yet. Use Create Prescription
-                    to add the first entry.
+                  <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-slate-500 space-y-1">
+                    <h5 className="font-bold text-slate-700">No active prescription</h5>
+                    <p>
+                      This patient currently has no active prescription. Create a new prescription
+                      to begin a new course of treatment.
+                    </p>
                   </div>
                 )}
               </div>
 
               <div className="rounded-2xl border border-slate-200 p-3 bg-white space-y-4">
                 <div className="space-y-2">
-                  <p className="text-[10px] uppercase tracking-wide text-slate-400 font-bold">
+                  <p className="text-xs uppercase tracking-wide text-slate-400 font-bold">
                     Quick Actions
                   </p>
                   <div className="grid gap-2">
                     <button
                       type="button"
                       onClick={() => handleOpenPrescriptionModal("create")}
-                      className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-violet-600 text-white px-3 py-2 text-xs font-bold hover:bg-violet-700 transition"
+                      className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-violet-600 text-white px-4 py-3 text-base font-bold hover:bg-violet-700 transition"
                     >
-                      <Plus className="w-3.5 h-3.5" /> Create Prescription
+                      <Plus className="w-6 h-6" /> Create Prescription
                     </button>
                     <button
                       type="button"
                       onClick={() => handleOpenPrescriptionModal("history")}
-                      className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-slate-100 text-slate-700 px-3 py-2 text-xs font-bold hover:bg-slate-200 transition"
+                      className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-slate-100 text-slate-700 px-4 py-3 text-sm font-semibold hover:bg-slate-200 transition"
                     >
-                      <History className="w-3.5 h-3.5" /> View Prescription History
+                      <History className="w-6 h-6" /> View Prescription History
                     </button>
                     <button
                       type="button"
@@ -3872,14 +4579,14 @@ export default function AdminPatientDetailsPage() {
                       onClick={() =>
                         latestPrescription && handleGeneratePrescriptionPdf(latestPrescription)
                       }
-                      className="w-full inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white text-slate-700 px-3 py-2 text-xs font-bold hover:bg-slate-50 transition disabled:cursor-not-allowed disabled:opacity-60"
+                      className="w-full inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white text-slate-700 px-4 py-3 text-sm font-semibold hover:bg-slate-50 transition disabled:cursor-not-allowed disabled:opacity-60"
                     >
-                      <FileDown className="w-3.5 h-3.5" /> Generate Prescription PDF
+                      <FileDown className="w-6 h-6" /> Generate Prescription PDF
                     </button>
                   </div>
                 </div>
                 {latestPrescription ? (
-                  <div className="rounded-2xl border border-slate-100 bg-slate-50 p-3 text-xs text-slate-500">
+                  <div className="rounded-2xl border border-slate-100 bg-slate-50 p-3 text-sm text-slate-500">
                     Latest prescription data is synced to the patient portal in read-only mode.
                   </div>
                 ) : null}
@@ -3908,10 +4615,12 @@ export default function AdminPatientDetailsPage() {
                       <h3 className="text-sm font-bold text-slate-900">
                         {prescriptionModal === "create"
                           ? "Create Prescription"
-                          : "Prescription History"}
+                          : prescriptionModal === "edit"
+                            ? "Edit Prescription"
+                            : "Prescription History"}
                       </h3>
                       <p className="text-xs text-slate-500 mt-1">
-                        {prescriptionModal === "create"
+                        {prescriptionModal === "create" || prescriptionModal === "edit"
                           ? "Add medicines, instructions, and duration before saving the prescription."
                           : "Browse the patient’s prescription history in a read-only summary view."}
                       </p>
@@ -3926,7 +4635,7 @@ export default function AdminPatientDetailsPage() {
                   </div>
 
                   <div className="p-5 space-y-4 text-sm text-slate-700">
-                    {prescriptionModal === "create" ? (
+                    {prescriptionModal === "create" || prescriptionModal === "edit" ? (
                       <form onSubmit={handleAddPrescription} className="space-y-4">
                         {prescriptionErrorMessage ? (
                           <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-rose-700 text-sm">
@@ -4008,7 +4717,7 @@ export default function AdminPatientDetailsPage() {
                                 </button>
                               </div>
                               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                                <div>
+                                <div className="md:col-span-2">
                                   <label className="block text-slate-500 text-xs font-semibold mb-1">
                                     Name
                                   </label>
@@ -4025,7 +4734,7 @@ export default function AdminPatientDetailsPage() {
                                 </div>
                                 <div>
                                   <label className="block text-slate-500 text-xs font-semibold mb-1">
-                                    Strength
+                                    Strength (Optional)
                                   </label>
                                   <input
                                     type="text"
@@ -4037,9 +4746,11 @@ export default function AdminPatientDetailsPage() {
                                     placeholder="400mg"
                                   />
                                 </div>
-                                <div>
+                              </div>
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
+                                <div className="md:col-span-2">
                                   <label className="block text-slate-500 text-xs font-semibold mb-1">
-                                    Dosage
+                                    Instructions
                                   </label>
                                   <input
                                     type="text"
@@ -4048,39 +4759,24 @@ export default function AdminPatientDetailsPage() {
                                       updatePrescriptionRow(rowIndex, "dosage", e.target.value)
                                     }
                                     className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-violet-500"
-                                    placeholder="1 tablet"
-                                    required
-                                  />
-                                </div>
-                              </div>
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
-                                <div>
-                                  <label className="block text-slate-500 text-xs font-semibold mb-1">
-                                    Frequency
-                                  </label>
-                                  <input
-                                    type="text"
-                                    value={row.frequency}
-                                    onChange={(e) =>
-                                      updatePrescriptionRow(rowIndex, "frequency", e.target.value)
-                                    }
-                                    className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-violet-500"
-                                    placeholder="Every 4-6 hours"
+                                    placeholder="1 tablet twice daily after meals"
                                     required
                                   />
                                 </div>
                                 <div>
                                   <label className="block text-slate-500 text-xs font-semibold mb-1">
-                                    Duration
+                                    Duration (days)
                                   </label>
                                   <input
-                                    type="text"
+                                    type="number"
+                                    min={1}
+                                    step={1}
                                     value={row.duration}
                                     onChange={(e) =>
                                       updatePrescriptionRow(rowIndex, "duration", e.target.value)
                                     }
                                     className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-violet-500"
-                                    placeholder="5 days"
+                                    placeholder="e.g. 5"
                                     required
                                   />
                                 </div>
@@ -4110,7 +4806,11 @@ export default function AdminPatientDetailsPage() {
                             disabled={isCreatingPrescription}
                             className="rounded-xl bg-violet-600 px-4 py-2 text-xs font-bold text-white hover:bg-violet-700 disabled:opacity-60"
                           >
-                            {isCreatingPrescription ? "Saving..." : "Save Prescription"}
+                            {isCreatingPrescription
+                              ? "Saving..."
+                              : prescriptionModal === "edit"
+                                ? "Save Changes"
+                                : "Save Prescription"}
                           </button>
                         </div>
                       </form>
@@ -4135,7 +4835,9 @@ export default function AdminPatientDetailsPage() {
                                 >
                                   <div className="min-w-0 space-y-1">
                                     <div className="flex flex-wrap items-center gap-2">
-                                      <span className="text-[10px] uppercase tracking-wide font-bold text-slate-400">
+                                      <span
+                                        className={getPrescriptionStatusBadgeClasses(rx.status)}
+                                      >
                                         {rx.status}
                                       </span>
                                       <h4 className="text-sm font-bold text-slate-900 truncate">
@@ -4143,7 +4845,9 @@ export default function AdminPatientDetailsPage() {
                                       </h4>
                                     </div>
                                     <p className="text-xs text-slate-500 truncate">
-                                      Issued {formatPrescriptionDate(rx.date)} •{" "}
+                                      Issued: {formatPrescriptionDate(rx.date)} •{" "}
+                                      {rx.status === "COMPLETED" ? "Expired on:" : "Valid until:"}{" "}
+                                      {rx.expiryDate ? formatPrescriptionDate(rx.expiryDate) : ""} •{" "}
                                       {rx.medicines.map((med) => med.name).join(", ")}
                                     </p>
                                   </div>
@@ -4214,6 +4918,29 @@ export default function AdminPatientDetailsPage() {
                                         >
                                           <Printer className="w-3.5 h-3.5" /> Print
                                         </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setEditingPrescriptionId(rx.id);
+                                            setPrescriptionForm({
+                                              associatedTreatment: rx.associatedTreatment,
+                                              dosageInstructions: rx.dosageInstructions,
+                                              followUpRecommendation: rx.followUpRecommendation,
+                                            });
+                                            setPrescriptionRows(rx.medicines);
+                                            setPrescriptionModal("edit");
+                                          }}
+                                          className="inline-flex items-center gap-2 rounded-xl border border-violet-250 bg-violet-50 px-3 py-2 text-xs font-bold text-violet-700 hover:bg-violet-100/70"
+                                        >
+                                          <Edit2 className="w-3.5 h-3.5" /> Edit
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleDeletePrescription(rx.id)}
+                                          className="inline-flex items-center gap-2 rounded-xl border border-rose-250 bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700 hover:bg-rose-100/70"
+                                        >
+                                          <Trash2 className="w-3.5 h-3.5" /> Delete
+                                        </button>
                                       </div>
                                     </div>
                                   </div>
@@ -4249,10 +4976,14 @@ export default function AdminPatientDetailsPage() {
               exit={{ opacity: 0, y: 20 }}
               className="relative w-full max-w-2xl overflow-hidden rounded-3xl bg-white border border-slate-200 shadow-2xl"
             >
-              <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-5 py-4 bg-slate-50">
+              <div className="flex items-center justify-between gap-3 border-b border-slate-100 border-l-4 border-l-teal-600 px-5 py-4 bg-slate-50/70">
                 <div>
-                  <h3 className="text-sm font-bold text-slate-900">
-                    {selectedTooth ? `Tooth ${selectedTooth}` : "Tooth"} — Manage
+                  <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-extrabold bg-teal-600 text-white shadow-xs">
+                      {selectedTooth ? `Tooth ${selectedTooth}` : "Tooth"}
+                    </span>
+                    <span className="text-slate-400 font-bold">—</span>
+                    <span className="text-sm font-bold text-slate-800">Manage Treatment</span>
                   </h3>
                   <p className="text-xs text-slate-500 mt-1">
                     Add a procedure, update condition, or mark completed. Patient portal receives
@@ -4270,190 +5001,256 @@ export default function AdminPatientDetailsPage() {
                 </div>
               </div>
 
-              <div className="p-5 space-y-4 text-sm text-slate-700">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="p-5 text-sm text-slate-700">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Left Column: Form inputs stacked vertically */}
                   <div className="space-y-3">
-                    <label className="block text-slate-500 text-xs font-bold">Procedure</label>
-                    <input
-                      type="text"
-                      value={toothForm.procedure}
-                      disabled={!isEditing}
-                      onChange={(e) => setToothForm({ ...toothForm, procedure: e.target.value })}
-                      className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
-                      placeholder="e.g. Composite Filling"
-                    />
+                    <div>
+                      <label className="block text-slate-500 text-xs font-bold mb-1">
+                        Procedure
+                      </label>
+                      <input
+                        type="text"
+                        value={toothForm.procedure}
+                        disabled={!isEditing}
+                        onChange={(e) => setToothForm({ ...toothForm, procedure: e.target.value })}
+                        className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-teal-500 disabled:bg-slate-50 disabled:text-slate-500"
+                        placeholder="e.g. Composite Filling"
+                      />
+                    </div>
 
-                    <label className="block text-slate-500 text-xs font-bold">Status</label>
-                    <select
-                      value={toothForm.status}
-                      disabled={!isEditing}
-                      onChange={(e) =>
-                        setToothForm({
-                          ...toothForm,
-                          status: e.target.value as ToothTreatmentStatus,
-                        })
-                      }
-                      className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
-                    >
-                      <option value="planned">Planned</option>
-                      <option value="in_progress">In Progress</option>
-                      <option value="completed">Completed</option>
-                    </select>
-
-                    <label className="block text-slate-500 text-xs font-bold">Notes</label>
-                    <textarea
-                      rows={3}
-                      value={toothForm.notes}
-                      disabled={!isEditing}
-                      onChange={(e) => setToothForm({ ...toothForm, notes: e.target.value })}
-                      className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
-                    />
-
-                    <label className="block text-slate-500 text-xs font-bold">
-                      Linked Treatment
-                    </label>
-                    <input
-                      type="text"
-                      value={toothForm.linkedTreatment}
-                      disabled={!isEditing}
-                      onChange={(e) =>
-                        setToothForm({ ...toothForm, linkedTreatment: e.target.value })
-                      }
-                      className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
-                    />
-                  </div>
-
-                  <div>
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <h4 className="text-sm font-semibold">Recent Procedures</h4>
-                        <span className="text-xs text-slate-400">
-                          {selectedToothHistory.length} records
-                        </span>
-                      </div>
-                      <div className="max-h-56 overflow-auto rounded-xl border border-slate-100 bg-slate-50 p-3 space-y-2">
-                        {selectedToothHistory.length ? (
-                          selectedToothHistory.map((h) => {
-                            const isTargeted = selectedProcedureId === h.id && !isAddingNew;
-
-                            return (
-                              <div
-                                key={h.id}
-                                className="p-2 bg-white rounded border border-slate-100"
-                              >
-                                <div className="flex items-center justify-between text-sm">
-                                  <div>
-                                    <div className="font-bold text-slate-800">{h.procedure}</div>
-                                    <div className="text-xs text-slate-500">
-                                      {h.performedAt} • {h.status.replace("_", " ")}
-                                    </div>
-                                  </div>
-                                  <div className="text-right">
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        setToothHistory((prev) =>
-                                          prev.filter((item) => item.id !== h.id),
-                                        );
-                                      }}
-                                      className="text-xs text-red-600 font-bold ml-2"
-                                    >
-                                      Delete
-                                    </button>
-                                  </div>
-                                </div>
-                                {h.notes && (
-                                  <p className="mt-2 text-xs text-slate-600">{h.notes}</p>
-                                )}
-                              </div>
-                            );
-                          })
-                        ) : (
-                          <div className="text-xs text-slate-500">
-                            No procedures recorded for this tooth.
-                          </div>
-                        )}
+                    <div>
+                      <label className="block text-slate-500 text-xs font-bold mb-1">Status</label>
+                      <div className="relative">
+                        <select
+                          value={toothForm.status}
+                          disabled={!isEditing}
+                          onChange={(e) =>
+                            setToothForm({
+                              ...toothForm,
+                              status: e.target.value as ToothTreatmentStatus,
+                            })
+                          }
+                          className={cn(
+                            "w-full rounded-2xl border pl-3 pr-8 py-2 text-sm outline-none focus:border-teal-500 appearance-none cursor-pointer transition-colors disabled:opacity-85",
+                            toothForm.status === "completed"
+                              ? "bg-emerald-50 border-emerald-200 text-emerald-900 focus:bg-white"
+                              : toothForm.status === "in_progress"
+                                ? "bg-teal-50 border-teal-200 text-teal-900 focus:bg-white"
+                                : "bg-yellow-50 border-yellow-200 text-yellow-900 focus:bg-white",
+                            !isEditing &&
+                              "cursor-not-allowed bg-slate-50/80 border-slate-200 text-slate-500",
+                          )}
+                        >
+                          <option value="planned">Planned</option>
+                          <option value="in_progress">In Progress</option>
+                          <option value="completed">Completed</option>
+                        </select>
+                        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                       </div>
                     </div>
-                    <div className="pt-3">
-                      <div className="flex gap-2">
-                        <div className="flex items-center gap-2">
-                          {!isEditing && selectedProcedureId && selectedToothHistory.length > 0 ? (
-                            <>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setSelectedProcedureId(null);
-                                  setIsAddingNew(true);
-                                  setIsEditing(true);
 
-                                  setToothForm({
-                                    toothNumber: String(selectedTooth || ""),
-                                    procedure: "",
-                                    status: "planned",
-                                    notes: "",
-                                    linkedTreatment: "",
-                                  });
-                                }}
-                                className="inline-flex items-center gap-1.5 py-1.5 px-4 text-xs font-bold rounded-xl border border-slate-200"
-                              >
-                                New Procedure
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const currentProc = selectedToothHistory.find(
-                                    (p) => p.id === selectedProcedureId,
-                                  );
+                    <div>
+                      <label className="block text-slate-500 text-xs font-bold mb-1">
+                        Linked Treatment
+                      </label>
+                      <input
+                        type="text"
+                        value={toothForm.linkedTreatment}
+                        disabled={!isEditing}
+                        onChange={(e) =>
+                          setToothForm({ ...toothForm, linkedTreatment: e.target.value })
+                        }
+                        className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-teal-500 disabled:bg-slate-50 disabled:text-slate-500"
+                        placeholder="e.g. Dental Filling or Bridge"
+                      />
+                    </div>
 
-                                  if (currentProc) {
-                                    handleInitiateEdit(currentProc);
-                                  }
-                                }}
-                                className="inline-flex items-center gap-1.5 py-1.5 px-4 text-xs font-bold rounded-xl border border-slate-200"
-                              >
-                                Edit Record
-                              </button>
-                            </>
-                          ) : (
-                            <>
-                              {selectedToothHistory.length > 0 && (
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    if (isAddingNew) {
-                                      loadProcedureIntoForm(selectedToothHistory[0]);
-                                    } else {
-                                      setIsEditing(false);
-                                    }
-                                  }}
-                                  className="py-1.5 px-3.5 text-xs font-bold rounded-xl"
-                                >
-                                  Cancel
-                                </button>
+                    <div>
+                      <label className="block text-slate-500 text-xs font-bold mb-1">Notes</label>
+                      <textarea
+                        rows={3}
+                        value={toothForm.notes}
+                        disabled={!isEditing}
+                        onChange={(e) => setToothForm({ ...toothForm, notes: e.target.value })}
+                        className="w-full rounded-2xl border border-slate-200 bg-slate-50/40 focus:bg-white px-3 py-2 text-sm outline-none focus:border-teal-500 disabled:bg-slate-50 disabled:text-slate-500 resize-none h-20 transition-colors"
+                        placeholder="Add clinical notes here..."
+                      />
+                    </div>
+                  </div>
+
+                  {/* Right Column: Recent procedures history feed */}
+                  <div className="flex flex-col min-h-0">
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className="text-sm font-semibold">Recent Procedures</h4>
+                      <span className="text-xs text-slate-400">
+                        {selectedToothHistory.length} records
+                      </span>
+                    </div>
+                    <div className="flex-1 max-h-[290px] overflow-y-auto rounded-xl border border-slate-200/50 bg-slate-50/80 p-3 space-y-2">
+                      {selectedToothHistory.length ? (
+                        selectedToothHistory.map((h) => {
+                          const isTargeted = selectedProcedureId === h.id && !isAddingNew;
+
+                          return (
+                            <div
+                              key={h.id}
+                              className={cn(
+                                "p-2.5 bg-white rounded-xl border border-slate-100/80 shadow-xs transition-all",
+                                isTargeted &&
+                                  "bg-teal-50/40 border-teal-200/80 ring-1 ring-teal-100",
                               )}
-
-                              <button
-                                type="button"
-                                onClick={
-                                  isAddingNew ? handleAddToothProcedure : handleSaveToothUpdates
-                                }
-                                className="inline-flex items-center gap-1.5 py-1.5 px-4 text-xs font-bold text-white bg-teal-600 rounded-xl"
-                              >
-                                {isAddingNew ? "Add Procedure" : "Save Updates"}
-                              </button>
-                            </>
-                          )}
+                            >
+                              <div className="flex items-center justify-between text-sm gap-2">
+                                <div className="min-w-0">
+                                  <div className="font-bold text-slate-800 truncate">
+                                    {h.procedure}
+                                  </div>
+                                  <div className="text-[10px] text-slate-500 mt-1 flex items-center gap-1.5 flex-wrap">
+                                    <span>{h.performedAt}</span>
+                                    <span>•</span>
+                                    <span
+                                      className={cn(
+                                        "inline-flex items-center text-[9px] px-1.5 py-0.5 rounded-full font-bold border",
+                                        h.status === "completed"
+                                          ? "bg-emerald-50 text-emerald-700 border-emerald-100"
+                                          : h.status === "in_progress"
+                                            ? "bg-teal-50 text-teal-700 border-teal-100"
+                                            : "bg-yellow-50 text-yellow-700 border-yellow-100",
+                                      )}
+                                    >
+                                      {h.status === "completed"
+                                        ? "Completed"
+                                        : h.status === "in_progress"
+                                          ? "In Progress"
+                                          : "Planned"}
+                                    </span>
+                                  </div>
+                                </div>
+                                <div className="text-right flex items-center justify-end gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      handleInitiateEdit(h);
+                                    }}
+                                    title="Edit Record"
+                                    aria-label="Edit Record"
+                                    className="text-slate-400 hover:text-teal-600 transition-colors p-1 cursor-pointer"
+                                  >
+                                    <Edit2 className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={async () => {
+                                      try {
+                                        const { error } = await supabase
+                                          .from("tooth_treatments")
+                                          .delete()
+                                          .eq("id", h.id);
+                                        if (error) throw error;
+                                        await refreshToothHistory();
+                                      } catch (err) {
+                                        console.error("Error deleting tooth procedure:", err);
+                                      }
+                                    }}
+                                    title="Delete Record"
+                                    aria-label="Delete Record"
+                                    className="text-slate-400 hover:text-red-600 transition-colors p-1 cursor-pointer"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              </div>
+                              {h.notes && (
+                                <p className="mt-2 text-xs text-slate-600 leading-relaxed bg-slate-50/50 p-1.5 rounded">
+                                  {h.notes}
+                                </p>
+                              )}
+                            </div>
+                          );
+                        })
+                      ) : (
+                        <div className="text-xs text-slate-400 italic py-4 text-center">
+                          No procedures recorded for this tooth.
                         </div>
-                      </div>
-                      {toothActionMessage ? (
-                        <div className="mt-2 text-xs text-emerald-700 font-medium">
-                          {toothActionMessage}
-                        </div>
-                      ) : null}
+                      )}
                     </div>
                   </div>
                 </div>
+                {toothActionMessage ? (
+                  <div className="mt-4 text-xs text-emerald-700 font-medium">
+                    {toothActionMessage}
+                  </div>
+                ) : null}
+              </div>
+
+              {/* Repositioned Add Procedure / Save Updates buttons inside modal footer at bottom-right corner */}
+              <div className="flex items-center justify-end border-t border-slate-100 px-5 py-4 bg-slate-50 gap-2">
+                {!isEditing && selectedProcedureId && selectedToothHistory.length > 0 ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedProcedureId(null);
+                        setSelectedToothEntryId(null);
+                        setIsAddingNew(true);
+                        setIsEditing(true);
+
+                        setToothForm({
+                          toothNumber: String(selectedTooth || ""),
+                          procedure: "",
+                          status: "planned",
+                          notes: "",
+                          linkedTreatment: "",
+                        });
+                      }}
+                      className="inline-flex items-center gap-1.5 py-1.5 px-4 text-xs font-bold rounded-xl border border-slate-200 bg-white hover:bg-slate-50 transition-colors cursor-pointer"
+                    >
+                      New Procedure
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const currentProc = selectedToothHistory.find(
+                          (p) => p.id === selectedProcedureId,
+                        );
+
+                        if (currentProc) {
+                          handleInitiateEdit(currentProc);
+                        }
+                      }}
+                      className="inline-flex items-center gap-1.5 py-1.5 px-4 text-xs font-bold rounded-xl border border-slate-200 bg-white hover:bg-slate-50 transition-colors cursor-pointer"
+                    >
+                      Edit Record
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    {selectedToothHistory.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (isAddingNew) {
+                            loadProcedureIntoForm(selectedToothHistory[0]);
+                          } else {
+                            setIsEditing(false);
+                          }
+                        }}
+                        className="py-1.5 px-3.5 text-xs font-bold rounded-xl hover:bg-slate-200 transition-colors cursor-pointer"
+                      >
+                        Cancel
+                      </button>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={isAddingNew ? handleAddToothProcedure : handleSaveToothUpdates}
+                      className="inline-flex items-center gap-1.5 py-1.5 px-4 text-xs font-bold text-white bg-teal-600 hover:bg-teal-700 rounded-xl transition-colors cursor-pointer"
+                    >
+                      {isAddingNew ? "Add Procedure" : "Save Updates"}
+                    </button>
+                  </>
+                )}
               </div>
             </motion.div>
           </div>

@@ -4,9 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { getOrCreateMyPatient } from "@/lib/patient";
 import { useAuth } from "@/lib/auth-context";
-import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { calculatePlanBilling } from "@/lib/billing";
 import {
   Sparkles,
   Plus,
@@ -21,7 +19,6 @@ import {
   FileText,
   Phone,
   Pill,
-  AlertCircle,
   ShieldCheck,
   ArrowRight,
 } from "lucide-react";
@@ -42,10 +39,11 @@ function PortalHome() {
     queryFn: async () => {
       const patient = await getOrCreateMyPatient();
       if (!patient) return null;
-      const [appts, scripts, invoices, plans] = await Promise.all([
+      
+      const [appts, scripts, plans, txs, notifs] = await Promise.all([
         supabase
           .from("appointments")
-          .select("*")
+          .select("*, profiles(full_name)")
           .eq("patient_id", patient.id)
           .gte("appointment_date", new Date().toISOString())
           .order("appointment_date")
@@ -56,20 +54,44 @@ function PortalHome() {
           .eq("patient_id", patient.id)
           .order("issued_at", { ascending: false })
           .limit(3),
-        supabase.from("invoices").select("*").eq("patient_id", patient.id).eq("is_current", true),
         supabase
           .from("treatment_plans")
+          .select("*, treatment_steps(*)")
+          .eq("patient_id", patient.id),
+        supabase
+          .from("payment_transactions")
           .select("*")
-          .eq("patient_id", patient.id)
-          .neq("status", "completed")
-          .limit(1),
+          .eq("patient_id", patient.id),
+        patient.user_id
+          ? supabase
+              .from("notifications")
+              .select("*")
+              .eq("user_id", patient.user_id)
+              .order("created_at", { ascending: false })
+              .limit(5)
+          : Promise.resolve({ data: [] }),
       ]);
+
+      // Calculate accurate pending financial metrics matching the Billing page engine
+      const plansList = plans.data || [];
+      const transactionsList = txs.data || [];
+      let calculatedPendingTotal = 0;
+
+      plansList.forEach((plan) => {
+        const planTransactions = transactionsList.filter((tx) => tx.plan_id === plan.id);
+        const billing = calculatePlanBilling(plan, planTransactions);
+        calculatedPendingTotal += billing.outstandingAmount;
+      });
+
+      const activePlans = plansList.filter((p) => p.status !== "completed");
+
       return {
         patient,
-        appts: appts.data ?? [],
+        appts: (appts.data as any[]) ?? [],
         scripts: scripts.data ?? [],
-        invoices: invoices.data ?? [],
-        plans: plans.data ?? [],
+        pendingInvoicesTotal: calculatedPendingTotal,
+        plans: activePlans,
+        notifications: notifs.data ?? [],
       };
     },
   });
@@ -77,7 +99,7 @@ function PortalHome() {
   if (isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-teal-50/40 via-white to-cyan-50/30">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-teal-600 border-t-transparent" />
+        <div className="h-9 w-9 animate-spin rounded-full border-4 border-teal-600 border-t-transparent" />
       </div>
     );
   }
@@ -86,37 +108,39 @@ function PortalHome() {
   const nextApptData = dashboardData?.appts?.[0];
   const totalUpcomingAppts = dashboardData?.appts?.length || 0;
   const activePlansCount = dashboardData?.plans?.length || 0;
-  const pendingInvoicesTotal =
-    dashboardData?.invoices?.reduce((acc, curr) => acc + (curr.amount_paid || 0), 0) || 0;
+  const pendingInvoicesTotal = dashboardData?.pendingInvoicesTotal || 0;
   const currentPlan = dashboardData?.plans?.[0] || null;
+  const unreadNotificationsCount =
+    dashboardData?.notifications?.filter((n) => n.read_at === null).length || 0;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-teal-50/40 via-white to-cyan-50/30 pt-2 pb-6 px-4 sm:px-6 md:px-10">
-      <div className="mx-auto max-w-7xl space-y-6 px-2 sm:px-4 md:px-8 pb-8 pt-0">
+    <div className="min-h-screen bg-slate-50/40 p-4 sm:p-6 md:p-10 space-y-10 font-sans antialiased text-slate-900 selection:bg-teal-100 selection:text-teal-900">
+      <div className="mx-auto max-w-8xl space-y-10">
         <WelcomeBanner name={userName} nextAppointment={nextApptData} />
 
         <QuickStats
           upcomingCount={totalUpcomingAppts}
           activePlansCount={activePlansCount}
           pendingTotal={pendingInvoicesTotal}
+          unreadCount={unreadNotificationsCount}
         />
 
         {/* Premium Conditional Active Treatment Billing and Installment Alert */}
         <TreatmentBillingAlert currentPlan={currentPlan} pendingTotal={pendingInvoicesTotal} />
 
         {/* TOP GRID: Upcoming Appointments & Reminders Side-by-Side */}
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-8 lg:grid-cols-3 items-stretch">
           <div className="lg:col-span-2">
             <UpcomingAppointments appointments={dashboardData?.appts || []} />
           </div>
-          <div>
-            <Notifications />
+          <div className="h-full">
+            <Notifications notifications={dashboardData?.notifications || []} />
           </div>
         </div>
 
         {/* FULL WIDTH TREATMENT SECTION: Stretches cleanly across the layout */}
         <div className="w-full">
-          <TreatmentProgress currentPlan={currentPlan} />
+          <TreatmentProgress currentPlan={currentPlan} nextAppointment={nextApptData} />
         </div>
       </div>
     </div>
@@ -124,59 +148,51 @@ function PortalHome() {
 }
 
 /* ---------- Welcome Banner ---------- */
-// [...unmodified content remains intact...]
 function WelcomeBanner({
   name,
   nextAppointment,
 }: {
   name: string;
-  nextAppointment:
-    | {
-        appointment_date: string;
-        doctor_id?: string | null;
-        service?: string;
-      }
-    | null
-    | undefined;
+  nextAppointment: any;
 }) {
-  const hasNextAppt = !!nextAppointment;
+  const hasNextAppt = !!nextAppointment && !!nextAppointment.appointment_date;
   const formattedDate = hasNextAppt
     ? format(new Date(nextAppointment.appointment_date), "eee, MMM dd")
     : "None Scheduled";
   const formattedTime = hasNextAppt ? format(new Date(nextAppointment.appointment_date), "p") : "";
 
   return (
-    <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#0f766e] to-[#14b8a6] p-6 text-white shadow-[0_20px_60px_rgba(20,184,166,0.18)] md:p-9">
-      <div className="absolute -right-20 -top-20 h-72 w-72 rounded-full bg-white/10 blur-3xl" />
-      <div className="absolute -bottom-24 -left-10 h-64 w-64 rounded-full bg-teal-200/10 blur-3xl" />
+    <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#0f766e] to-[#14b8a6] p-6 text-white shadow-sm md:p-9 ring-1 ring-black/[0.02]">
+      <div className="absolute -right-20 -top-20 h-72 w-72 rounded-full bg-white/10 blur-3xl pointer-events-none" />
+      <div className="absolute -bottom-24 -left-10 h-64 w-64 rounded-full bg-teal-200/10 blur-3xl pointer-events-none" />
 
-      <div className="relative flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex-1 min-w-0">
-          <div className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-medium backdrop-blur-sm">
-            <Sparkles className="h-3.5 w-3.5" />
+      <div className="relative flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex-1 min-w-0 space-y-4">
+          <div className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-xs font-semibold backdrop-blur-md shadow-2xs border border-white/5">
+            <Sparkles className="h-3.5 w-3.5 text-teal-200" />
             Patient Portal
           </div>
 
-          <h1 className="mt-4 text-2xl font-semibold tracking-tight sm:text-3xl md:text-4xl truncate">
+          <h1 className="text-3xl font-bold tracking-tight sm:text-4xl md:text-5xl">
             Hello, {name} 👋
           </h1>
 
-          <p className="mt-2 max-w-xl text-sm sm:text-base text-teal-50/90">
-            Here's a calm overview of your dental health, upcoming visits, and ongoing care.
+          <p className="max-w-xl text-sm sm:text-base text-teal-50/90 font-medium leading-relaxed">
+            Here's a calm overview of your dental health, upcoming visits, and ongoing care plans.
           </p>
 
-          <div className="mt-5 flex flex-wrap items-center gap-3">
+          <div className="pt-2 flex flex-wrap items-center gap-3">
             <Link
               to="/portal/appointments"
-              className="inline-flex items-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-teal-700 shadow-sm transition hover:bg-teal-50 whitespace-nowrap"
+              className="inline-flex items-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-bold text-teal-700 shadow-sm transition-all hover:bg-teal-50 hover:scale-[1.01] active:scale-[0.99] whitespace-nowrap"
             >
-              <Plus className="h-4 w-4" />
-              Book appointment
+              <Plus className="h-4 w-4 stroke-[2.5]" />
+              Book Appointment
             </Link>
 
             <Link
               to="/portal/prescriptions"
-              className="inline-flex items-center gap-2 rounded-full bg-white/10 border border-white/20 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-white/20 backdrop-blur-xs whitespace-nowrap"
+              className="inline-flex items-center gap-2 rounded-full bg-white/10 border border-white/20 px-4 py-2.5 text-sm font-semibold text-white transition-all hover:bg-white/20 backdrop-blur-xs whitespace-nowrap"
             >
               <FileText className="h-4 w-4 text-teal-200" />
               View Prescriptions
@@ -184,7 +200,7 @@ function WelcomeBanner({
 
             <a
               href="tel:1234567890"
-              className="inline-flex items-center gap-2 rounded-full bg-white/10 border border-white/20 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-white/20 backdrop-blur-xs whitespace-nowrap"
+              className="inline-flex items-center gap-2 rounded-full bg-white/10 border border-white/20 px-4 py-2.5 text-sm font-semibold text-white transition-all hover:bg-white/20 backdrop-blur-xs whitespace-nowrap"
             >
               <Phone className="h-4 w-4 text-teal-200" />
               Contact Clinic
@@ -192,24 +208,31 @@ function WelcomeBanner({
           </div>
         </div>
 
-        <div className="w-full lg:w-80 shrink-0 rounded-2xl border border-white/15 bg-white/10 p-5 backdrop-blur-md">
-          <div className="text-xs uppercase tracking-wider text-teal-50/80">Next appointment</div>
+        <div className="w-full lg:w-80 shrink-0 rounded-2xl border border-white/15 bg-white/10 p-6 backdrop-blur-md shadow-inner relative overflow-hidden">
+          <div className="absolute top-0 right-0 p-4 opacity-10 pointer-events-none">
+            <Calendar className="h-20 w-20 stroke-[1.5]" />
+          </div>
+          <div className="text-xs uppercase font-bold tracking-widest text-teal-100/90">
+            Next Appointment
+          </div>
 
-          <div className="mt-2 text-xl sm:text-2xl font-semibold truncate">{formattedDate}</div>
+          <div className="mt-2 text-2xl font-black tracking-tight text-white">{formattedDate}</div>
 
           {hasNextAppt ? (
-            <div className="min-w-0">
-              <div className="text-sm text-teal-50/90 truncate">
-                {formattedTime} · Assigned Provider
+            <div className="min-w-0 mt-2 space-y-3.5">
+              <div className="text-sm font-semibold text-teal-50/90 truncate bg-black/5 px-2.5 py-1.5 rounded-lg border border-white/5">
+                {formattedTime} &bull; {nextAppointment.profiles?.full_name || "Assigned Provider"}
               </div>
 
-              <div className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-white/20 px-3 py-1 text-xs font-medium max-w-full">
-                <Clock className="h-3 w-3 shrink-0" />
+              <div className="inline-flex items-center gap-2 rounded-full bg-white/20 px-3 py-1 text-xs font-bold shadow-2xs">
+                <Clock className="h-3.5 w-3.5 shrink-0 text-teal-100" />
                 <span className="truncate">{nextAppointment.service || "General Checkup"}</span>
               </div>
             </div>
           ) : (
-            <div className="mt-1 text-sm text-teal-50/70">No upcoming appointments</div>
+            <div className="mt-3 text-sm text-teal-100/70 font-medium italic">
+              No upcoming appointments
+            </div>
           )}
         </div>
       </div>
@@ -218,63 +241,64 @@ function WelcomeBanner({
 }
 
 /* ---------- Quick Stats ---------- */
-// [...unmodified content remains intact...]
 function QuickStats({
   upcomingCount,
   activePlansCount,
   pendingTotal,
+  unreadCount,
 }: {
   upcomingCount: number;
   activePlansCount: number;
   pendingTotal: number;
+  unreadCount: number;
 }) {
   const stats = [
     {
-      label: "Upcoming appointments",
+      label: "Upcoming Appointments",
       value: String(upcomingCount),
       icon: Calendar,
-      tint: "bg-teal-50 text-teal-600",
+      tint: "bg-teal-50 text-teal-600 border border-teal-100/50",
       to: "/portal/appointments",
     },
     {
-      label: "Active treatments",
+      label: "Active Treatments",
       value: String(activePlansCount),
       icon: Activity,
-      tint: "bg-cyan-50 text-cyan-600",
+      tint: "bg-cyan-50 text-cyan-600 border border-cyan-100/50",
       to: "/portal/treatment",
     },
     {
-      label: "Pending payments",
-      value: `$${pendingTotal}`,
+      label: "Pending Payments",
+      value: `₹${pendingTotal.toLocaleString()}`,
       icon: CreditCard,
-      tint: "bg-amber-50 text-amber-600",
+      tint: "bg-amber-50 text-amber-600 border border-amber-100/50",
       to: "/portal/billing",
     },
     {
-      label: "Unread notifications",
-      value: "3",
+      label: "Unread Notifications",
+      value: String(unreadCount),
       icon: Bell,
-      tint: "bg-rose-50 text-rose-600",
+      tint: "bg-rose-50 text-rose-600 border border-rose-100/50",
       to: "/portal/notifications",
     },
   ];
 
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 w-full">
       {stats.map((s) => (
         <Link
           key={s.label}
           to={s.to}
-          className="group block rounded-3xl border border-slate-100 bg-white p-5 shadow-sm shadow-slate-200/40 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg cursor-pointer"
+          className="group block rounded-2xl border border-slate-200 bg-white p-5 shadow-xs transition-all duration-300 hover:-translate-y-1 hover:shadow-md cursor-pointer"
         >
           <div className="flex items-center justify-between">
-            <div className={`flex h-11 w-11 items-center justify-center rounded-2xl ${s.tint}`}>
-              <s.icon className="h-5 w-5" />
+            <div className={`flex h-11 w-11 items-center justify-center rounded-xl ${s.tint}`}>
+              <s.icon className="h-5 w-5 stroke-[2]" />
             </div>
             <ChevronRight className="h-4 w-4 text-slate-300 transition-all duration-300 group-hover:translate-x-1 group-hover:text-slate-500" />
           </div>
-          <div className="mt-4 text-3xl font-semibold text-slate-900">{s.value}</div>
-          <div className="mt-1 text-sm text-slate-500 group-hover:text-slate-700 transition-colors">
+          <div className="mt-4 text-3xl font-black text-slate-900 tracking-tight">{s.value}</div>
+          <div className="mt-1 text-xs font-bold uppercase tracking-wider text-slate-400 group-hover:text-slate-600 transition-colors">
             {s.label}
           </div>
         </Link>
@@ -284,17 +308,13 @@ function QuickStats({
 }
 
 /* ---------- Treatment Billing Alert ---------- */
-// [...unmodified content remains intact...]
 function TreatmentBillingAlert({
   currentPlan,
   pendingTotal,
 }: {
   currentPlan: {
     title: string;
-    progress?: number;
-    currentStage?: string;
-    estimatedCompletion?: string;
-    nextAppointment?: string;
+    due_date?: string | null;
   } | null;
   pendingTotal: number;
 }) {
@@ -303,51 +323,51 @@ function TreatmentBillingAlert({
   const treatmentName = currentPlan?.title || "Comprehensive Dental Protocol";
   const hasRemainingBalance = pendingTotal > 0;
 
-  const nextInstallmentDate = "Jun 05, 2026";
+  const nextInstallmentDate = currentPlan?.due_date
+    ? format(new Date(currentPlan.due_date), "MMM dd, yyyy")
+    : "—";
   const paymentStatus = hasRemainingBalance ? "Partial Payment" : "Completed";
 
   if (hasRemainingBalance) {
     return (
-      <div className="relative overflow-hidden rounded-3xl border border-amber-100/70 bg-gradient-to-r from-amber-50/50 via-white to-teal-50/20 p-5 shadow-sm shadow-slate-200/30">
+      <div className="relative overflow-hidden rounded-2xl border border-amber-200 bg-gradient-to-r from-amber-50/40 via-white to-amber-50/10 p-5 shadow-xs ring-1 ring-black/[0.01]">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-start gap-4 min-w-0">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-amber-50 text-amber-600 ring-4 ring-amber-100/30">
-              <CreditCard className="h-5 w-5" />
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-600 border border-amber-100">
+              <CreditCard className="h-5 w-5 stroke-[2]" />
             </div>
-            <div className="min-w-0">
+            <div className="min-w-0 space-y-0.5">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="text-xs font-semibold uppercase tracking-wider text-amber-700/90">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-amber-800">
                   Ongoing Treatment Care Plan
                 </span>
-                <span className="inline-flex items-center rounded-full bg-amber-100/60 px-2.5 py-0.5 text-xs font-medium text-amber-800">
+                <span className="inline-flex items-center rounded-full bg-amber-100 border border-amber-200/50 px-2.5 py-0.5 text-[10px] font-bold text-amber-800 uppercase tracking-wide">
                   {paymentStatus}
                 </span>
               </div>
-              <h3 className="mt-1 text-base font-semibold text-slate-900 truncate">
-                {treatmentName}
-              </h3>
+              <h3 className="text-base font-bold text-slate-900 truncate">{treatmentName}</h3>
 
-              <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
+              <div className="pt-0.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500 font-medium">
                 <div>
                   Remaining Balance:{" "}
-                  <span className="font-semibold text-slate-900">${pendingTotal}</span>
+                  <span className="font-bold text-slate-900">₹{pendingTotal.toLocaleString()}</span>
                 </div>
                 <div className="hidden sm:block h-1 w-1 rounded-full bg-slate-300" />
                 <div>
                   Next Installment:{" "}
-                  <span className="font-semibold text-slate-900">{nextInstallmentDate}</span>
+                  <span className="font-bold text-slate-900">{nextInstallmentDate}</span>
                 </div>
               </div>
             </div>
           </div>
 
-          <div className="flex items-center justify-between sm:justify-end gap-4 pt-2 sm:pt-0 border-t border-slate-100 sm:border-none">
+          <div className="flex items-center justify-between sm:justify-end gap-4 pt-2 sm:pt-0 border-t border-slate-100 sm:border-none shrink-0">
             <Link
               to="/portal/treatment"
-              className="group inline-flex items-center gap-1.5 text-sm font-semibold text-teal-600 transition hover:text-teal-700"
+              className="group inline-flex items-center gap-1.5 text-sm font-bold text-teal-600 transition hover:text-teal-700"
             >
-              Check Treatment Status!
-              <ArrowRight className="h-4 w-4 transition group-hover:translate-x-0.5" />
+              Check Treatment Status
+              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5 stroke-[2.5]" />
             </Link>
           </div>
         </div>
@@ -356,25 +376,25 @@ function TreatmentBillingAlert({
   }
 
   return (
-    <div className="relative overflow-hidden rounded-3xl border border-emerald-100 bg-gradient-to-r from-emerald-50/40 via-white to-teal-50/20 p-5 shadow-sm shadow-slate-200/30">
+    <div className="relative overflow-hidden rounded-2xl border border-emerald-200 bg-gradient-to-r from-emerald-50/30 via-white to-teal-50/10 p-5 shadow-xs ring-1 ring-black/[0.01]">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-4 min-w-0">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600">
-            <ShieldCheck className="h-5 w-5" />
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-100">
+            <ShieldCheck className="h-5 w-5 stroke-[2]" />
           </div>
-          <div className="min-w-0">
-            <div className="text-xs font-medium text-emerald-700 uppercase tracking-wider">
+          <div className="min-w-0 space-y-0.5">
+            <div className="text-[10px] font-bold text-emerald-700 uppercase tracking-widest">
               Account Status
             </div>
-            <h3 className="text-sm font-semibold text-slate-900 mt-0.5 truncate">
-              Treatment Fully Paid —{" "}
-              <span className="font-normal text-slate-500">{treatmentName}</span>
+            <h3 className="text-sm font-bold text-slate-900 truncate">
+              Treatment Fully Paid &mdash;{" "}
+              <span className="font-medium text-slate-500">{treatmentName}</span>
             </h3>
           </div>
         </div>
         <Link
           to="/portal/treatment"
-          className="text-xs font-semibold text-slate-600 hover:text-teal-600 bg-slate-100/70 px-4 py-2 rounded-full transition text-center"
+          className="text-xs font-bold text-slate-600 hover:text-teal-600 bg-slate-100/80 border border-slate-200 px-4 py-2 rounded-full transition text-center shrink-0"
         >
           View Plan Ledger
         </Link>
@@ -384,226 +404,231 @@ function TreatmentBillingAlert({
 }
 
 /* ---------- Upcoming Appointments ---------- */
-// [...unmodified content remains intact...]
 function UpcomingAppointments({
   appointments,
 }: {
-  appointments: {
-    doctor_id?: string | null;
-    service?: string;
-    appointment_date: string;
-    status?: string;
-  }[];
+  appointments: any[];
 }) {
-  const displayAppts =
-    appointments.length > 0
-      ? appointments.map((a) => ({
-          dentist: "Assigned Provider",
-          type: a.service || "General Treatment",
-          date: format(new Date(a.appointment_date), "eee, MMM dd · p"),
-          status: a.status || "Confirmed",
-          statusTint:
-            a.status === "Pending"
-              ? "bg-amber-50 text-amber-700 ring-amber-200"
-              : "bg-emerald-50 text-emerald-700 ring-emerald-200",
-        }))
-      : [
-          {
-            dentist: "Dr. Aisha Patel",
-            type: "Teeth Whitening",
-            date: "Tue, May 26 · 10:30 AM",
-            status: "Confirmed",
-            statusTint: "bg-emerald-50 text-emerald-700 ring-emerald-200",
-          },
-          {
-            dentist: "Dr. Marco Liu",
-            type: "Root Canal · Session 2",
-            date: "Fri, May 29 · 2:00 PM",
-            status: "Pending",
-            statusTint: "bg-amber-50 text-amber-700 ring-amber-200",
-          },
-          {
-            dentist: "Dr. Aisha Patel",
-            type: "Routine Cleaning",
-            date: "Mon, Jun 8 · 9:00 AM",
-            status: "Confirmed",
-            statusTint: "bg-emerald-50 text-emerald-700 ring-emerald-200",
-          },
-        ];
+  const displayAppts = appointments.map((a) => {
+    const hasDate = !!a.appointment_date;
+    return {
+      dentist: a.profiles?.full_name || "Assigned Provider",
+      type: a.service || "General Treatment",
+      date: hasDate ? format(new Date(a.appointment_date), "eee, MMM dd &bull; p") : "—",
+      status:
+        a.status === "confirmed"
+          ? "Confirmed"
+          : a.status === "requested"
+            ? "Requested"
+            : a.status || "Confirmed",
+      statusTint:
+        a.status === "requested"
+          ? "bg-amber-50 text-amber-700 border border-amber-200/60 font-semibold"
+          : "bg-emerald-50 text-emerald-700 border border-emerald-200/60 font-semibold",
+    };
+  });
 
   return (
-    <section className="rounded-3xl border border-slate-100 bg-white p-5 shadow-sm shadow-slate-200/40 md:p-7 h-full">
-      <header className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h2 className="text-lg font-semibold text-slate-900">Upcoming appointments</h2>
-          <p className="text-sm text-slate-500">Your scheduled visits for the next 30 days.</p>
-        </div>
-        <Link
-          to="/portal/appointments"
-          className="self-start sm:self-center text-sm font-medium text-teal-600 hover:text-teal-700"
-        >
-          View all
-        </Link>
-      </header>
-
-      <ul className="mt-6 divide-y divide-slate-100">
-        {displayAppts.map((a, idx) => (
-          <li
-            key={a.type + a.date + idx}
-            className="flex flex-col gap-4 py-4 sm:flex-row sm:items-center sm:justify-between"
+    <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs md:p-6 h-full flex flex-col justify-between">
+      <div>
+        <header className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-b border-slate-100 pb-4">
+          <div className="space-y-0.5">
+            <h2 className="text-lg font-bold text-slate-900">Upcoming Appointments</h2>
+            <p className="text-xs font-medium text-slate-400">
+              Your scheduled visits for the next 30 days.
+            </p>
+          </div>
+          <Link
+            to="/portal/appointments"
+            className="self-start sm:self-center text-xs font-bold text-teal-600 hover:text-teal-700 bg-teal-50 px-3 py-1.5 rounded-lg border border-teal-100/50 transition-all"
           >
-            <div className="flex items-start gap-4 min-w-0">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-teal-50 text-teal-600">
-                <Stethoscope className="h-5 w-5" />
-              </div>
-              <div className="min-w-0">
-                <div className="text-base font-medium text-slate-900 truncate">{a.type}</div>
-                <div className="text-sm text-slate-500 truncate">{a.dentist}</div>
-                <div className="mt-1 inline-flex items-center gap-1.5 text-xs text-slate-500 max-w-full">
-                  <Clock className="h-3.5 w-3.5 shrink-0" />
-                  <span className="truncate">{a.date}</span>
-                </div>
-              </div>
-            </div>
-            <div className="flex items-center justify-between sm:justify-end gap-3 sm:gap-4">
-              <span
-                className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ring-1 ring-inset ${a.statusTint}`}
+            View All
+          </Link>
+        </header>
+
+        {displayAppts.length > 0 ? (
+          <ul className="divide-y divide-slate-100">
+            {displayAppts.map((a, idx) => (
+              <li
+                key={a.type + a.date + idx}
+                className="flex flex-col gap-4 py-4 sm:flex-row sm:items-center sm:justify-between hover:bg-slate-50/30 transition-colors rounded-xl px-2 -mx-2"
               >
-                {a.status}
-              </span>
-              <button className="rounded-full border border-slate-200 px-4 py-1.5 text-xs font-medium text-slate-700 transition hover:border-teal-300 hover:text-teal-700">
-                Details
-              </button>
+                <div className="flex items-start gap-4 min-w-0">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-teal-50 text-teal-600 border border-teal-100/30">
+                    <Stethoscope className="h-5 w-5 stroke-[2]" />
+                  </div>
+                  <div className="min-w-0 space-y-0.5">
+                    <div className="text-base font-bold text-slate-900 truncate">{a.type}</div>
+                    <div className="text-sm font-semibold text-slate-500 truncate">{a.dentist}</div>
+                    <div className="pt-1 inline-flex items-center gap-1.5 text-xs text-slate-400 font-medium max-w-full">
+                      <Clock className="h-3.5 w-3.5 shrink-0" />
+                      <span
+                        className="truncate tabular-nums"
+                        dangerouslySetInnerHTML={{ __html: a.date }}
+                      />
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between sm:justify-end gap-3 sm:gap-4 shrink-0">
+                  <span
+                    className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] uppercase tracking-wider ${a.statusTint}`}
+                  >
+                    {a.status}
+                  </span>
+                  <Link
+                    to="/portal/appointments"
+                    className="rounded-full border border-slate-200 bg-white px-4 py-1.5 text-xs font-bold text-slate-700 shadow-2xs transition hover:border-teal-300 hover:text-teal-700"
+                  >
+                    Details
+                  </Link>
+                </div>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <div className="py-16 px-4 text-center max-w-sm mx-auto space-y-4">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-50 border border-dashed border-slate-200 text-slate-400 shadow-2xs">
+              <Calendar className="h-6 w-6 stroke-[1.5]" />
             </div>
-          </li>
-        ))}
-      </ul>
+            <div className="space-y-1">
+              <h3 className="text-sm font-bold text-slate-800">No appointments found</h3>
+              <p className="text-xs text-slate-400 font-medium">
+                No upcoming appointments scheduled within the next 30 days.
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
     </section>
   );
 }
 
 /* ---------- Treatment Progress ---------- */
-// Styling, typography, and child structure are exact. Section now fills the full width layout container cleanly.
 function TreatmentProgress({
   currentPlan,
+  nextAppointment,
 }: {
-  currentPlan:
-    | {
-        progress_percentage?: number;
-        title?: string;
-        description?: string | null;
-      }
-    | null
-    | undefined;
+  currentPlan: any;
+  nextAppointment?: any;
 }) {
-  let progress = currentPlan?.progress_percentage ?? 60;
-  let treatmentName = currentPlan?.title ?? "Root canal therapy";
-  let treatmentDesc = currentPlan?.description ?? "Lower right molar";
-  let stagesToRender = [
-    { label: "Stage 1", title: "Initial cleaning", done: true, current: false },
-    { label: "Stage 2", title: "Pulp removal", done: true, current: false },
-    { label: "Stage 3", title: "Sealing & crown", done: false, current: true },
-  ];
-
-  // Try loading dynamic treatment from localStorage
-  const stored = localStorage.getItem("patient_ecosystem_P-8832");
-  if (stored) {
-    try {
-      const parsed = JSON.parse(stored);
-      if (parsed && Array.isArray(parsed.treatments)) {
-        // Find the first active/ongoing treatment
-        const activeTx = parsed.treatments.find(
-          (tx: { status?: string }) => tx.status !== "Completed",
-        );
-        if (activeTx) {
-          treatmentName = activeTx.procedure;
-          treatmentDesc = `Tooth ${activeTx.toothNumber}`;
-
-          const total = activeTx.stages?.length || 0;
-          const completed =
-            activeTx.stages?.filter((s: { status?: string }) => s.status === "completed").length ||
-            0;
-          progress = total > 0 ? Math.round((completed / total) * 100) : 0;
-
-          stagesToRender = (activeTx.stages || []).map(
-            (stage: { name?: string; status?: string }, idx: number) => ({
-              label: `Stage ${idx + 1}`,
-              title: stage.name,
-              done: stage.status === "completed",
-              current: stage.status === "active",
-            }),
-          );
-        }
-      }
-    } catch (e) {
-      console.error("Failed to parse patient treatments in overview:", e);
-    }
+  if (!currentPlan) {
+    return (
+      <section className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-6 shadow-xs w-full">
+        <header className="border-b border-slate-100 pb-4">
+          <h2 className="text-lg font-bold text-slate-900">Current Treatment</h2>
+        </header>
+        <div className="py-16 px-4 text-center max-w-sm mx-auto space-y-4">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-50 border border-dashed border-slate-200 text-slate-400 shadow-2xs">
+            <Activity className="h-6 w-6 stroke-[1.5]" />
+          </div>
+          <div className="space-y-1">
+            <h3 className="text-sm font-bold text-slate-800">No active treatment</h3>
+            <p className="text-xs text-slate-400 font-medium">
+              You don't have an active or multi-stage care prescription running at the moment.
+            </p>
+          </div>
+        </div>
+      </section>
+    );
   }
 
+  const steps = currentPlan.treatment_steps || [];
+  const completedCount = steps.filter((s: any) => s.status === "completed").length;
+  const progress = steps.length > 0 ? Math.round((completedCount / steps.length) * 100) : 0;
+
+  const treatmentName = currentPlan.title ?? "Comprehensive Care";
+  const treatmentDesc = currentPlan.description ?? "Active treatment phase";
+
+  const stagesToRender = steps
+    .sort((a: any, b: any) => (a.step_order || 0) - (b.step_order || 0))
+    .map((step: any, idx: number) => ({
+      label: `Stage ${idx + 1}`,
+      title: step.step_name || step.title,
+      done: step.status === "completed",
+      current: step.status === "in_progress",
+    }));
+
+  const hasNext = !!nextAppointment && !!nextAppointment.appointment_date;
+  const nextText = hasNext
+    ? `${nextAppointment.service || "Procedure"} &bull; ${format(new Date(nextAppointment.appointment_date), "eee, MMM dd")}`
+    : "No visits scheduled";
+
   return (
-    <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#2dd4bf] to-[#99f6e4] p-6 text-white shadow-[0_20px_60px_rgba(20,184,166,0.22)] md:p-8">
-      <header className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0">
-          <h2 className="text-lg font-semibold text-slate-900 truncate">Current treatment</h2>
-          <p className="text-sm text-slate-600 truncate">
-            {treatmentName} · {treatmentDesc}
+    <section className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-6 shadow-xs w-full space-y-6">
+      <header className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-b border-slate-100 pb-4">
+        <div className="min-w-0 space-y-0.5">
+          <h2 className="text-lg font-bold text-slate-900 truncate">Current Treatment</h2>
+          <p className="text-xs font-semibold text-slate-400 truncate">
+            {treatmentName} &bull; {treatmentDesc}
           </p>
         </div>
-        <span className="self-start sm:self-center rounded-full bg-teal-100 px-3 py-1 text-xs font-medium text-teal-700 whitespace-nowrap">
-          In progress
+        <span className="self-start sm:self-center rounded-full bg-teal-50 border border-teal-100 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-teal-700 whitespace-nowrap">
+          In Progress
         </span>
       </header>
 
-      <div className="mt-6">
+      <div>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <div className="text-sm text-slate-500">Overall progress</div>
-            <div className="mt-1 text-3xl font-semibold text-slate-900">{progress}%</div>
+          <div className="space-y-0.5">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+              Overall Progress
+            </div>
+            <div className="text-3xl font-black text-slate-900 tracking-tight tabular-nums">
+              {progress}%
+            </div>
           </div>
           <Link
             to="/portal/treatment"
-            className="group inline-flex items-center gap-1 text-sm font-semibold text-teal-700 hover:text-teal-900 transition-colors"
+            className="group inline-flex items-center gap-1 text-xs font-bold text-teal-600 hover:text-teal-700 transition-colors"
           >
-            Check treatment status
-            <ArrowRight className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
+            Check Full Schedule
+            <ArrowRight className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5 stroke-[2.5]" />
           </Link>
         </div>
 
-        <div className="mt-4 h-3 w-full overflow-hidden rounded-full bg-slate-100">
+        <div className="mt-3 w-full h-2.5 bg-slate-100 rounded-full overflow-hidden p-0.5 border border-slate-200/30 shadow-inner">
           <div
-            className="h-full rounded-full bg-gradient-to-r from-teal-500 to-cyan-400 transition-all"
+            className="h-full bg-gradient-to-r from-teal-500 to-teal-600 rounded-full transition-all duration-500 ease-out shadow-xs"
             style={{ width: `${progress}%` }}
           />
         </div>
       </div>
 
-      <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
-        {stagesToRender.slice(0, 3).map((stage, idx) => (
-          <Stage
-            key={idx}
-            label={stage.label}
-            title={stage.title}
-            done={stage.done}
-            current={stage.current}
-          />
-        ))}
-      </div>
+      {stagesToRender.length > 0 && (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          {stagesToRender.slice(0, 3).map((stage: any, idx: number) => (
+            <Stage
+              key={idx}
+              label={stage.label}
+              title={stage.title}
+              done={stage.done}
+              current={stage.current}
+            />
+          ))}
+        </div>
+      )}
 
-      <div className="mt-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between rounded-2xl border border-teal-100 bg-white p-4">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between rounded-xl border border-teal-100 bg-gradient-to-br from-white to-teal-50/10 p-4 shadow-2xs">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-teal-50 text-teal-600">
-            <Calendar className="h-5 w-5" />
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-teal-50 text-teal-600 border border-teal-100/30">
+            <Calendar className="h-5 w-5 stroke-[2]" />
           </div>
-          <div className="min-w-0">
-            <div className="text-sm text-slate-500">Next procedure</div>
-            <div className="text-sm font-medium text-slate-900 truncate">
-              Sealing prep · Fri, May 29
+          <div className="min-w-0 space-y-0.5">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+              Next Procedure
             </div>
+            <div
+              className="text-sm font-semibold text-slate-800 truncate"
+              dangerouslySetInnerHTML={{ __html: nextText }}
+            />
           </div>
         </div>
-        <button className="w-full sm:w-auto rounded-full bg-teal-600 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-teal-700 whitespace-nowrap">
-          Prepare
-        </button>
+        <Link
+          to="/portal/appointments"
+          className={`w-full sm:w-auto rounded-full bg-teal-600 px-5 py-2 text-xs font-bold text-white shadow-xs transition hover:bg-teal-700 whitespace-nowrap text-center ${!hasNext ? "opacity-50 pointer-events-none" : ""}`}
+        >
+          Prepare Care
+        </Link>
       </div>
     </section>
   );
@@ -622,91 +647,135 @@ function Stage({
 }) {
   return (
     <div
-      className={`rounded-2xl border p-4 ${
+      className={`rounded-xl border p-4 transition-all duration-200 shadow-2xs ${
         current
-          ? "border-teal-300 bg-white ring-2 ring-teal-100"
+          ? "border-teal-300 bg-teal-50/10 ring-4 ring-teal-500/5"
           : done
-            ? "border-slate-100 bg-white"
-            : "border-dashed border-slate-200 bg-white/50"
+            ? "border-slate-200 bg-white"
+            : "border-dashed border-slate-200 bg-slate-50/40"
       }`}
     >
-      <div className="flex items-center gap-2 text-xs text-slate-500">
+      <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">
         {done ? (
-          <CheckCircle2 className="h-4 w-4 text-teal-600 shrink-0" />
+          <CheckCircle2 className="h-4 w-4 text-teal-600 shrink-0 stroke-[2.5]" />
         ) : (
           <div
-            className={`h-2 w-2 shrink-0 rounded-full ${current ? "bg-teal-500" : "bg-slate-300"}`}
+            className={`h-2 w-2 shrink-0 rounded-full ${current ? "bg-teal-500 animate-pulse" : "bg-slate-300"}`}
           />
         )}
         <span className="truncate">{label}</span>
       </div>
-      <div className="mt-2 text-sm font-medium text-slate-900 truncate">{title}</div>
+      <div className="mt-2 text-sm font-bold text-slate-900 truncate">{title}</div>
     </div>
   );
 }
 
 /* ---------- Notifications ---------- */
-// [...unmodified content remains intact...]
-function Notifications() {
-  const items = [
-    {
-      icon: Calendar,
-      tint: "bg-teal-50 text-teal-600",
-      title: "Appointment reminder",
-      desc: "Whitening session tomorrow at 10:30 AM.",
-      time: "2h ago",
-    },
-    {
-      icon: Pill,
-      tint: "bg-cyan-50 text-cyan-600",
-      title: "Medication reminder",
-      desc: "Take Amoxicillin 500mg after dinner.",
-      time: "5h ago",
-    },
-    {
-      icon: AlertCircle,
-      tint: "bg-amber-50 text-amber-600",
-      title: "Follow-up due",
-      desc: "Schedule your 6-month cleaning visit.",
-      time: "1d ago",
-    },
-  ];
+function Notifications({ notifications }: { notifications: any[] }) {
+  const items = notifications.map((dbN) => {
+    let icon = Bell;
+    let tint = "bg-teal-50 text-teal-600 border border-teal-100/30";
+    if (dbN.type === "billing") {
+      icon = CreditCard;
+      tint = "bg-amber-50 text-amber-600 border border-amber-100/30";
+    } else if (dbN.type === "followup") {
+      icon = Pill;
+      tint = "bg-cyan-50 text-cyan-600 border border-cyan-100/30";
+    } else if (dbN.type === "reminder") {
+      icon = Calendar;
+      tint = "bg-teal-50 text-teal-600 border border-teal-100/30";
+    }
+
+    let time = "";
+    if (dbN.created_at) {
+      const dateObj = new Date(dbN.created_at);
+      const timeDiff = new Date().getTime() - dateObj.getTime();
+      time = dbN.created_at.split("T")[0];
+      if (timeDiff < 60000) {
+        time = "just now";
+      } else if (timeDiff < 3600000) {
+        time = `${Math.floor(timeDiff / 60000)}m ago`;
+      } else if (timeDiff < 86400000) {
+        time = `${Math.floor(timeDiff / 3600000)}h ago`;
+      } else {
+        const days = Math.floor(timeDiff / 86400000);
+        time = days === 1 ? "1d ago" : `${days}d ago`;
+      }
+    }
+
+    return {
+      icon,
+      tint,
+      title: dbN.title || "Remind Alert",
+      desc: dbN.body || "",
+      time,
+    };
+  });
 
   return (
-    <section className="rounded-3xl border border-slate-100 bg-white p-6 shadow-sm shadow-slate-200/40 h-full">
-      <header className="flex items-center justify-between gap-2">
-        <h2 className="text-lg font-semibold text-slate-900">Reminders</h2>
-        <Link
-          to="/portal/notifications"
-          className="text-xs font-medium text-teal-600 hover:text-teal-700 whitespace-nowrap"
-        >
-          Mark all read
-        </Link>
-      </header>
+    <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs h-full flex flex-col justify-between">
+      <div>
+        <header className="flex items-center justify-between gap-2 border-b border-slate-100 pb-4">
+          <div className="space-y-0.5">
+            <h2 className="text-lg font-bold text-slate-900">Reminders</h2>
+            <p className="text-xs text-slate-400">Recent action points.</p>
+          </div>
+          <Link
+            to="/portal/notifications"
+            className="text-xs font-bold text-teal-600 hover:text-teal-700 bg-teal-50 px-3 py-1.5 rounded-lg border border-teal-100/50 transition-all whitespace-nowrap"
+          >
+            View All
+          </Link>
+        </header>
 
-      <ul className="mt-4 space-y-3">
-        {items.map(
-          (n: { title: string; time: string; desc: string; tint: string; icon: LucideIcon }) => (
-            <li
-              key={n.title}
-              className="flex gap-3 rounded-2xl border border-slate-100 bg-slate-50/40 p-3 transition hover:bg-white hover:shadow-sm min-w-0"
-            >
-              <div
-                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${n.tint}`}
-              >
-                <n.icon className="h-5 w-5" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="truncate text-sm font-medium text-slate-900">{n.title}</div>
-                  <div className="shrink-0 text-xs text-slate-400">{n.time}</div>
-                </div>
-                <div className="mt-0.5 text-xs text-slate-500 line-clamp-2">{n.desc}</div>
-              </div>
-            </li>
-          ),
+        {items.length > 0 ? (
+          <ul className="mt-4 space-y-3">
+            {items.map(
+              (n: {
+                title: string;
+                time: string;
+                desc: string;
+                tint: string;
+                icon: LucideIcon;
+              }) => (
+                <li
+                  key={n.title + n.time}
+                  className="flex gap-3 rounded-xl border border-slate-100 bg-slate-50/30 p-3 transition hover:bg-white hover:shadow-xs min-w-0"
+                >
+                  <div
+                    className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${n.tint}`}
+                  >
+                    <n.icon className="h-4 w-4 stroke-[2]" />
+                  </div>
+                  <div className="min-w-0 flex-1 space-y-0.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="truncate text-sm font-bold text-slate-900">{n.title}</div>
+                      <div className="shrink-0 text-[10px] font-bold text-slate-400 lowercase tabular-nums">
+                        {n.time}
+                      </div>
+                    </div>
+                    <div className="text-xs text-slate-500 font-medium line-clamp-2 leading-relaxed">
+                      {n.desc}
+                    </div>
+                  </div>
+                </li>
+              ),
+            )}
+          </ul>
+        ) : (
+          <div className="py-16 px-4 text-center max-w-sm mx-auto space-y-4">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-50 border border-dashed border-slate-200 text-slate-400 shadow-2xs">
+              <Bell className="h-6 w-6 stroke-[1.5]" />
+            </div>
+            <div className="space-y-1">
+              <h3 className="text-sm font-bold text-slate-800">Clear backlog</h3>
+              <p className="text-xs text-slate-400 font-medium">
+                No alerts or unread notifications pending feedback.
+              </p>
+            </div>
+          </div>
         )}
-      </ul>
+      </div>
     </section>
   );
 }
