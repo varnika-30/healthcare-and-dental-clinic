@@ -1,9 +1,10 @@
 import React, { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { getOrCreateMyPatient } from "@/lib/patient";
 import { toast } from "sonner";
+import { AppointmentBookingModal } from "@/components/portal/AppointmentBookingModal";
 import {
   Calendar,
   Clock,
@@ -87,128 +88,35 @@ function PortalAppointmentsPage() {
     },
   });
 
-  const [localAppointments, setLocalAppointments] = useState<Appointment[]>([]);
-  const appointments = [...localAppointments, ...dbAppointments];
+  const queryClient = useQueryClient();
+  const appointments = dbAppointments;
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [showRequestChoice, setShowRequestChoice] = useState(false);
   const [showCallModal, setShowCallModal] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [focusedAppointment, setFocusedAppointment] = useState<Appointment | null>(null);
 
-  const [selectedServiceId, setSelectedServiceId] = useState("");
-  const [patientPhone, setPatientPhone] = useState("");
-  const [phoneError, setPhoneError] = useState<string | undefined>();
-  const [appointmentDate, setAppointmentDate] = useState("");
-
-  // Custom interactive workflow states for flexible time configurations
-  const [hasTimePreference, setHasTimePreference] = useState<"no" | "yes">("no");
-  const [preferredTimeText, setPreferredTimeText] = useState("");
-  const [notes, setNotes] = useState("");
-  const [patientStatus, setPatientStatus] = useState<"existing" | "new">("existing");
-  const [dateError, setDateError] = useState("");
-
-  if (isLoading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-teal-50/40 via-white to-cyan-50/30">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-teal-600 border-t-transparent" />
-      </div>
-    );
-  }
-
-  const AVAILABLE_SERVICES: ServiceProfile[] = [
-    { id: "s1", name: "Dental Cleaning & Examination" },
-    { id: "s2", name: "Invisalign Progress Check" },
-    { id: "s3", name: "Deep Root Canal Therapy" },
-    { id: "s4", name: "Teeth Whitening Session" },
-  ];
-
-  const resetBookingForm = () => {
-    setSelectedServiceId("");
-    setPatientPhone("");
-    setPhoneError(undefined);
-    setAppointmentDate("");
-    setHasTimePreference("no");
-    setPreferredTimeText("");
-    setNotes("");
-  };
-
-  const getMinDateString = () => {
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    return tomorrow.toISOString().split("T")[0];
-  };
-
-  const handleFormSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const phoneValidation = validatePhone(patientPhone);
-    if (phoneValidation) {
-      setPhoneError(phoneValidation);
-      toast.error(phoneValidation);
-      return;
-    }
-    if (!selectedServiceId || !appointmentDate) {
-      toast.error("Please complete all required fields before requesting.");
-      return;
-    }
-
-    let dError = "";
-
-    if (!appointmentDate) {
-      dError = "Preferred date is required.";
-    }
-
-    if (dError) {
-      setDateError(dError);
-      return;
-    }
-
-    setDateError("");
-    setIsSubmitting(true);
-
-    setTimeout(() => {
-      const service = AVAILABLE_SERVICES.find((s) => s.id === selectedServiceId);
-
-      // Since time is conversational text and fully optional, build safe iso anchor structures
-      const fallbackTimeStr = "09:00:00";
-      const combinedDateTime = new Date(`${appointmentDate}T${fallbackTimeStr}`).toISOString();
-
-      const newAppointment: Appointment = {
-        id: Math.random().toString(36).substr(2, 9),
-        appointment_date: combinedDateTime,
-        status: "requested",
-        notes: notes || undefined,
-        dentist_name: "To be assigned",
-        specialty: "Lumident Care Team",
-        service_name: service?.name || "General Dental Consultation",
-        patient_phone: patientPhone.trim(),
-        preferred_time_text: hasTimePreference === "yes" ? preferredTimeText.trim() : undefined,
-      };
-
-      setLocalAppointments((prev) => [newAppointment, ...prev]);
-      setIsSubmitting(false);
-      setIsDialogOpen(false);
-
-      // TODO: Send WhatsApp notification to doctor when backend integration is implemented.
-      toast.success("Appointment Request Submitted", {
-        description:
-          "Your request has been sent to the clinic. A coordinator will contact you shortly.",
-      });
-
-      resetBookingForm();
-    }, 800);
-  };
-
   // Dedicated functional operational callback to alter array record states safely
-  const handleCancelRequest = (id: string) => {
-    if (localAppointments.some((a) => a.id === id)) {
-      setLocalAppointments((prev) =>
-        prev.map((app) => (app.id === id ? { ...app, status: "cancelled" as const } : app)),
-      );
-      setFocusedAppointment((prev) =>
-        prev && prev.id === id ? { ...prev, status: "cancelled" as const } : prev,
-      );
-      toast.success("Appointment request cancelled successfully.");
+  const handleCancelRequest = async (id: string) => {
+    const app = dbAppointments.find((a) => a.id === id);
+    if (app && app.status === "requested") {
+      try {
+        const { error } = await supabase
+          .from("appointments")
+          .update({ status: "cancelled" })
+          .eq("id", id);
+        if (error) throw error;
+
+        toast.success("Appointment request cancelled successfully.");
+        setFocusedAppointment((prev) =>
+          prev && prev.id === id ? { ...prev, status: "cancelled" as const } : prev,
+        );
+        await queryClient.invalidateQueries({ queryKey: ["portal-appointments"] });
+        await queryClient.invalidateQueries({ queryKey: ["portal-overview"] });
+      } catch (err: any) {
+        console.error("Cancel error:", err);
+        toast.error("Failed to cancel appointment. Please try again.");
+      }
     } else {
       toast.info(
         "Please call the clinic at (415) 555-0182 to cancel or reschedule your appointments.",
@@ -295,7 +203,7 @@ function PortalAppointmentsPage() {
 
   return (
     <div className="min-w-0 w-full overflow-x-hidden font-sans antialiased text-slate-900">
-      <div className="mx-auto w-full min-w-0 max-w-5xl space-y-6 px-4 pb-12 pt-2 sm:px-6 md:space-y-8 md:px-8 md:pt-4 lg:px-10">
+      <div className="mx-auto w-full min-w-0 max-w-none space-y-6 px-4 pb-12 pt-2 sm:px-6 md:space-y-8 md:px-8 md:pt-4 lg:px-10">
         {/* OPTIMIZED APP HEADER BLOCK */}
         <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4 border-b border-slate-100 pb-5">
           <div className="space-y-1 min-w-0 flex-1">
@@ -460,249 +368,7 @@ function PortalAppointmentsPage() {
         )}
       </div>
 
-      {/* ==========================================
-          SCHEDULE REQUEST MODAL DIALOG OVERLAY
-         ========================================== */}
-      {isDialogOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-900/40 p-4 backdrop-blur-xs animate-in fade-in duration-200"
-          onClick={() => {
-            setIsDialogOpen(false);
-            resetBookingForm();
-          }}
-        >
-          <div
-            className="my-8 w-full max-w-md animate-in zoom-in-95 space-y-5 rounded-2xl border border-slate-100 bg-white p-5 shadow-2xl duration-200 sm:p-6"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div>
-              <h3 className="text-xl font-bold tracking-tight text-slate-900">
-                Schedule Clinical Care
-              </h3>
-              <p className="mt-1 text-xs font-medium leading-relaxed text-slate-400 sm:text-sm">
-                Request your preferred slot. A coordinator will assign your clinician and confirm
-                within 2 business hours.
-              </p>
-            </div>
-
-            <form onSubmit={handleFormSubmit} className="space-y-4 pt-1">
-              <div className="space-y-1.5">
-                <div className="space-y-1.5">
-                  <span className="block text-xs font-bold uppercase tracking-wider text-slate-500">
-                    Have you visited our clinic before?
-                  </span>
-
-                  <div className="grid grid-cols-2 gap-2 h-11">
-                    <button
-                      type="button"
-                      onClick={() => setPatientStatus("existing")}
-                      className={`flex items-center justify-center rounded-lg border text-xs font-semibold tracking-wide transition-all ${
-                        patientStatus === "existing"
-                          ? "border-teal-600 bg-teal-50 text-teal-700 font-bold"
-                          : "border-slate-200 text-slate-600 hover:bg-slate-50"
-                      }`}
-                    >
-                      Yes
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => setPatientStatus("new")}
-                      className={`flex items-center justify-center rounded-lg border text-xs font-semibold tracking-wide transition-all ${
-                        patientStatus === "new"
-                          ? "border-teal-600 bg-teal-50 text-teal-700 font-bold"
-                          : "border-slate-200 text-slate-600 hover:bg-slate-50"
-                      }`}
-                    >
-                      No
-                    </button>
-                  </div>
-                </div>
-                <label
-                  htmlFor="clinical-service"
-                  className="block text-xs font-bold uppercase tracking-wider text-slate-500"
-                >
-                  Clinical Service Required
-                </label>
-                <select
-                  id="clinical-service"
-                  required
-                  value={selectedServiceId}
-                  onChange={(e) => setSelectedServiceId(e.target.value)}
-                  className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm transition-all focus:border-teal-600 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
-                >
-                  <option value="">Select treatment type...</option>
-                  {AVAILABLE_SERVICES.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="space-y-1.5">
-                <label
-                  htmlFor="patient-phone"
-                  className="block text-xs font-bold uppercase tracking-wider text-slate-500"
-                >
-                  Phone Number
-                </label>
-                <input
-                  id="patient-phone"
-                  type="tel"
-                  inputMode="tel"
-                  autoComplete="tel"
-                  required
-                  maxLength={20}
-                  placeholder="(415) 555-0142"
-                  value={patientPhone}
-                  onChange={(e) => {
-                    setPatientPhone(e.target.value);
-                    if (phoneError) setPhoneError(validatePhone(e.target.value));
-                  }}
-                  onBlur={() => setPhoneError(validatePhone(patientPhone))}
-                  className={`h-12 w-full rounded-lg border bg-white px-3 text-base sm:text-sm transition-all focus:outline-none focus:ring-2 focus:ring-teal-500/20 ${
-                    phoneError
-                      ? "border-rose-300 focus:border-rose-500"
-                      : "border-slate-200 focus:border-teal-600"
-                  }`}
-                />
-                {phoneError && (
-                  <p className="flex items-center gap-1 text-xs font-medium text-rose-500">
-                    <AlertCircle className="h-3 w-3 shrink-0" />
-                    {phoneError}
-                  </p>
-                )}
-              </div>
-
-              {/* MODAL WORKSPACE FORM TRACK UPDATE */}
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div className="space-y-1.5">
-                  <label
-                    htmlFor="preferred-date"
-                    className="block text-xs font-bold uppercase tracking-wider text-slate-500"
-                  >
-                    Preferred Date
-                  </label>
-                  <input
-                    id="preferred-date"
-                    type="date"
-                    required
-                    min={getMinDateString()}
-                    value={appointmentDate}
-                    onChange={(e) => {
-                      setAppointmentDate(e.target.value);
-                      if (dateError) setDateError("");
-                    }}
-                    className={`h-11 w-full rounded-lg border px-3 text-sm transition-all focus:outline-none focus:ring-2 focus:ring-teal-500/20 ${
-                      dateError
-                        ? "border-rose-300 focus:border-rose-500"
-                        : "border-slate-200 focus:border-teal-600"
-                    }`}
-                  />
-                  {dateError && (
-                    <p className="flex items-center gap-1 text-xs font-medium text-rose-500">
-                      <AlertCircle className="h-3 w-3 shrink-0" />
-                      {dateError}
-                    </p>
-                  )}
-                </div>
-
-                <div className="space-y-1.5">
-                  <span className="block text-xs font-bold uppercase tracking-wider text-slate-500">
-                    Do you have a preferred time?
-                  </span>
-                  <div className="grid grid-cols-2 gap-2 h-11">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setHasTimePreference("no");
-                        setPreferredTimeText("");
-                      }}
-                      className={`flex items-center justify-center rounded-lg border text-xs font-semibold tracking-wide transition-all ${
-                        hasTimePreference === "no"
-                          ? "border-teal-600 bg-teal-50 text-teal-700 font-bold"
-                          : "border-slate-200 text-slate-600 hover:bg-slate-50"
-                      }`}
-                    >
-                      No preference
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setHasTimePreference("yes")}
-                      className={`flex items-center justify-center rounded-lg border text-xs font-semibold tracking-wide transition-all ${
-                        hasTimePreference === "yes"
-                          ? "border-teal-600 bg-teal-50 text-teal-700 font-bold"
-                          : "border-slate-200 text-slate-600 hover:bg-slate-50"
-                      }`}
-                    >
-                      Yes
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* RE-ENGINEERED CONVERSATIONAL PREFERRED TIME INPUT NODE */}
-              {hasTimePreference === "yes" && (
-                <div className="space-y-1.5 animate-in fade-in slide-in-from-top-2 duration-150">
-                  <label
-                    htmlFor="preferred-time-text"
-                    className="block text-xs font-bold uppercase tracking-wider text-slate-500"
-                  >
-                    Preferred Time Window Details
-                  </label>
-                  <input
-                    id="preferred-time-text"
-                    type="text"
-                    required
-                    placeholder="e.g. 4 PM – 6 PM, Morning preferred, After 5 PM"
-                    value={preferredTimeText}
-                    onChange={(e) => setPreferredTimeText(e.target.value)}
-                    className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm transition-all focus:border-teal-600 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
-                  />
-                </div>
-              )}
-
-              <div className="space-y-1.5">
-                <label
-                  htmlFor="health-notes"
-                  className="block text-xs font-bold uppercase tracking-wider text-slate-500"
-                >
-                  Health Notes / Symptoms (Optional)
-                </label>
-                <textarea
-                  id="health-notes"
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Describe any current sensitivity..."
-                  rows={3}
-                  className="w-full resize-none rounded-lg border border-slate-200 p-3 text-sm transition-all focus:border-teal-600 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
-                />
-              </div>
-
-              <div className="flex flex-col gap-2.5 pt-2 sm:flex-row sm:justify-end">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsDialogOpen(false);
-                    resetBookingForm();
-                  }}
-                  className="order-2 h-11 rounded-lg px-3 text-xs font-bold uppercase tracking-wider text-slate-500 transition-colors hover:bg-slate-50 sm:order-1"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="order-1 h-11 rounded-lg bg-teal-600 px-5 text-xs font-bold uppercase tracking-wider text-white shadow-sm transition-all hover:bg-teal-700 disabled:opacity-60 sm:order-2"
-                >
-                  {isSubmitting ? "Submitting..." : "Confirm Booking Request"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <AppointmentBookingModal open={isDialogOpen} onClose={() => setIsDialogOpen(false)} />
 
       {/* Request Choice Modal */}
       {showRequestChoice && (

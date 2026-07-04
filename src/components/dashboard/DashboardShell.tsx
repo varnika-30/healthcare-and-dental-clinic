@@ -51,7 +51,7 @@ function DashboardSidebarBrand({ role }: { role: string | null }) {
 
 export function DashboardShell({
   children,
-  maxW = "max-w-[1600px]",
+  maxW = "max-w-none",
 }: {
   children: ReactNode;
   maxW?: string;

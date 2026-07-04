@@ -203,7 +203,7 @@ export function PatientShell({ children }: { children: ReactNode }) {
         </div>
 
         <main className="flex-1 flex flex-col overflow-y-auto w-full min-w-0 max-w-full overflow-x-hidden">
-          <div className="p-6 md:p-8 xl:p-10 w-full mx-auto min-w-0 overflow-x-hidden max-w-[1500px]">
+          <div className="p-6 md:p-8 xl:p-10 w-full mx-auto min-w-0 overflow-x-hidden max-w-none">
             {children}
           </div>
         </main>

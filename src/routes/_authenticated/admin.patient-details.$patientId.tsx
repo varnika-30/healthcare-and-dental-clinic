@@ -491,6 +491,28 @@ export default function AdminPatientDetailsPage() {
   const [payments, setPayments] = useState<any[]>([]);
   const [reloadTrigger, setReloadTrigger] = useState(0);
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
+  const [selectedTreatmentId, setSelectedTreatmentId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (patientData.treatments.length > 0) {
+      const exists = patientData.treatments.some((tx) => tx.id === selectedTreatmentId);
+      if (!selectedTreatmentId || !exists) {
+        const ongoing = patientData.treatments.find((tx) => tx.status === "Ongoing");
+        if (ongoing) {
+          setSelectedTreatmentId(ongoing.id);
+        } else {
+          const sorted = [...patientData.treatments].sort((a, b) => {
+            const dateA = new Date(a.startDate || 0).getTime();
+            const dateB = new Date(b.startDate || 0).getTime();
+            return dateB - dateA;
+          });
+          setSelectedTreatmentId(sorted[0]?.id || null);
+        }
+      }
+    } else {
+      setSelectedTreatmentId(null);
+    }
+  }, [patientData.treatments, selectedTreatmentId]);
 
   // Prescription edit tracking state
   const [prescriptionModal, setPrescriptionModal] = useState<"create" | "edit" | "history" | null>(
@@ -3509,72 +3531,28 @@ export default function AdminPatientDetailsPage() {
                 </tbody>
               </table>
             </div>
-
-            {/* Invoices History Sub-system */}
-            {invoices.length > 0 && (
-              <div className="mt-6 pt-6 border-t border-slate-100 space-y-4">
-                <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-                  Invoice Documents &amp; Statements
-                </h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                  {invoices.map((inv) => (
-                    <div
-                      key={inv.id}
-                      className="p-3 border border-slate-150 rounded-xl bg-slate-50/30 flex items-center justify-between text-xs hover:bg-slate-50/60 transition"
-                    >
-                      <div className="space-y-1">
-                        <p className="font-bold text-slate-800">{inv.invoice_number}</p>
-                        <p className="text-[11px] text-slate-400">
-                          Issued: {inv.created_at.split("T")[0]} • Due: {inv.due_date || "N/A"}
-                        </p>
-                        <p className="text-[11px] text-slate-500">
-                          Total: ₹{inv.total.toLocaleString()} • Paid: ₹
-                          {inv.amount_paid.toLocaleString()}
-                        </p>
-                      </div>
-                      <div className="text-right space-y-2">
-                        <span
-                          className={`inline-block px-2 py-0.5 rounded-full font-black text-[9px] border uppercase ${
-                            inv.status === "paid"
-                              ? "bg-emerald-50 border-emerald-200 text-emerald-700"
-                              : inv.status === "partial"
-                                ? "bg-amber-50 border-amber-200 text-amber-700"
-                                : "bg-rose-50 border-rose-200 text-rose-700"
-                          }`}
-                        >
-                          {inv.status}
-                        </span>
-                        <a
-                          href="#"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            alert(`Downloading statement for ${inv.invoice_number}...`);
-                          }}
-                          className="block text-[11px] text-teal-600 font-bold hover:underline"
-                        >
-                          Download Statement
-                        </a>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
         </div>
 
         {/* ==========================================
-            TREATMENT CARD RECORD MODULE (FULL WIDTH)
+            TREATMENT CARD RECORD MODULE (COMPACTED UI)
            ========================================== */}
         <div
           id="treatments"
           className="bg-white rounded-2xl border border-slate-200 border-l-4 border-l-cyan-500 shadow-xs flex flex-col justify-between overflow-hidden scroll-mt-[160px] w-full mb-6"
         >
           <div>
-            <div className="px-4 sm:px-5 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
-              <h3 className="text-xs sm:text-sm font-bold text-slate-900 flex items-center gap-2">
-                <FileText className="w-4 h-4 text-cyan-600" /> Treatment Tracking &amp; Diagnostics
-              </h3>
+            {/* Header Area */}
+            <div className="px-4 sm:px-5 py-3.5 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between flex-wrap gap-2">
+              <div className="flex items-center gap-2">
+                <FileText className="w-4 h-4 text-cyan-600" />
+                <h3 className="text-xs sm:text-sm font-bold text-slate-900">
+                  Treatment Tracking &amp; Diagnostics
+                </h3>
+                <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200/60">
+                  {patientData.treatments.length}
+                </span>
+              </div>
               <button
                 type="button"
                 onClick={() => setIsAddingTreatment(!isAddingTreatment)}
@@ -3584,7 +3562,7 @@ export default function AdminPatientDetailsPage() {
               </button>
             </div>
 
-            <div className="p-4 space-y-3">
+            <div className="p-4 space-y-4">
               <AnimatePresence>
                 {isAddingTreatment && (
                   <motion.form
@@ -3592,7 +3570,7 @@ export default function AdminPatientDetailsPage() {
                     animate={{ opacity: 1, height: "auto" }}
                     exit={{ opacity: 0, height: 0 }}
                     onSubmit={handleAddTreatment}
-                    className="border border-cyan-100 bg-cyan-50/10 rounded-xl p-3.5 text-xs space-y-3"
+                    className="border border-cyan-100 bg-cyan-50/10 rounded-xl p-3.5 text-xs space-y-3 mb-2"
                   >
                     <div className="grid grid-cols-3 gap-2">
                       <div>
@@ -3610,7 +3588,6 @@ export default function AdminPatientDetailsPage() {
                       </div>
                       <div className="col-span-2">
                         <label className="block text-slate-400 font-bold mb-0.5">Procedure</label>
-
                         <select
                           value={treatmentForm.procedure}
                           onChange={(e) => {
@@ -3631,19 +3608,12 @@ export default function AdminPatientDetailsPage() {
                           required
                         >
                           <option value="">Select Procedure</option>
-
                           <option value="Root Canal">Root Canal</option>
-
                           <option value="Implant">Implant</option>
-
                           <option value="Bridge">Bridge</option>
-
                           <option value="Composite Filling">Composite Filling</option>
-
                           <option value="Scaling & Cleaning">Scaling & Cleaning</option>
-
                           <option value="Extraction">Extraction</option>
-
                           <option value="Braces">Braces</option>
                           <option value="Other">Other</option>
                         </select>
@@ -3752,273 +3722,315 @@ export default function AdminPatientDetailsPage() {
                 )}
               </AnimatePresence>
 
-              <span className="uppercase tracking-[0.18em] text-[9px] text-slate-400">
-                Progress Controlled Below
-              </span>
+              <div className="space-y-3">
+                {/* Compact, Integrated Inline Selection Bar */}
+                {patientData.treatments.length >= 2 && (
+                  <div className="inline-flex items-center gap-2 bg-slate-50/80 px-3 py-1.5 rounded-lg border border-slate-200/60 text-xs">
+                    <span className="font-bold text-slate-500 uppercase tracking-wider text-[9px] whitespace-nowrap">
+                      Select Line:
+                    </span>
+                    <select
+                      value={selectedTreatmentId || ""}
+                      onChange={(e) => setSelectedTreatmentId(e.target.value)}
+                      className="bg-white border border-slate-200 text-slate-800 rounded px-2 py-1 font-semibold text-xs focus:outline-none max-w-xs sm:max-w-md truncate"
+                    >
+                      {patientData.treatments.map((t) => {
+                        const tooth = t.toothNumber;
+                        const hasTooth =
+                          tooth && tooth.trim() !== "" && tooth.toLowerCase() !== "general";
+                        const name = hasTooth ? `${t.procedure} (Tooth ${tooth})` : t.procedure;
+                        return (
+                          <option key={t.id} value={t.id}>
+                            {name} — {t.status}
+                          </option>
+                        );
+                      })}
+                    </select>
+                  </div>
+                )}
 
-              <div className="space-y-2">
-                <div className="bg-red-50 p-2 text-red-700 font-bold">
-                  Treatment Count: {patientData.treatments.length}
-                </div>
-                {patientData.treatments.map((tx) => (
-                  <div
-                    key={tx.id}
-                    className="p-3 bg-slate-50/50 border border-slate-100 rounded-xl space-y-1.5 text-xs"
-                  >
-                    <div className="flex justify-between items-center text-[11px]">
-                      <span className="font-mono bg-white px-2 py-0.5 rounded border border-slate-200 text-cyan-800 font-bold">
-                        Tooth Map: {tx.toothNumber}
-                      </span>
-                      <span className="text-slate-400 font-medium">{tx.date}</span>
-                    </div>
+                {patientData.treatments
+                  .filter(
+                    (tx) => patientData.treatments.length < 2 || tx.id === selectedTreatmentId,
+                  )
+                  .map((tx) => {
+                    const hasToothNum =
+                      tx.toothNumber &&
+                      tx.toothNumber.trim() !== "" &&
+                      tx.toothNumber.toLowerCase() !== "general";
 
-                    <div className="mt-1 text-[11px] text-slate-500 space-y-0.5">
-                      <div>
-                        <span className="font-semibold">Started:</span> {tx.startDate}
-                      </div>
-                      {tx.completedDate && (
-                        <div>
-                          <span className="font-semibold">Completed:</span> {tx.completedDate}
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="flex items-center gap-3 text-xs text-slate-500 pt-2">
-                      <div>
-                        <div className="text-[10px] uppercase text-slate-400">Started</div>
-                        <div className="font-semibold text-slate-700">
-                          {formatDate(tx.startDate)}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-[10px] uppercase text-slate-400">Completed</div>
-                        <div className="font-semibold text-slate-700">
-                          {tx.completedDate ? formatDate(tx.completedDate) : "-"}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                      <h4 className="font-bold text-slate-900">{tx.procedure}</h4>
-                      <span
-                        className={`inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-[10px] font-bold border ${getTreatmentStatusClasses(
-                          tx.status,
-                        )}`}
+                    return (
+                      <div
+                        key={tx.id}
+                        className="p-4 bg-slate-50/40 border border-slate-200/80 rounded-xl space-y-4 text-xs"
                       >
-                        {tx.status}
-                      </span>
-                    </div>
-
-                    {tx.notes && (
-                      <p className="text-slate-500 font-medium leading-relaxed bg-white p-2 rounded border border-slate-200/60">
-                        {tx.notes}
-                      </p>
-                    )}
-
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between text-xs pt-2">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <label className="inline-flex items-center gap-2 text-slate-500 font-semibold">
-                          <span className="uppercase tracking-[0.18em] text-[9px]">
-                            Current Stage
-                          </span>
-                          <select
-                            value={tx.currentStage}
-                            onChange={(e) => updateTreatmentStage(tx.id, e.target.value)}
-                            className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700"
-                          >
-                            {(tx.stages || []).map((stage) => (
-                              <option key={stage.name} value={stage.name}>
-                                {stage.name}
-                              </option>
-                            ))}
-                          </select>
-                        </label>
-                      </div>
-                      <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-100 px-2 py-1 text-[10px] font-bold text-slate-700">
-                        {tx.currentStage}
-                      </span>
-                    </div>
-
-                    <div className="mt-2.5 pt-2.5 border-t border-slate-100/70 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="font-semibold text-slate-700 text-[10px] uppercase tracking-wider">
-                          Treatment Plan & Progress
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => toggleManageStages(tx.id)}
-                          className="text-[10px] font-bold text-cyan-600 hover:text-cyan-700"
-                        >
-                          {expandedTxId === tx.id ? "Hide Editor" : "Edit Plan Stages"}
-                        </button>
-                      </div>
-
-                      <div className="flex flex-wrap items-center gap-1.5 py-1">
-                        {(tx.stages || []).map((stage, idx) => (
-                          <React.Fragment key={stage.name}>
-                            <div
-                              onClick={() => handleStageClick(tx.id, idx)}
-                              className={`cursor-pointer px-2 py-0.5 rounded text-[10px] font-bold border transition ${
-                                stage.status === "completed"
-                                  ? "bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100"
-                                  : stage.status === "active"
-                                    ? "bg-cyan-50 border-cyan-300 text-cyan-700 ring-1 ring-cyan-400 hover:bg-cyan-100"
-                                    : "bg-slate-50 border-slate-200 text-slate-400 hover:bg-slate-100"
-                              }`}
-                              title="Click to set as active stage"
-                            >
-                              {stage.name}
+                        {/* Title & Metadata Header Block */}
+                        <div className="flex flex-col gap-1.5 sm:flex-row sm:items-start sm:justify-between border-b border-slate-100 pb-3">
+                          <div className="space-y-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <h4 className="text-sm font-bold text-slate-900 tracking-tight">
+                                {tx.procedure}
+                              </h4>
+                              {hasToothNum && (
+                                <span className="font-mono text-[10px] bg-cyan-50/60 px-1.5 py-0.5 rounded border border-cyan-100 text-cyan-800 font-bold">
+                                  Tooth {tx.toothNumber}
+                                </span>
+                              )}
+                              <span
+                                className={`inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold border tracking-wide uppercase ${getTreatmentStatusClasses(
+                                  tx.status,
+                                )}`}
+                              >
+                                {tx.status}
+                              </span>
                             </div>
-                            {idx < (tx.stages || []).length - 1 && (
-                              <span className="text-slate-300">→</span>
-                            )}
-                          </React.Fragment>
-                        ))}
-                      </div>
-                    </div>
 
-                    {expandedTxId === tx.id && (
-                      <div className="bg-slate-50/80 p-2.5 rounded-lg border border-slate-100 space-y-2 mt-2">
-                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide block">
-                          Configure Plan Stages
-                        </span>
-                        <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
-                          {(tx.stages || []).map((stage, idx) => (
-                            <div key={idx} className="flex items-center gap-1.5">
-                              <input
-                                type="text"
-                                value={stage.name}
-                                onChange={(e) => handleRenameStage(tx.id, idx, e.target.value)}
-                                className="flex-1 p-1 bg-white border border-slate-200 rounded text-[11px]"
-                              />
-                              <select
-                                value={stage.status}
-                                onChange={(e) =>
-                                  handleSetStageStatus(
-                                    tx.id,
-                                    idx,
-                                    e.target.value as "completed" | "active" | "upcoming",
-                                  )
-                                }
-                                className="p-1 bg-white border border-slate-200 rounded text-[10px] text-slate-600 font-bold"
-                              >
-                                <option value="completed">Completed</option>
-                                <option value="active">Active</option>
-                                <option value="upcoming">Upcoming</option>
-                              </select>
-                              <button
-                                type="button"
-                                disabled={idx === 0}
-                                onClick={() => handleMoveStage(tx.id, idx, "up")}
-                                className="p-0.5 text-slate-400 hover:text-slate-600 disabled:opacity-30"
-                                title="Move Up"
-                              >
-                                ↑
-                              </button>
-                              <button
-                                type="button"
-                                disabled={idx === (tx.stages || []).length - 1}
-                                onClick={() => handleMoveStage(tx.id, idx, "down")}
-                                className="p-0.5 text-slate-400 hover:text-slate-600 disabled:opacity-30"
-                                title="Move Down"
-                              >
-                                ↓
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleDeleteStage(tx.id, idx)}
-                                className="p-0.5 text-red-500 hover:text-red-700"
-                                title="Delete Stage"
-                              >
-                                ✕
-                              </button>
+                            {/* Consolidated Timestamps Block */}
+                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-500 font-medium">
+                              <div className="flex items-center gap-1">
+                                <span className="text-slate-400 font-semibold uppercase text-[9px]">
+                                  Started:
+                                </span>
+                                <span className="text-slate-700">{formatDate(tx.startDate)}</span>
+                              </div>
+                              {tx.completedDate && (
+                                <div className="flex items-center gap-1 border-l border-slate-200 pl-3">
+                                  <span className="text-slate-400 font-semibold uppercase text-[9px]">
+                                    Completed:
+                                  </span>
+                                  <span className="text-slate-700">
+                                    {formatDate(tx.completedDate)}
+                                  </span>
+                                </div>
+                              )}
                             </div>
-                          ))}
+                          </div>
                         </div>
-                        <div className="flex gap-1.5 pt-1.5 border-t border-slate-200/60">
-                          <input
-                            type="text"
-                            placeholder="New stage name..."
-                            id={`new-stage-${tx.id}`}
-                            className="flex-1 p-1 bg-white border border-slate-200 rounded text-[11px]"
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") {
-                                e.preventDefault();
-                                handleAddCustomStage(
-                                  tx.id,
-                                  (e.currentTarget as HTMLInputElement).value,
-                                );
-                                (e.currentTarget as HTMLInputElement).value = "";
-                              }
-                            }}
-                          />
+
+                        {/* Diagnostic Operational Notes */}
+                        {tx.notes && (
+                          <div className="space-y-1">
+                            <p className="text-slate-600 font-medium leading-relaxed bg-white p-2.5 rounded-lg border border-slate-200/60 shadow-3xs">
+                              {tx.notes}
+                            </p>
+                          </div>
+                        )}
+
+                        {/* Interactive Workflow & Progress Tracking */}
+                        <div className="space-y-3 bg-white p-3 rounded-xl border border-slate-150 shadow-3xs">
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-2">
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-slate-700 text-[10px] uppercase tracking-wider">
+                                Treatment Stage Workflow
+                              </span>
+                              <span className="inline-flex items-center rounded-full bg-slate-50 border border-slate-200 px-2 py-0.5 text-[10px] font-bold text-slate-700">
+                                {tx.currentStage}
+                              </span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => toggleManageStages(tx.id)}
+                              className="text-[10px] font-bold text-cyan-600 hover:text-cyan-700 self-start sm:self-auto"
+                            >
+                              {expandedTxId === tx.id ? "Hide Editor" : "Edit Plan Stages"}
+                            </button>
+                          </div>
+
+                          {/* Linear Process Timeline Track */}
+                          <div className="flex flex-wrap items-center gap-2 py-1">
+                            {(tx.stages || []).map((stage, idx) => (
+                              <React.Fragment key={stage.name}>
+                                <div
+                                  onClick={() => handleStageClick(tx.id, idx)}
+                                  className={`cursor-pointer px-2.5 py-1 rounded-md text-[10px] font-bold border transition select-none ${
+                                    stage.status === "completed"
+                                      ? "bg-emerald-50/60 border-emerald-200 text-emerald-700 hover:bg-emerald-100"
+                                      : stage.status === "active"
+                                        ? "bg-cyan-50 border-cyan-300 text-cyan-700 ring-1 ring-cyan-400/50 font-extrabold hover:bg-cyan-100"
+                                        : "bg-slate-50 border-slate-200 text-slate-400 hover:bg-slate-100"
+                                  }`}
+                                  title="Click to set as active stage"
+                                >
+                                  {stage.name}
+                                </div>
+                                {idx < (tx.stages || []).length - 1 && (
+                                  <span className="text-slate-300 font-light select-none">→</span>
+                                )}
+                              </React.Fragment>
+                            ))}
+                          </div>
+
+                          {/* Embedded Workflow Customization Panel */}
+                          {expandedTxId === tx.id && (
+                            <div className="bg-slate-50/80 p-2.5 rounded-lg border border-slate-200/60 space-y-2 mt-2 animate-fadeIn">
+                              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide block">
+                                Configure Plan Stages
+                              </span>
+                              <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                                {(tx.stages || []).map((stage, idx) => (
+                                  <div key={idx} className="flex items-center gap-1.5">
+                                    <input
+                                      type="text"
+                                      value={stage.name}
+                                      onChange={(e) =>
+                                        handleRenameStage(tx.id, idx, e.target.value)
+                                      }
+                                      className="flex-1 p-1 bg-white border border-slate-200 rounded text-[11px]"
+                                    />
+                                    <select
+                                      value={stage.status}
+                                      onChange={(e) =>
+                                        handleSetStageStatus(
+                                          tx.id,
+                                          idx,
+                                          e.target.value as "completed" | "active" | "upcoming",
+                                        )
+                                      }
+                                      className="p-1 bg-white border border-slate-200 rounded text-[10px] text-slate-600 font-bold"
+                                    >
+                                      <option value="completed">Completed</option>
+                                      <option value="active">Active</option>
+                                      <option value="upcoming">Upcoming</option>
+                                    </select>
+                                    <button
+                                      type="button"
+                                      disabled={idx === 0}
+                                      onClick={() => handleMoveStage(tx.id, idx, "up")}
+                                      className="p-0.5 text-slate-400 hover:text-slate-600 disabled:opacity-30"
+                                      title="Move Up"
+                                    >
+                                      ↑
+                                    </button>
+                                    <button
+                                      type="button"
+                                      disabled={idx === (tx.stages || []).length - 1}
+                                      onClick={() => handleMoveStage(tx.id, idx, "down")}
+                                      className="p-0.5 text-slate-400 hover:text-slate-600 disabled:opacity-30"
+                                      title="Move Down"
+                                    >
+                                      ↓
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDeleteStage(tx.id, idx)}
+                                      className="p-0.5 text-red-500 hover:text-red-700"
+                                      title="Delete Stage"
+                                    >
+                                      ✕
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                              <div className="flex gap-1.5 pt-1.5 border-t border-slate-200/60">
+                                <input
+                                  type="text"
+                                  placeholder="New stage name..."
+                                  id={`new-stage-${tx.id}`}
+                                  className="flex-1 p-1 bg-white border border-slate-200 rounded text-[11px]"
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter") {
+                                      e.preventDefault();
+                                      handleAddCustomStage(
+                                        tx.id,
+                                        (e.currentTarget as HTMLInputElement).value,
+                                      );
+                                      (e.currentTarget as HTMLInputElement).value = "";
+                                    }
+                                  }}
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const input = document.getElementById(
+                                      `new-stage-${tx.id}`,
+                                    ) as HTMLInputElement | null;
+                                    if (input && input.value.trim()) {
+                                      handleAddCustomStage(tx.id, input.value);
+                                      input.value = "";
+                                    }
+                                  }}
+                                  className="bg-cyan-600 text-white font-bold px-2 py-1 rounded text-[10px] hover:bg-cyan-700"
+                                >
+                                  Add
+                                </button>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Fast Action / State Change Matrix */}
+                          <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-100 text-xs">
+                            <label className="inline-flex items-center gap-1.5 text-slate-500 font-semibold mr-auto">
+                              <span className="uppercase text-[9px] tracking-wider text-slate-400">
+                                Jump Stage:
+                              </span>
+                              <select
+                                value={tx.currentStage}
+                                onChange={(e) => updateTreatmentStage(tx.id, e.target.value)}
+                                className="rounded-md border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-medium text-slate-700 shadow-3xs"
+                              >
+                                {(tx.stages || []).map((stage) => (
+                                  <option key={stage.name} value={stage.name}>
+                                    {stage.name}
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
+                          </div>
+                        </div>
+
+                        {/* Operational Execution Controls Row */}
+                        <div className="flex flex-wrap items-center justify-end gap-2 pt-1">
+                          {tx.status !== "Ongoing" && tx.status !== "Completed" && (
+                            <button
+                              type="button"
+                              onClick={() => updateTreatmentStatus(tx.id, "Ongoing")}
+                              className="text-[10px] font-bold text-cyan-700 bg-cyan-50 hover:bg-cyan-100 px-2.5 py-1.5 rounded transition"
+                            >
+                              {tx.status === "Pending" ? "Start Treatment" : "Resume Treatment"}
+                            </button>
+                          )}
+                          {tx.status === "Ongoing" && (
+                            <button
+                              type="button"
+                              onClick={() => updateTreatmentStatus(tx.id, "Paused")}
+                              className="text-[10px] font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 px-2.5 py-1.5 rounded transition"
+                            >
+                              Pause Treatment
+                            </button>
+                          )}
+                          {tx.status !== "Completed" && (
+                            <button
+                              type="button"
+                              onClick={() => updateTreatmentStatus(tx.id, "Completed")}
+                              className="text-[10px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1.5 rounded transition"
+                            >
+                              Complete Treatment
+                            </button>
+                          )}
                           <button
                             type="button"
                             onClick={() => {
-                              const input = document.getElementById(
-                                `new-stage-${tx.id}`,
-                              ) as HTMLInputElement | null;
-                              if (input && input.value.trim()) {
-                                handleAddCustomStage(tx.id, input.value);
-                                input.value = "";
+                              if (
+                                typeof window !== "undefined" &&
+                                window.confirm(
+                                  "Delete this treatment? This action cannot be undone.",
+                                )
+                              ) {
+                                setPatientData((prev) => ({
+                                  ...prev,
+                                  treatments: prev.treatments.filter((t) => t.id !== tx.id),
+                                }));
+                                if (expandedTxId === tx.id) setExpandedTxId(null);
                               }
                             }}
-                            className="bg-cyan-600 text-white font-bold px-2 py-1 rounded text-[10px] hover:bg-cyan-700"
+                            className="text-[10px] font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 px-2.5 py-1.5 rounded transition ml-1"
                           >
-                            Add Stage
+                            Delete
                           </button>
                         </div>
                       </div>
-                    )}
-                    <div className="flex flex-wrap items-center gap-2 pt-2">
-                      {tx.status !== "Ongoing" && tx.status !== "Completed" && (
-                        <button
-                          type="button"
-                          onClick={() => updateTreatmentStatus(tx.id, "Ongoing")}
-                          className="text-[10px] font-bold text-cyan-700 bg-cyan-50 hover:bg-cyan-100 px-2 py-1 rounded"
-                        >
-                          {tx.status === "Pending" ? "Start Treatment" : "Resume Treatment"}
-                        </button>
-                      )}
-                      {tx.status === "Ongoing" && (
-                        <button
-                          type="button"
-                          onClick={() => updateTreatmentStatus(tx.id, "Paused")}
-                          className="text-[10px] font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 px-2 py-1 rounded"
-                        >
-                          Pause Treatment
-                        </button>
-                      )}
-                      {tx.status !== "Completed" && (
-                        <button
-                          type="button"
-                          onClick={() => updateTreatmentStatus(tx.id, "Completed")}
-                          className="text-[10px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-2 py-1 rounded"
-                        >
-                          Complete Treatment
-                        </button>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (
-                            typeof window !== "undefined" &&
-                            window.confirm("Delete this treatment? This action cannot be undone.")
-                          ) {
-                            setPatientData((prev) => ({
-                              ...prev,
-                              treatments: prev.treatments.filter((t) => t.id !== tx.id),
-                            }));
-                            if (expandedTxId === tx.id) setExpandedTxId(null);
-                          }
-                        }}
-                        className="text-[10px] font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 px-2 py-1 rounded"
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                    );
+                  })}
               </div>
             </div>
           </div>
@@ -4027,11 +4039,11 @@ export default function AdminPatientDetailsPage() {
         {/* ==========================================
               CALENDAR & INTERACTIVE TOOTH CHART SIDE-BY-SIDE GRID
              ========================================== */}
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 items-stretch mb-6">
+        <div className="flex flex-col xl:flex-row gap-4 items-stretch mb-6 w-full xl:min-h-[660px]">
           {/* SIMPLIFIED CLINIC APPOINTMENT SCHEDULER MATRIX */}
           <div
             id="scheduler"
-            className="bg-white rounded-xl border border-slate-200 border-l-4 border-l-rose-200 shadow-sm overflow-hidden flex flex-col justify-between scroll-mt-[160px]"
+            className="w-full xl:w-[40%] shrink-0 bg-white rounded-xl border border-slate-200 border-l-4 border-l-rose-200 shadow-sm overflow-hidden flex flex-col justify-between scroll-mt-[160px]"
           >
             <div>
               <div className="px-4 sm:px-5 py-3 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
@@ -4084,7 +4096,7 @@ export default function AdminPatientDetailsPage() {
                 </span>
 
                 {/* INTERACTIVE CALENDAR MINI-GRID */}
-                <div className="grid grid-cols-7 auto-rows-[64px] gap-1.5 bg-white p-1.5 rounded-xl border border-slate-100">
+                <div className="grid grid-cols-7 xl:auto-rows-[82px] auto-rows-[64px] gap-1.5 bg-white p-1.5 rounded-xl border border-slate-100">
                   {calendarDays.map((day, i) => {
                     const matchedAppt = patientData.appointments.find(
                       (a) => a.date === day.dateStr,
@@ -4173,7 +4185,7 @@ export default function AdminPatientDetailsPage() {
           {/* INTERACTIVE TOOTH CHART */}
           <div
             id="tooth-chart"
-            className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col justify-between scroll-mt-[160px]"
+            className="w-full xl:flex-1 bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col justify-between scroll-mt-[160px]"
           >
             <div>
               <div className="px-3 sm:px-4 py-3 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
@@ -4197,7 +4209,7 @@ export default function AdminPatientDetailsPage() {
                 </div>
               </div>
 
-              <div className="p-4 flex flex-col space-y-4">
+              <div className="p-1.5 flex flex-col space-y-1.5">
                 {/* Upper: Tooth Grid & Legend */}
                 <div className="flex justify-center items-center w-full">
                   <div className="w-full max-w-[920px] mx-auto">

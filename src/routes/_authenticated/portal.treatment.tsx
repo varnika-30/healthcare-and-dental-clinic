@@ -447,7 +447,7 @@ export default function TreatmentProgressPage() {
                               </button>
                             </div>
                           </motion.div>
-                        </div> 
+                        </div>
 
                         {/* 2. Absolute Centered Timeline Pin Node */}
                         <div

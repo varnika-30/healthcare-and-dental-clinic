@@ -51,7 +51,7 @@ export default function PatientPrescriptionsPage() {
         dbPrescriptionItems = itemsRes || [];
       }
 
-      return (dbPrescriptions || []).map((rx: any, index) => {
+      return (dbPrescriptions || []).map((rx: any) => {
         const items = dbPrescriptionItems.filter((item) => item.prescription_id === rx.id);
         const medicines = items.map((item) => ({
           name: item.medication || "",
@@ -76,7 +76,7 @@ export default function PatientPrescriptionsPage() {
           dosageInstructions = rx.notes || "";
         }
 
-        const prescribingDoctor = rx.doctor?.full_name || "Dr. Aisha Rahman";
+        const prescribingDoctor = rx.doctor?.full_name || "Doctor not specified";
 
         let status: "Active" | "Completed" | "Expired" = "Active";
         const parseDurationToDays = (durationStr: string): number => {
@@ -101,8 +101,6 @@ export default function PatientPrescriptionsPage() {
 
         if (isExpired) {
           status = "Expired";
-        } else if (index > 0) {
-          status = "Completed";
         } else {
           status = "Active";
         }
@@ -112,7 +110,7 @@ export default function PatientPrescriptionsPage() {
           date: rx.created_at ? rx.created_at.split("T")[0] : "",
           clinicName: "Lumident Premium Care",
           prescribingDoctor,
-          licenseNumber: "DN-88431",
+          licenseNumber: "Registration number not available",
           issueDate: rx.created_at ? rx.created_at.split("T")[0] : "",
           linkedTreatment: associatedTreatment || rx.diagnosis || "Dental Care Plan",
           associatedTreatment: associatedTreatment || rx.diagnosis || "Dental Care Plan",
@@ -218,7 +216,17 @@ export default function PatientPrescriptionsPage() {
   };
 
   return (
-    <div className="max-w-[780px] mx-auto px-4 py-8 space-y-10">
+    <div className="w-full mx-auto px-4 py-8 space-y-10">
+      {/* PAGE HEADER */}
+      <div className="mb-6 border-b border-slate-200 pb-5">
+        <h1 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
+          My Prescriptions
+        </h1>
+        <p className="mt-2 text-sm text-slate-500">
+          View your current medications, care instructions, and prescription history.
+        </p>
+      </div>
+
       <div className="space-y-4">
         <div className="flex items-center justify-between border-b border-slate-100 pb-2">
           <h2 className="text-xs font-bold uppercase tracking-wider text-teal-700 flex items-center gap-2">

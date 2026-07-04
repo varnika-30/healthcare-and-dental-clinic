@@ -38,7 +38,7 @@ type FilterStatus = "All" | "Payments Due" | "Partial Payments" | "Paid" | "Over
 function PortalBillingPage() {
   const [activeFilter, setActiveFilter] = useState<FilterStatus>("All");
   const [searchQuery, setSearchQuery] = useState<string>("");
-  
+
   // Pagination State for Invoices
   const [invoicePage, setInvoicePage] = useState<number>(1);
   const INVOICES_PER_PAGE = 10;
@@ -198,8 +198,8 @@ function PortalBillingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50/40 p-6 md:p-10 space-y-10 font-sans antialiased text-slate-900 selection:bg-teal-100 selection:text-teal-900">
-      <div className="mx-auto max-w-7xl space-y-10">
+    <div className="w-full font-sans antialiased text-slate-900 selection:bg-teal-100 selection:text-teal-900">
+      <div className="w-full space-y-10">
         {/* 1. PAGE HEADER FRAME */}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-slate-200 pb-6">
           <div className="space-y-1">
@@ -284,7 +284,9 @@ function PortalBillingPage() {
 
               {/* Compact Custom Status Filter Tabs */}
               <div className="flex flex-wrap gap-1.5 p-1 bg-slate-50 border border-slate-200 rounded-xl self-start lg:self-auto">
-                {(["All", "Paid", "Partial Payments", "Payments Due", "Overdue"] as FilterStatus[]).map((filter) => {
+                {(
+                  ["All", "Paid", "Partial Payments", "Payments Due", "Overdue"] as FilterStatus[]
+                ).map((filter) => {
                   const labelMap: Record<FilterStatus, string> = {
                     All: "All",
                     Paid: "Paid",
@@ -328,7 +330,8 @@ function PortalBillingPage() {
                   <div className="space-y-1.5">
                     <h3 className="text-sm font-bold text-slate-800">No matching invoices found</h3>
                     <p className="text-xs text-slate-400 font-medium leading-normal">
-                      Try adjusting your status filters or search term to see current treatment records.
+                      Try adjusting your status filters or search term to see current treatment
+                      records.
                     </p>
                   </div>
                 </div>
@@ -526,7 +529,9 @@ function PortalBillingPage() {
                     <CreditCard className="h-4 w-4 text-teal-600" />
                     Complete Transaction Ledger
                   </h3>
-                  <p className="text-xs font-medium text-slate-400">Chronological history of all statement clearings.</p>
+                  <p className="text-xs font-medium text-slate-400">
+                    Chronological history of all statement clearings.
+                  </p>
                 </div>
                 <button
                   type="button"

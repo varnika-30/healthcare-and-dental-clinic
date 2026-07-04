@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { LucideIcon } from "lucide-react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
@@ -13,7 +14,6 @@ import {
   Activity,
   CreditCard,
   Bell,
-  ChevronRight,
   Stethoscope,
   CheckCircle2,
   FileText,
@@ -23,6 +23,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { format } from "date-fns";
+import { AppointmentBookingModal } from "@/components/portal/AppointmentBookingModal";
 
 export const Route = createFileRoute("/_authenticated/portal/")({
   head: () => ({ meta: [{ title: "Overview — Lumident" }] }),
@@ -31,6 +32,7 @@ export const Route = createFileRoute("/_authenticated/portal/")({
 
 function PortalHome() {
   const { user } = useAuth();
+  const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
   const userName =
     (user?.user_metadata?.full_name as string) || user?.email?.split("@")[0] || "there";
 
@@ -39,7 +41,7 @@ function PortalHome() {
     queryFn: async () => {
       const patient = await getOrCreateMyPatient();
       if (!patient) return null;
-      
+
       const [appts, scripts, plans, txs, notifs] = await Promise.all([
         supabase
           .from("appointments")
@@ -52,16 +54,13 @@ function PortalHome() {
           .from("prescriptions")
           .select("*")
           .eq("patient_id", patient.id)
-          .order("issued_at", { ascending: false })
+          .order("created_at", { ascending: false })
           .limit(3),
         supabase
           .from("treatment_plans")
           .select("*, treatment_steps(*)")
           .eq("patient_id", patient.id),
-        supabase
-          .from("payment_transactions")
-          .select("*")
-          .eq("patient_id", patient.id),
+        supabase.from("payment_transactions").select("*").eq("patient_id", patient.id),
         patient.user_id
           ? supabase
               .from("notifications")
@@ -114,9 +113,13 @@ function PortalHome() {
     dashboardData?.notifications?.filter((n) => n.read_at === null).length || 0;
 
   return (
-    <div className="min-h-screen bg-slate-50/40 p-4 sm:p-6 md:p-10 space-y-10 font-sans antialiased text-slate-900 selection:bg-teal-100 selection:text-teal-900">
-      <div className="mx-auto max-w-8xl space-y-10">
-        <WelcomeBanner name={userName} nextAppointment={nextApptData} />
+    <div className="min-h-screen w-full bg-slate-50/40 font-sans antialiased text-slate-900 selection:bg-teal-100 selection:text-teal-900">
+      <div className="w-full max-w-none p-4 sm:p-6 md:p-10 space-y-10">
+        <WelcomeBanner
+          name={userName}
+          nextAppointment={nextApptData}
+          onBookClick={() => setIsBookingModalOpen(true)}
+        />
 
         <QuickStats
           upcomingCount={totalUpcomingAppts}
@@ -125,7 +128,7 @@ function PortalHome() {
           unreadCount={unreadNotificationsCount}
         />
 
-        {/* Premium Conditional Active Treatment Billing and Installment Alert */}
+        {/* Premium Conditional Financial Summary Alert */}
         <TreatmentBillingAlert currentPlan={currentPlan} pendingTotal={pendingInvoicesTotal} />
 
         {/* TOP GRID: Upcoming Appointments & Reminders Side-by-Side */}
@@ -143,6 +146,10 @@ function PortalHome() {
           <TreatmentProgress currentPlan={currentPlan} nextAppointment={nextApptData} />
         </div>
       </div>
+      <AppointmentBookingModal
+        open={isBookingModalOpen}
+        onClose={() => setIsBookingModalOpen(false)}
+      />
     </div>
   );
 }
@@ -151,9 +158,11 @@ function PortalHome() {
 function WelcomeBanner({
   name,
   nextAppointment,
+  onBookClick,
 }: {
   name: string;
   nextAppointment: any;
+  onBookClick: () => void;
 }) {
   const hasNextAppt = !!nextAppointment && !!nextAppointment.appointment_date;
   const formattedDate = hasNextAppt
@@ -182,21 +191,13 @@ function WelcomeBanner({
           </p>
 
           <div className="pt-2 flex flex-wrap items-center gap-3">
-            <Link
-              to="/portal/appointments"
-              className="inline-flex items-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-bold text-teal-700 shadow-sm transition-all hover:bg-teal-50 hover:scale-[1.01] active:scale-[0.99] whitespace-nowrap"
+            <button
+              onClick={onBookClick}
+              className="inline-flex items-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-bold text-teal-700 shadow-sm transition-all hover:bg-teal-50 hover:scale-[1.01] active:scale-[0.99] whitespace-nowrap cursor-pointer"
             >
               <Plus className="h-4 w-4 stroke-[2.5]" />
               Book Appointment
-            </Link>
-
-            <Link
-              to="/portal/prescriptions"
-              className="inline-flex items-center gap-2 rounded-full bg-white/10 border border-white/20 px-4 py-2.5 text-sm font-semibold text-white transition-all hover:bg-white/20 backdrop-blur-xs whitespace-nowrap"
-            >
-              <FileText className="h-4 w-4 text-teal-200" />
-              View Prescriptions
-            </Link>
+            </button>
 
             <a
               href="tel:1234567890"
@@ -208,29 +209,34 @@ function WelcomeBanner({
           </div>
         </div>
 
-        <div className="w-full lg:w-80 shrink-0 rounded-2xl border border-white/15 bg-white/10 p-6 backdrop-blur-md shadow-inner relative overflow-hidden">
-          <div className="absolute top-0 right-0 p-4 opacity-10 pointer-events-none">
-            <Calendar className="h-20 w-20 stroke-[1.5]" />
-          </div>
-          <div className="text-xs uppercase font-bold tracking-widest text-teal-100/90">
-            Next Appointment
+        <div className="w-full lg:w-96 shrink-0 rounded-2xl border border-white/10 bg-white/5 p-5 backdrop-blur-md shadow-sm relative overflow-hidden flex flex-col justify-between min-h-[160px]">
+          <div className="absolute top-0 right-0 p-4 opacity-[0.03] pointer-events-none">
+            <Calendar className="h-24 w-24 stroke-[1.2]" />
           </div>
 
-          <div className="mt-2 text-2xl font-black tracking-tight text-white">{formattedDate}</div>
+          <div>
+            <div className="text-[10px] font-bold uppercase tracking-widest text-white/60">
+              Next Appointment
+            </div>
+            <div className="mt-1 text-xl font-extrabold tracking-tight text-white">
+              {formattedDate}
+            </div>
+          </div>
 
           {hasNextAppt ? (
-            <div className="min-w-0 mt-2 space-y-3.5">
-              <div className="text-sm font-semibold text-teal-50/90 truncate bg-black/5 px-2.5 py-1.5 rounded-lg border border-white/5">
-                {formattedTime} &bull; {nextAppointment.profiles?.full_name || "Assigned Provider"}
+            <div className="space-y-2.5 mt-4">
+              <div className="text-xs font-medium text-white/80 truncate">
+                {formattedTime} <span className="text-white/40 mx-1.5">•</span>{" "}
+                {nextAppointment.profiles?.full_name || "Assigned Provider"}
               </div>
 
-              <div className="inline-flex items-center gap-2 rounded-full bg-white/20 px-3 py-1 text-xs font-bold shadow-2xs">
-                <Clock className="h-3.5 w-3.5 shrink-0 text-teal-100" />
+              <div className="inline-flex items-center gap-1.5 rounded-md bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white/90 shadow-2xs border border-white/5">
+                <Clock className="h-3 w-3 shrink-0 text-white/60" />
                 <span className="truncate">{nextAppointment.service || "General Checkup"}</span>
               </div>
             </div>
           ) : (
-            <div className="mt-3 text-sm text-teal-100/70 font-medium italic">
+            <div className="mt-auto text-xs text-white/50 font-medium italic">
               No upcoming appointments
             </div>
           )}
@@ -258,50 +264,44 @@ function QuickStats({
       value: String(upcomingCount),
       icon: Calendar,
       tint: "bg-teal-50 text-teal-600 border border-teal-100/50",
-      to: "/portal/appointments",
     },
     {
       label: "Active Treatments",
       value: String(activePlansCount),
       icon: Activity,
       tint: "bg-cyan-50 text-cyan-600 border border-cyan-100/50",
-      to: "/portal/treatment",
     },
     {
       label: "Pending Payments",
       value: `₹${pendingTotal.toLocaleString()}`,
       icon: CreditCard,
       tint: "bg-amber-50 text-amber-600 border border-amber-100/50",
-      to: "/portal/billing",
     },
     {
       label: "Unread Notifications",
       value: String(unreadCount),
       icon: Bell,
       tint: "bg-rose-50 text-rose-600 border border-rose-100/50",
-      to: "/portal/notifications",
     },
   ];
 
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 w-full">
       {stats.map((s) => (
-        <Link
+        <div
           key={s.label}
-          to={s.to}
-          className="group block rounded-2xl border border-slate-200 bg-white p-5 shadow-xs transition-all duration-300 hover:-translate-y-1 hover:shadow-md cursor-pointer"
+          className="group block rounded-2xl border border-slate-200 bg-white p-5 shadow-xs transition-all duration-300 hover:-translate-y-1 hover:shadow-md cursor-default"
         >
           <div className="flex items-center justify-between">
             <div className={`flex h-11 w-11 items-center justify-center rounded-xl ${s.tint}`}>
               <s.icon className="h-5 w-5 stroke-[2]" />
             </div>
-            <ChevronRight className="h-4 w-4 text-slate-300 transition-all duration-300 group-hover:translate-x-1 group-hover:text-slate-500" />
           </div>
           <div className="mt-4 text-3xl font-black text-slate-900 tracking-tight">{s.value}</div>
           <div className="mt-1 text-xs font-bold uppercase tracking-wider text-slate-400 group-hover:text-slate-600 transition-colors">
             {s.label}
           </div>
-        </Link>
+        </div>
       ))}
     </div>
   );
@@ -339,18 +339,19 @@ function TreatmentBillingAlert({
             <div className="min-w-0 space-y-0.5">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-[10px] font-bold uppercase tracking-widest text-amber-800">
-                  Ongoing Treatment Care Plan
+                  Payment Summary
                 </span>
                 <span className="inline-flex items-center rounded-full bg-amber-100 border border-amber-200/50 px-2.5 py-0.5 text-[10px] font-bold text-amber-800 uppercase tracking-wide">
                   {paymentStatus}
                 </span>
               </div>
-              <h3 className="text-base font-bold text-slate-900 truncate">{treatmentName}</h3>
+              <h3 className="text-base font-black text-slate-900 truncate">
+                ₹{pendingTotal.toLocaleString()} Outstanding
+              </h3>
 
               <div className="pt-0.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500 font-medium">
                 <div>
-                  Remaining Balance:{" "}
-                  <span className="font-bold text-slate-900">₹{pendingTotal.toLocaleString()}</span>
+                  Treatment Plan: <span className="font-bold text-slate-700">{treatmentName}</span>
                 </div>
                 <div className="hidden sm:block h-1 w-1 rounded-full bg-slate-300" />
                 <div>
@@ -363,10 +364,10 @@ function TreatmentBillingAlert({
 
           <div className="flex items-center justify-between sm:justify-end gap-4 pt-2 sm:pt-0 border-t border-slate-100 sm:border-none shrink-0">
             <Link
-              to="/portal/treatment"
+              to="/portal/billing"
               className="group inline-flex items-center gap-1.5 text-sm font-bold text-teal-600 transition hover:text-teal-700"
             >
-              Check Treatment Status
+              View Billing Details
               <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5 stroke-[2.5]" />
             </Link>
           </div>
@@ -393,7 +394,7 @@ function TreatmentBillingAlert({
           </div>
         </div>
         <Link
-          to="/portal/treatment"
+          to="/portal/billing"
           className="text-xs font-bold text-slate-600 hover:text-teal-600 bg-slate-100/80 border border-slate-200 px-4 py-2 rounded-full transition text-center shrink-0"
         >
           View Plan Ledger
@@ -404,17 +405,20 @@ function TreatmentBillingAlert({
 }
 
 /* ---------- Upcoming Appointments ---------- */
-function UpcomingAppointments({
-  appointments,
-}: {
-  appointments: any[];
-}) {
+function UpcomingAppointments({ appointments }: { appointments: any[] }) {
   const displayAppts = appointments.map((a) => {
     const hasDate = !!a.appointment_date;
+
+    let dateStr = "—";
+    if (hasDate) {
+      const parsedDate = new Date(a.appointment_date);
+      dateStr = `${format(parsedDate, "eee, MMM dd")} &bull; ${format(parsedDate, "p")}`;
+    }
+
     return {
       dentist: a.profiles?.full_name || "Assigned Provider",
       type: a.service || "General Treatment",
-      date: hasDate ? format(new Date(a.appointment_date), "eee, MMM dd &bull; p") : "—",
+      date: dateStr,
       status:
         a.status === "confirmed"
           ? "Confirmed"
@@ -549,9 +553,12 @@ function TreatmentProgress({
     }));
 
   const hasNext = !!nextAppointment && !!nextAppointment.appointment_date;
-  const nextText = hasNext
-    ? `${nextAppointment.service || "Procedure"} &bull; ${format(new Date(nextAppointment.appointment_date), "eee, MMM dd")}`
-    : "No visits scheduled";
+
+  let nextText = "No visits scheduled";
+  if (hasNext) {
+    const parsedNextDate = new Date(nextAppointment.appointment_date);
+    nextText = `${nextAppointment.service || "Procedure"} &bull; ${format(parsedNextDate, "eee, MMM dd")}`;
+  }
 
   return (
     <section className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-6 shadow-xs w-full space-y-6">
@@ -718,7 +725,7 @@ function Notifications({ notifications }: { notifications: any[] }) {
         <header className="flex items-center justify-between gap-2 border-b border-slate-100 pb-4">
           <div className="space-y-0.5">
             <h2 className="text-lg font-bold text-slate-900">Reminders</h2>
-            <p className="text-xs text-slate-400">Recent action points.</p>
+            <p className="text-xs font-medium text-slate-400">Recent action points.</p>
           </div>
           <Link
             to="/portal/notifications"

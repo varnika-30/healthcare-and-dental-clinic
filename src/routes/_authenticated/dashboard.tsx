@@ -295,7 +295,7 @@ export default function PatientDashboardOverview() {
         {/* ==========================================
             1. PREMIUM LIGHTWEIGHT TEAL HERO SECTION
            ========================================== */}
-        <div className="max-w-6xl mx-auto px-6 pt-8">
+        <div className="max-w-none px-6 pt-8">
           <div className="bg-gradient-to-br from-teal-700 via-teal-600 to-cyan-500 rounded-2xl py-8 px-8 md:py-10 shadow-md shadow-teal-900/10 text-white relative overflow-hidden border border-teal-600/50">
             <div className="absolute right-0 top-0 bottom-0 w-1/2 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.15),transparent)] pointer-events-none" />
 
@@ -335,7 +335,7 @@ export default function PatientDashboardOverview() {
         {/* ==========================================
             2. ELEVATED QUICK ACTION BAR WITH BREATHING ROOM
            ========================================== */}
-        <div className="max-w-6xl mx-auto px-6 pt-5">
+        <div className="max-w-none px-6 pt-5">
           <div className="bg-white/80 border border-slate-200/60 backdrop-blur-md rounded-2xl p-3.5 shadow-xs flex flex-wrap items-center gap-2">
             <span className="text-xs font-bold text-slate-400 uppercase tracking-wider pl-4 hidden md:inline-block border-r border-slate-200/80 pr-5 mr-2 py-1.5">
               Quick Actions
@@ -381,7 +381,7 @@ export default function PatientDashboardOverview() {
         {/* ==========================================
             3. MAIN TWO-COLUMN BALANCED LAYOUT
            ========================================== */}
-        <div className="max-w-6xl mx-auto px-6 py-6 md:py-8">
+        <div className="max-w-none px-6 py-6 md:py-8">
           <div className="grid grid-cols-1 lg:grid-cols-[1.7fr_0.8fr] gap-8 items-start">
             {/* LEFT COLUMN: PRIMARY OPERATIONS */}
             <div className="space-y-8">
