@@ -32,7 +32,7 @@ const PRESCRIPTION_STORE: PrescriptionStore = {
     {
       id: "RX-402",
       date: "2026-05-20",
-      clinicName: "Lumident Dental Group",
+      clinicName: "Healthcare & Dental Clinic",
       prescribingDoctor: "Dr. Aisha Rahman",
       licenseNumber: "DN-88431",
       issueDate: "2026-05-20",

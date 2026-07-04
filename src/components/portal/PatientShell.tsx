@@ -9,11 +9,11 @@ import {
   Activity,
   Bell,
   LogOut,
-  Stethoscope,
   User,
   Menu,
   X,
 } from "lucide-react";
+import { ToothIcon } from "@/components/ui/ToothIcon";
 import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -32,10 +32,10 @@ function SidebarBrand() {
   return (
     <div className="flex h-20 items-center gap-2 border-b border-sidebar-border px-5">
       <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-primary-gradient text-primary-foreground">
-        <Stethoscope className="h-5 w-5" />
+        <ToothIcon className="h-5 w-5" />
       </span>
       <div className="min-w-0">
-        <p className="font-display text-lg font-bold leading-none">Lumident</p>
+        <p className="font-display text-lg font-bold leading-none">Healthcare & Dental Clinic</p>
         <p className="text-[10px] uppercase tracking-wider text-sidebar-foreground/60">
           Patient portal
         </p>
@@ -143,9 +143,9 @@ export function PatientShell({ children }: { children: ReactNode }) {
             </Button>
             <Link to="/portal" className="flex min-w-0 items-center gap-2">
               <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-primary-gradient text-primary-foreground">
-                <Stethoscope className="h-4 w-4" />
+                <ToothIcon className="h-4 w-4" />
               </span>
-              <span className="truncate font-display text-sm font-bold">Lumident</span>
+              <span className="truncate font-display text-sm font-bold">Healthcare & Dental Clinic</span>
             </Link>
           </div>
           <NotificationButton />

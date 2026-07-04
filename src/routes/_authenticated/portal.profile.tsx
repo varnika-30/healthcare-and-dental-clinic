@@ -1,5 +1,7 @@
 import React, { useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
+import { getOrCreateMyPatient } from "@/lib/patient";
 import {
   ArrowLeft,
   User,
@@ -84,151 +86,79 @@ interface PrescriptionRecord {
   frequency: string;
 }
 
-// ==========================================
-// MOCK DATA STORAGE (Simulating Patient Master Data)
-// ==========================================
-const MASTER_PATIENT_RECORDS: Record<string, SharedPatientProfile> = {
-  "P-8832": {
-    id: "P-8832",
-    fullName: "Eleanor Vance",
-    email: "eleanor.vance@gmail.com",
-    phone: "(555) 432-1098",
-    secondaryPhone: "(555) 432-1099",
-    age: 28,
-    gender: "Female",
-    occupation: "Graphic Designer",
-    bloodGroup: "O+",
-    address: {
-      street: "742 Evergreen Terrace",
-      city: "Springfield",
-      state: "IL",
-      zipCode: "62704",
-    },
-    allergies: ["Penicillin", "Latex", "Ibuprofen Sensitivity"],
-    medicalConditions: ["Mitral Valve Prolapse (Mild)"],
-    currentMedications: ["Multivitamin Daily"],
-    familyHistory: ["Father: Diabetes"],
-    emergencyContact: { name: "Thomas Vance", relationship: "Spouse", phone: "(555) 901-4433" },
-  },
-  "P-9831": {
-    id: "P-9831",
-    fullName: "Samuel Oakley",
-    email: "samuel.oakley@outlook.com",
-    phone: "(555) 234-5678",
-    secondaryPhone: "(555) 876-5432",
-    age: 42,
-    gender: "Male",
-    occupation: "Civil Engineer",
-    bloodGroup: "A-",
-    address: { street: "102 Baker Street", city: "London", state: "KY", zipCode: "40741" },
-    allergies: ["Sulfa Drugs"],
-    medicalConditions: ["Type 2 Diabetes (Controlled)"],
-    currentMedications: ["Metformin 500mg"],
-    familyHistory: ["Father: Diabetes", "Mother: Hypertension"],
-    emergencyContact: { name: "Martha Oakley", relationship: "Mother", phone: "(555) 234-5679" },
-  },
-};
-
-const MOCK_ADMIN_EXTENSIONS = {
-  appointments: [
-    {
-      id: "A-5521",
-      date: "May 26, 2026",
-      time: "09:00 AM",
-      provider: "Dr. Aisha Rahman",
-      type: "Composite Restoration Follow-up",
-      status: "Upcoming",
-    },
-    {
-      id: "A-5490",
-      date: "May 20, 2026",
-      time: "11:15 AM",
-      provider: "Dr. Aisha Rahman",
-      type: "X-Ray & Diagnostic Evaluation",
-      status: "Completed",
-    },
-  ] as AppointmentRecord[],
-
-  treatments: [
-    {
-      id: "TX-901",
-      date: "May 20, 2026",
-      toothNumber: "#14, #15",
-      procedure: "Composite Filling (2 Surfaces)",
-      notes: "Deep decay isolated. Clean margins achieved. Patient tolerated anesthesia well.",
-    },
-    {
-      id: "TX-844",
-      date: "Apr 11, 2026",
-      toothNumber: "#14",
-      procedure: "Endodontic Pulpotomy (Emergency)",
-      notes:
-        "Emergency pain management. Vital pulp therapy performed to mitigate acute localized pain indicators.",
-    },
-    {
-      id: "TX-711",
-      date: "Dec 14, 2025",
-      toothNumber: "Full Mouth",
-      procedure: "Comprehensive Periodontal Maintenance",
-      notes:
-        "Scaling & root planing completed. Bleeding on probing reduced from 24% to 8% overall.",
-    },
-    {
-      id: "TX-502",
-      date: "Jun 02, 2025",
-      toothNumber: "#18",
-      procedure: "Surgical Surgical Extraction",
-      notes:
-        "Impacted partial bony wisdom extraction. Clean separation, synthetic bone grafting pack inserted.",
-    },
-    {
-      id: "TX-311",
-      date: "Jan 18, 2025",
-      toothNumber: "#3",
-      procedure: "Porcelain-Fused-to-Metal Crown Placement",
-      notes:
-        "Permanent crown setting verification. Margin parameters checked, occlusion values look sound.",
-    },
-  ] as TreatmentRecord[],
-
-  prescriptions: [
-    {
-      id: "RX-402",
-      date: "May 20, 2026",
-      drugName: "Amoxicillin",
-      dosage: "500mg",
-      frequency: "3x daily for 7 days",
-    },
-  ] as PrescriptionRecord[],
-
-  billing: {
-    totalBilled: 1840.0,
-    totalPaid: 1660.0,
-    balanceDue: 180.0,
-  },
-  initialAdminNotes:
-    "Patient reports slight dental anxiety. Prefers topical numbing gel applied longer prior to local block injection.",
-};
-
 export default function AdminPatientDetailsPage() {
-  const patient = MASTER_PATIENT_RECORDS["P-9831"];
+  const { data: dbPatient, isLoading } = useQuery({
+    queryKey: ["portal-profile-patient"],
+    queryFn: async () => {
+      return await getOrCreateMyPatient();
+    },
+  });
 
-  const profile = patient;
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="h-9 w-9 animate-spin rounded-full border-4 border-teal-600 border-t-transparent" />
+      </div>
+    );
+  }
 
-  const [adminNotes, setAdminNotes] = useState(MOCK_ADMIN_EXTENSIONS.initialAdminNotes);
-  const [isEditingNotes, setIsEditingNotes] = useState(false);
+  if (!dbPatient) {
+    return (
+      <div className="min-h-screen w-full bg-slate-50/40 font-sans antialiased text-slate-900 p-4 sm:p-6 md:p-8">
+        <div className="max-w-2xl mx-auto bg-white rounded-2xl border border-amber-200 shadow-xs p-8 space-y-4">
+          <div className="flex items-center gap-3 text-amber-600">
+            <span className="p-2 rounded-lg bg-amber-50">
+              <ShieldAlert className="w-6 h-6" />
+            </span>
+            <h2 className="text-lg font-bold">Account Link Pending</h2>
+          </div>
+          <p className="text-slate-600 text-sm leading-relaxed">
+            Your online account is not yet linked to an active clinic patient record. Please contact
+            our front desk or clinic staff to associate your registration with your medical chart.
+          </p>
+          <p className="text-slate-500 text-xs">
+            Once linked, you will be able to view your treatment plans, book appointments, check
+            billing histories, and access prescriptions.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
-  const [isHistoryExpanded, setIsHistoryExpanded] = useState(false);
-  const INITIAL_VISIBLE_COUNT = 2;
-
-  const visibleTreatments = isHistoryExpanded
-    ? MOCK_ADMIN_EXTENSIONS.treatments
-    : MOCK_ADMIN_EXTENSIONS.treatments.slice(0, INITIAL_VISIBLE_COUNT);
+  const p = dbPatient as any;
+  const profile = {
+    id: p.id.slice(0, 8).toUpperCase(),
+    fullName: p.full_name || "",
+    email: p.email || "",
+    phone: p.phone || "",
+    secondaryPhone: "",
+    age: p.dob
+      ? new Date().getFullYear() - new Date(p.dob).getFullYear()
+      : 0,
+    gender: p.gender || "Not specified",
+    occupation: "Patient",
+    bloodGroup: p.blood_group || "Not specified",
+    address: {
+      street: "Registered Address",
+      city: "",
+      state: "",
+      zipCode: "",
+    },
+    allergies: p.allergies ? p.allergies.split(",").map((a: string) => a.trim()) : [],
+    medicalConditions: p.medical_notes ? [p.medical_notes] : [],
+    currentMedications: [],
+    familyHistory: [],
+    emergencyContact: {
+      name: p.emergency_contact_name || "Not specified",
+      relationship: "Contact",
+      phone: p.emergency_contact_phone || "Not specified",
+    },
+  };
 
   const patientInitials = profile.fullName
     ? profile.fullName
         .split(" ")
-        .map((n) => n[0])
+        .map((n: string) => n[0])
         .join("")
         .toUpperCase()
     : "PT";
@@ -340,7 +270,7 @@ export default function AdminPatientDetailsPage() {
               Date of Birth
             </span>
             <span className="font-semibold text-slate-700 font-mono text-base mt-0.5 block">
-              November 14, 1991
+              {p.dob || "—"}
             </span>
           </div>
           <div>
@@ -399,7 +329,7 @@ export default function AdminPatientDetailsPage() {
             </span>
             <div className="flex flex-wrap gap-1.5 mt-2">
               {profile.allergies && profile.allergies.length > 0 ? (
-                profile.allergies.map((allergy, index) => (
+                profile.allergies.map((allergy: string, index: number) => (
                   <span
                     key={index}
                     className="px-2.5 py-1 bg-rose-50/50 border border-rose-200 text-rose-700 font-bold rounded-md text-xs tracking-wide"
@@ -526,7 +456,7 @@ export default function AdminPatientDetailsPage() {
       <div className="text-center pt-3 text-xs font-medium text-slate-400/90 leading-relaxed max-w-xl mx-auto">
         This digital dossier contains verified credential parameters and protective medical
         information records. To request corrections or alter your safety disclosures, kindly
-        interface directly with your Lumident clinical provider coordinator.
+        interface directly with your Healthcare & Dental Clinic clinical provider coordinator.
       </div>
     </div>
   );

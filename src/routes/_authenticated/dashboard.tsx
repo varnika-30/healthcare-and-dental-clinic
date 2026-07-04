@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { DashboardShell } from "@/components/dashboard/DashboardShell";
 import {
@@ -18,112 +18,7 @@ import {
   Info,
 } from "lucide-react";
 import { toast } from "sonner";
-
-const CLINIC_SUMMARY = {
-  doctorName: "Dr. Sarah",
-  dayOverview: "Tuesday, May 26, 2026",
-  headline: "You have 8 appointments scheduled today and 5 ongoing treatment follow-ups remaining.",
-};
-
-const TODAY_APPOINTMENTS = [
-  {
-    id: "APT-101",
-    patientName: "Eleanor Vance",
-    time: "10:30 AM",
-    duration: "45 min",
-    treatment: "Crown Fitting",
-    status: "Ready",
-    statusColor: "bg-emerald-50 text-emerald-700 border-emerald-100",
-  },
-  {
-    id: "APT-102",
-    patientName: "Marcus Brody",
-    time: "11:30 AM",
-    duration: "30 min",
-    treatment: "Root Canal Prep",
-    status: "In Progress",
-    statusColor: "bg-sky-50 text-sky-700 border-sky-100",
-  },
-  {
-    id: "APT-103",
-    patientName: "Sonia Al-Nasser",
-    time: "01:15 PM",
-    duration: "60 min",
-    treatment: "Maxillary Inlay Fit",
-    status: "Arrived",
-    statusColor: "bg-amber-50 text-amber-700 border-amber-100",
-  },
-];
-
-const ALL_ONGOING_TREATMENTS = [
-  {
-    id: "TRT-401",
-    patientName: "Arthur Pendelton",
-    treatmentName: "Porcelain Bridge Assembly",
-    stage: "Stage 3 of 4: Fitting Iteration",
-    labStatus: "Case Completed & Verified",
-    labUrgent: false,
-    paymentStatus: "Partial Balance",
-    actionNeeded: "Schedule final cementation appointment",
-  },
-  {
-    id: "TRT-402",
-    patientName: "Clara Oswald",
-    treatmentName: "Single Tooth Implant (#9)",
-    stage: "Stage 1 of 3: Abutment Integration",
-    labStatus: "Awaiting Lab Cast Verification",
-    labUrgent: true,
-    paymentStatus: "Paid",
-    actionNeeded: "Review x-ray match upon arrival",
-  },
-  {
-    id: "TRT-403",
-    patientName: "David Tennant",
-    treatmentName: "Complete Mandibular Denture",
-    stage: "Stage 2 of 5: Wax Try-In Review",
-    labStatus: "Wax Model Shipped from Lab",
-    labUrgent: false,
-    paymentStatus: "Partial Balance",
-    actionNeeded: "Inspect physical model dimensions",
-  },
-];
-
-const ALL_CLINICAL_ALERTS = [
-  {
-    id: "notif-01",
-    message: "Crown case (#8, #9) returned from lab for Eleanor Vance.",
-    tag: "Lab Match",
-    style: "bg-amber-50 text-amber-800 border-amber-200",
-  },
-  {
-    id: "notif-05",
-    message:
-      "Custom prosthetic for Eleanor Vance was flagged ready for final adjustment. Check internal sterilization tray.",
-    tag: "Lab Delivery",
-    style: "bg-teal-50 text-teal-900 border-teal-200",
-  },
-  {
-    id: "notif-02",
-    message: "Follow-up schedule missed for diagnostic scan: Sarah Johnson.",
-    tag: "Care Gap",
-    style: "bg-slate-50 text-slate-700 border-slate-200/60",
-  },
-  {
-    id: "notif-03",
-    message: "2 outstanding treatment insurance claims remain partially paid.",
-    tag: "Finance",
-    style: "bg-rose-50 text-rose-800 border-rose-100",
-  },
-  {
-    id: "notif-04",
-    message: "System pre-authorization pending: Marcus Brody treatment modification.",
-    tag: "Insurance",
-    style: "bg-sky-50 text-sky-800 border-sky-100",
-  },
-];
-
 import { supabase } from "@/integrations/supabase/client";
-import { useEffect, useMemo } from "react";
 
 export default function PatientDashboardOverview() {
   const navigate = useNavigate();
@@ -131,7 +26,7 @@ export default function PatientDashboardOverview() {
   const [showAllTreatments, setShowAllTreatments] = useState(false);
   const [showAllAlerts, setShowAllAlerts] = useState(false);
 
-  const [doctorName, setDoctorName] = useState("Dr. Sarah");
+  const [doctorName, setDoctorName] = useState("Doctor");
   const [appointments, setAppointments] = useState<any[]>([]);
   const [treatments, setTreatments] = useState<any[]>([]);
   const [alerts, setAlerts] = useState<any[]>([]);
@@ -151,6 +46,8 @@ export default function PatientDashboardOverview() {
         .single();
       if (profile?.full_name) {
         setDoctorName(profile.full_name);
+      } else {
+        setDoctorName(user.email?.split("@")[0] || "Doctor");
       }
 
       // 2. Fetch Appointments for Today

@@ -39,73 +39,7 @@ interface BillingRecord {
   status: "Paid" | "Partial Payments" | "Payments Due" | "Overdue";
 }
 
-const MOCK_BILLING_RECORDS: BillingRecord[] = [
-  {
-    id: "INV-2026-001",
-    patientId: "mock-1",
-    patientName: "Arjun Mehta",
-    treatment: "Root Canal Therapy + Crown",
-    estimatedCost: 12500,
-    discount: 0,
-    finalCost: 12500,
-    paidAmount: 12500,
-    outstandingAmount: 0,
-    dueDate: "2026-06-10",
-    status: "Paid",
-  },
-  {
-    id: "INV-2026-002",
-    patientId: "mock-2",
-    patientName: "Priya Sharma",
-    treatment: "Invisalign Alignment Intake",
-    estimatedCost: 45000,
-    discount: 0,
-    finalCost: 45000,
-    paidAmount: 15000,
-    outstandingAmount: 30000,
-    dueDate: "2026-06-25",
-    status: "Partial Payments",
-  },
-  {
-    id: "INV-2026-003",
-    patientId: "mock-3",
-    patientName: "Rohan Das",
-    treatment: "Deep Scaling & Composite Filling",
-    estimatedCost: 4200,
-    discount: 0,
-    finalCost: 4200,
-    paidAmount: 0,
-    outstandingAmount: 4200,
-    dueDate: "2026-06-15",
-    status: "Payments Due",
-  },
-  {
-    id: "INV-2026-004",
-    patientId: "mock-4",
-    patientName: "Sneha Reddy",
-    treatment: "Molar Extraction & Sedation",
-    estimatedCost: 8500,
-    discount: 0,
-    finalCost: 8500,
-    paidAmount: 0,
-    outstandingAmount: 8500,
-    dueDate: "2026-06-05",
-    status: "Overdue",
-  },
-  {
-    id: "INV-2026-005",
-    patientId: "mock-5",
-    patientName: "Kabir Malhotra",
-    treatment: "Porcelain Veneers Placement",
-    estimatedCost: 60000,
-    discount: 0,
-    finalCost: 60000,
-    paidAmount: 40000,
-    outstandingAmount: 20000,
-    dueDate: "2026-06-20",
-    status: "Partial Payments",
-  },
-];
+// Deleted mock billing logs
 
 type FilterStatus = "All" | "Payments Due" | "Partial Payments" | "Paid" | "Overdue";
 

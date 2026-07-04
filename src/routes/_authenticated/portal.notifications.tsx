@@ -306,7 +306,7 @@ export default function NotificationsPage() {
               <h3 className="mt-4 text-base font-semibold text-slate-900">Your feed is clean</h3>
               <p className="mt-1 text-sm text-slate-500 max-w-xs mx-auto">
                 No notifications found matching your selection criteria. You are fully caught up
-                with Lumident care updates.
+                with Healthcare & Dental Clinic care updates.
               </p>
               <button
                 onClick={() => setActiveFilter("all")}

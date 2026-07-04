@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useState, type ReactNode } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { CalendarCheck, Phone, Stethoscope } from "lucide-react";
+import { CalendarCheck, Phone } from "lucide-react";
+import { ToothIcon } from "@/components/ui/ToothIcon";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -67,14 +68,14 @@ function BookAppointmentChoiceDialog({
         <DialogHeader className="space-y-2 border-b border-border/60 bg-muted/30 px-6 py-6 text-left sm:px-8">
           <div className="flex items-center gap-3">
             <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-primary-gradient text-primary-foreground shadow-soft">
-              <Stethoscope className="h-5 w-5" />
+              <ToothIcon className="h-5 w-5" />
             </span>
             <div>
               <DialogTitle className="font-display text-xl font-bold tracking-tight sm:text-2xl">
                 Book an appointment
               </DialogTitle>
               <DialogDescription className="mt-1 text-sm leading-relaxed">
-                Choose how you&apos;d like to schedule with Lumident.
+                Choose how you&apos;d like to schedule with Healthcare & Dental Clinic.
               </DialogDescription>
             </div>
           </div>

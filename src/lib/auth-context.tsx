@@ -32,12 +32,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(s);
       if (s?.user) {
         setTimeout(() => {
-          supabase
-            .from("user_roles")
+          (supabase as any)
+            .from("profiles")
             .select("role")
-            .eq("user_id", s.user.id)
-            .limit(1)
-            .then(({ data }) => setRole((data?.[0]?.role as AppRole) ?? "patient"));
+            .eq("id", s.user.id)
+            .single()
+            .then(({ data }: any) => setRole((data?.role as AppRole) ?? "patient"));
         }, 0);
       } else {
         setRole(null);
@@ -46,12 +46,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session);
       if (data.session?.user) {
-        supabase
-          .from("user_roles")
+        (supabase as any)
+          .from("profiles")
           .select("role")
-          .eq("user_id", data.session.user.id)
-          .limit(1)
-          .then(({ data: r }) => setRole((r?.[0]?.role as AppRole) ?? "patient"));
+          .eq("id", data.session.user.id)
+          .single()
+          .then(({ data: r }: any) => setRole((r?.role as AppRole) ?? "patient"));
       }
       setLoading(false);
     });

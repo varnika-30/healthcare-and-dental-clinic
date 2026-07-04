@@ -29,13 +29,13 @@ import {
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Lumident — Modern Dental Care" },
+      { title: "Healthcare & Dental Clinic — Modern Dental Care" },
       {
         name: "description",
         content:
           "Calm clinic, gentle dentistry. Book online, manage your visits, prescriptions and bills — all in one place.",
       },
-      { property: "og:title", content: "Lumident — Modern Dental Care" },
+      { property: "og:title", content: "Healthcare & Dental Clinic — Modern Dental Care" },
       {
         property: "og:description",
         content: "Book online, manage visits, prescriptions and bills — all in one place.",

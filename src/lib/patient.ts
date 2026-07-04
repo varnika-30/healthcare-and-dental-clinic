@@ -1,13 +1,18 @@
 import { supabase } from "@/integrations/supabase/client";
 
-/** Get or create the patients row for the currently authenticated user. */
+/** Get the patient row linked to the currently authenticated user. */
 export async function getOrCreateMyPatient() {
-  // Temporary testing setup resolving Priya Sharma
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return null;
+
   const { data: existing } = await supabase
     .from("patients")
     .select("*")
-    .eq("id", "e8d64d20-fa4e-4ddf-bb74-272032bfd209")
+    .eq("user_id", user.id)
     .maybeSingle();
+
   return existing || null;
 }
 

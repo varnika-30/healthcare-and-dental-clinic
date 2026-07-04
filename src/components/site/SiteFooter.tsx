@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/react-router";
-import { Stethoscope, Mail, Phone, MapPin } from "lucide-react";
+import { Mail, Phone, MapPin } from "lucide-react";
+import { ToothIcon } from "@/components/ui/ToothIcon";
 import { BookAppointmentNavLink } from "./BookAppointmentChoice";
 
 export function SiteFooter() {
@@ -9,9 +10,9 @@ export function SiteFooter() {
         <div>
           <div className="flex items-center gap-2 font-display text-lg font-bold">
             <span className="grid h-9 w-9 place-items-center rounded-xl bg-primary-gradient text-primary-foreground">
-              <Stethoscope className="h-5 w-5" />
+              <ToothIcon className="h-5 w-5" />
             </span>
-            Lumident
+            Healthcare & Dental Clinic
           </div>
           <p className="mt-3 max-w-xs text-sm text-muted-foreground">
             Modern dental care, designed around you. Calm clinic, gentle hands, honest pricing.
@@ -67,13 +68,13 @@ export function SiteFooter() {
             </li>
             <li className="flex gap-2">
               <Mail className="h-4 w-4 mt-0.5" />
-              hello@lumident.care
+              hello@clinic.care
             </li>
           </ul>
         </div>
       </div>
       <div className="border-t border-border/60 py-5 text-center text-xs text-muted-foreground">
-        © {new Date().getFullYear()} Lumident Dental Clinic. All rights reserved.
+        © {new Date().getFullYear()} Healthcare & Dental Clinic. All rights reserved.
       </div>
     </footer>
   );

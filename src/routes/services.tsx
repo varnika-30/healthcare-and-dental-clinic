@@ -16,7 +16,7 @@ import {
 export const Route = createFileRoute("/services")({
   head: () => ({
     meta: [
-      { title: "Services — Lumident Dental" },
+      { title: "Services — Healthcare & Dental Clinic" },
       {
         name: "description",
         content:

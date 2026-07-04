@@ -182,7 +182,7 @@ export default function TreatmentProgressPage() {
             completedDate: p.end_date
               ? format(new Date(p.end_date), "MMM d, yyyy")
               : format(new Date(p.updated_at), "MMM d, yyyy"),
-            doctor: doc?.full_name || "Lumident Clinician",
+            doctor: doc?.full_name || "Healthcare & Dental Clinic Clinician",
             summary: p.description || "Concluded clinical session.",
             statusLabel: p.status === "completed" ? "Completed" : "Cancelled",
           };

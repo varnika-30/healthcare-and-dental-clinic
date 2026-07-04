@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
-import { Menu, X, Stethoscope } from "lucide-react";
+import { Menu, X } from "lucide-react";
+import { ToothIcon } from "@/components/ui/ToothIcon";
 import { useState } from "react";
 import { BookAppointmentButton } from "./BookAppointmentChoice";
 
@@ -19,9 +20,9 @@ export function SiteHeader() {
       <div className="mx-auto flex h-24 max-w-[1600px] items-center justify-between px-8 sm:px-10">
         <Link to="/" className="flex items-center gap-2 font-display text-2xl font-bold">
           <span className="grid h-12 w-12 place-items-center rounded-xl bg-primary-gradient text-primary-foreground shadow-soft">
-            <Stethoscope className="h-7 w-7" />
+            <ToothIcon className="h-7 w-7" />
           </span>
-          <span>Lumident</span>
+          <span>Healthcare & Dental Clinic</span>
         </Link>
         <nav className="hidden items-center gap-1 lg:flex">
           {nav.map((n) => (

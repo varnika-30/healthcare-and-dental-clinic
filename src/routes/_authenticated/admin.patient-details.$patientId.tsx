@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { toast } from "sonner";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import {
   ArrowLeft,
   User,
   MapPin,
   ShieldAlert,
+  AlertCircle,
   Activity,
   Pill,
   Phone,
@@ -285,123 +286,7 @@ interface CompletePatientState {
   referrals: ReferralNetwork;
 }
 
-// ==========================================
-// CENTRALIZED INITIAL DATA REPOSITORY
-// ==========================================
-const MOCK_PATIENT_ECOSYSTEM: Record<string, CompletePatientState> = {
-  "P-8832": {
-    id: "P-8832",
-    profile: {
-      fullName: "Eleanor Vance",
-      email: "eleanor.vance@gmail.com",
-      phone: "(555) 432-1098",
-      secondaryPhone: "(555) 432-1100",
-      age: 28,
-      gender: "Female",
-      sex: "Female",
-      occupation: "Graphic Designer",
-      bloodGroup: "O+",
-      address: {
-        street: "742 Evergreen Terrace",
-        city: "Springfield",
-        state: "IL",
-        zipCode: "62704",
-      },
-      emergencyContact: { name: "Thomas Vance", relation: "Spouse", phone: "(555) 901-4433" },
-
-      medicalProfile: {
-        allergies: ["Penicillin", "Latex"],
-        medications: ["Multivitamin Daily"],
-        conditions: ["Mitral Valve Prolapse (Mild)"],
-        notes: "Requires sensitivity monitoring during procedures.",
-        familyHistory: "Mother has hypertension; father has type 2 diabetes.",
-      },
-    },
-    appointments: [],
-    treatments: [
-      {
-        id: "TX-901",
-        date: "May 20, 2026",
-        toothNumber: "#14, #15",
-        procedure: "Composite Filling (2 Surfaces)",
-        notes: "Deep decay isolated. Clean margins achieved. Patient tolerated anesthesia well.",
-        status: "Ongoing",
-        currentStage: "Filling",
-        hasXray: true,
-        startDate: "2026-05-18",
-      },
-    ],
-    prescriptions: [
-      {
-        id: "RX-402",
-        date: "2026-05-20",
-        clinicName: "Lumident Dental Group",
-        prescribingDoctor: "Dr. Aisha Rahman",
-        licenseNumber: "DN-88431",
-        issueDate: "2026-05-20",
-        linkedTreatment: "Composite Filling (#14, #15)",
-        associatedTreatment: "Composite Filling (#14, #15)",
-        medicines: [
-          {
-            name: "Ibuprofen",
-            strength: "400mg",
-            dosage: "1 tablet",
-            frequency: "Every 4-6 hours",
-            duration: "3 days",
-          },
-        ],
-        dosageInstructions: "Take 1 tablet every 4-6 hours post-op as needed for mild soreness.",
-        followUpRecommendation: "Routine hygiene recall in 6 months.",
-        status: "Active",
-      },
-    ],
-    billingLogs: [
-      {
-        id: "TXN-902",
-        date: "2026-05-20",
-        paymentDate: "2026-05-20",
-        description: "Composite Filling (#14, #15)",
-        amountBilled: 350.0,
-        amountPaid: 350.0,
-        status: "PAID",
-      },
-      {
-        id: "TXN-845",
-        date: "2026-04-11",
-        paymentDate: "2026-04-11",
-        description: "Endodontic Pulpotomy (Emergency)",
-        amountBilled: 800.0,
-        amountPaid: 400.0,
-        status: "PARTIAL",
-      },
-    ],
-    notes: [
-      {
-        id: "N-101",
-        date: "May 20, 2026",
-        author: "Dr. Aisha Rahman",
-        text: "Patient reports slight dental anxiety. Prefers topical numbing gel applied longer.",
-      },
-    ],
-    family: [
-      {
-        id: "P-1102",
-        fullName: "Thomas Vance",
-        relation: "Spouse",
-      },
-      {
-        id: "P-4591",
-        fullName: "Lily Vance",
-        relation: "Child",
-      },
-    ],
-    referrals: {
-      referredBy: { name: "Dr. Marcus Sterling", id: "REF-039" },
-      referredPatients: [{ name: "Julianne Moore", id: "P-7721" }],
-      trackingNotes: "Outbound chart created for coordinated referrals.",
-    },
-  },
-};
+// Deleted mock patient ecosystem logs
 
 interface DatabasePatient {
   id: string;
@@ -419,73 +304,43 @@ interface DatabasePatient {
   emergency_contact_phone: string | null;
 }
 
+const DEFAULT_EMPTY_PATIENT: CompletePatientState = {
+  id: "",
+  profile: {
+    fullName: "",
+    email: "",
+    phone: "",
+    secondaryPhone: "",
+    age: 0,
+    gender: "Not specified",
+    sex: "Not specified",
+    occupation: "Patient",
+    bloodGroup: "Not specified",
+    address: { street: "", city: "", state: "", zipCode: "" },
+    emergencyContact: { name: "", relation: "", phone: "" },
+    medicalProfile: {
+      allergies: [],
+      medications: [],
+      conditions: [],
+      notes: "",
+      familyHistory: "",
+    },
+  },
+  appointments: [],
+  treatments: [],
+  prescriptions: [],
+  billingLogs: [],
+  notes: [],
+  family: [],
+  referrals: { referredBy: null, referredPatients: [] },
+};
+
 export default function AdminPatientDetailsPage() {
   const { patientId } = Route.useParams();
-
-  const selectedPatient = MOCK_PATIENT_ECOSYSTEM[patientId] || MOCK_PATIENT_ECOSYSTEM["P-8832"];
-
-  const initialData = {
-    ...selectedPatient,
-    prescriptions: getPatientPrescriptions(patientId || selectedPatient.id),
-  };
-
-  // Load initial data from localStorage if available, otherwise mock data
-  const getInitialPatientData = () => {
-    const defaultData = MOCK_PATIENT_ECOSYSTEM[patientId] || MOCK_PATIENT_ECOSYSTEM["P-8832"];
-    const patientKey = `patient_ecosystem_${patientId || defaultData.id}`;
-    const stored = typeof window !== "undefined" ? localStorage.getItem(patientKey) : null;
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        // Ensure new profile fields are present for old localStorage data
-        parsed.profile = {
-          ...defaultData.profile,
-          ...parsed.profile,
-          sex: parsed.profile?.sex || parsed.profile?.gender || defaultData.profile.sex,
-          secondaryPhone:
-            parsed.profile?.secondaryPhone || defaultData.profile.secondaryPhone || "",
-          medicalProfile: {
-            ...defaultData.profile.medicalProfile,
-            ...parsed.profile?.medicalProfile,
-            familyHistory:
-              parsed.profile?.medicalProfile?.familyHistory ||
-              defaultData.profile.medicalProfile.familyHistory ||
-              "",
-          },
-        };
-        // Sync prescriptions from prescription-store
-        parsed.prescriptions = getPatientPrescriptions(patientId || defaultData.id);
-        return parsed;
-      } catch (e) {
-        console.error("Failed to parse stored patient data:", e);
-      }
-    }
-
-    // Initialize stages for treatments if not present
-    const initializedTreatments = defaultData.treatments.map((tx) => {
-      const stagesList = getStagesForProcedure(tx.procedure);
-      const stages =
-        tx.stages ||
-        stagesList.map((s, idx) => ({
-          name: s,
-          status:
-            s === tx.currentStage
-              ? ("active" as const)
-              : stagesList.indexOf(s) < stagesList.indexOf(tx.currentStage)
-                ? ("completed" as const)
-                : ("upcoming" as const),
-        }));
-      return { ...tx, stages };
-    });
-
-    return {
-      ...defaultData,
-      treatments: initializedTreatments,
-      prescriptions: getPatientPrescriptions(patientId || defaultData.id),
-    };
-  };
-
-  const [patientData, setPatientData] = useState<CompletePatientState>(getInitialPatientData);
+  const navigate = useNavigate();
+  const [patientNotFound, setPatientNotFound] = useState(false);
+  const [isLoadingDb, setIsLoadingDb] = useState(true);
+  const [patientData, setPatientData] = useState<CompletePatientState>(DEFAULT_EMPTY_PATIENT);
   const [paymentTransactions, setPaymentTransactions] = useState<any[]>([]);
   const [invoices, setInvoices] = useState<any[]>([]);
   const [payments, setPayments] = useState<any[]>([]);
@@ -533,6 +388,7 @@ export default function AdminPatientDetailsPage() {
 
   // Auto-save to localStorage
   useEffect(() => {
+    if (!patientData.id) return;
     const patientKey = `patient_ecosystem_${patientData.id}`;
     localStorage.setItem(patientKey, JSON.stringify(patientData));
   }, [patientData]);
@@ -540,31 +396,36 @@ export default function AdminPatientDetailsPage() {
   // Load profile, medical history, emergency contact, and family links from Supabase
   useEffect(() => {
     async function loadDbData() {
-      if (!patientId) return;
+      if (!patientId) {
+        setPatientNotFound(true);
+        setIsLoadingDb(false);
+        return;
+      }
 
       const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
         patientId,
       );
 
-      let patientQuery = supabase.from("patients").select("*");
       if (!isUuid) {
+        setPatientNotFound(true);
+        setIsLoadingDb(false);
         return;
       }
 
-      patientQuery = patientQuery.eq("id", patientId);
+      setIsLoadingDb(true);
+      const { data: dbPatients, error: patientError } = await supabase
+        .from("patients")
+        .select("*")
+        .eq("id", patientId);
 
-      const { data: dbPatients, error: patientError } = await (patientQuery as unknown as Promise<{
-        data: DatabasePatient[] | null;
-        error: Error | null;
-      }>);
-
-      if (patientError) {
+      if (patientError || !dbPatients || dbPatients.length === 0) {
         console.error("Failed to load patient from database:", patientError);
+        setPatientNotFound(true);
+        setIsLoadingDb(false);
         return;
       }
 
-      const dbPatient = dbPatients?.[0];
-      if (!dbPatient) return;
+      const dbPatient = dbPatients[0] as any;
 
       // Calculate age from dob (YYYY-MM-DD)
       let calculatedAge = 28; // fallback
@@ -870,7 +731,7 @@ export default function AdminPatientDetailsPage() {
           return {
             id: rx.id,
             date: rx.created_at ? rx.created_at.split("T")[0] : "",
-            clinicName: "Lumident Dental Group",
+            clinicName: "Healthcare & Dental Clinic",
             prescribingDoctor,
             licenseNumber: "DN-88431",
             issueDate: rx.created_at ? rx.created_at.split("T")[0] : "",
@@ -1043,9 +904,9 @@ export default function AdminPatientDetailsPage() {
           medicalProfile: {
             ...prev.profile.medicalProfile,
             allergies: dbPatient.allergies
-              ? dbPatient.allergies
+              ? (dbPatient.allergies as string)
                   .split(",")
-                  .map((s) => s.trim())
+                  .map((s: string) => s.trim())
                   .filter(Boolean)
               : [],
             notes: dbPatient.medical_notes || "",
@@ -1053,6 +914,8 @@ export default function AdminPatientDetailsPage() {
         },
         family: mappedFamily,
       }));
+      setPatientNotFound(false);
+      setIsLoadingDb(false);
     }
 
     loadDbData();
@@ -1144,14 +1007,14 @@ export default function AdminPatientDetailsPage() {
   const [isToothModalOpen, setIsToothModalOpen] = useState(false);
   const [viewFullToothHistory, setViewFullToothHistory] = useState(false);
   const [toothHistory, setToothHistory] = useState<ToothProcedureEntry[]>(
-    getPatientToothHistory(patientId || selectedPatient.id),
+    getPatientToothHistory(patientId),
   );
   const [toothForm, setToothForm] = useState({
     toothNumber: "",
     procedure: "",
     status: "planned" as ToothTreatmentStatus,
     notes: "",
-    linkedTreatment: initialData.treatments[0]?.procedure || "",
+    linkedTreatment: "",
   });
 
   const [selectedProcedureId, setSelectedProcedureId] = useState<string | null>(null);
@@ -1258,7 +1121,7 @@ export default function AdminPatientDetailsPage() {
     },
   ]);
   const [prescriptionForm, setPrescriptionForm] = useState({
-    associatedTreatment: initialData.treatments[0]?.procedure || "",
+    associatedTreatment: "",
     dosageInstructions: "Take 1 tablet every 4-6 hours as needed.",
     followUpRecommendation: "Review patient symptoms during follow-up appointment.",
   });
@@ -1945,7 +1808,7 @@ export default function AdminPatientDetailsPage() {
       const { data: dbToothTreatments, error } = await supabase
         .from("tooth_treatments")
         .select("*")
-        .eq("patient_id", patientId || selectedPatient.id);
+        .eq("patient_id", patientId);
 
       if (error) {
         console.error("Failed to refresh tooth history:", error);
@@ -1956,7 +1819,7 @@ export default function AdminPatientDetailsPage() {
       const { data: dbPlans } = await supabase
         .from("treatment_plans")
         .select("id, title")
-        .eq("patient_id", patientId || selectedPatient.id);
+        .eq("patient_id", patientId);
 
       const mappedToothHistory: ToothProcedureEntry[] = (dbToothTreatments || []).map((tt: any) => {
         const plan = (dbPlans || []).find((p) => p.id === tt.treatment_plan_id);
@@ -2060,7 +1923,7 @@ export default function AdminPatientDetailsPage() {
       } else {
         // Create new plan
         const { error } = await supabase.from("treatment_plans").insert({
-          patient_id: patientId || selectedPatient.id,
+          patient_id: patientId,
           doctor_id: doctorId,
           title: fullMouthForm.title.trim(),
           status: fullMouthForm.status,
@@ -2143,7 +2006,7 @@ export default function AdminPatientDetailsPage() {
       let doctorId = user?.id || null;
 
       const { error } = await supabase.from("tooth_treatments").insert({
-        patient_id: patientId || selectedPatient.id,
+        patient_id: patientId,
         tooth_number: Number(toothForm.toothNumber) || selectedTooth,
         treatment_type: toothForm.procedure.trim(),
         status: toothForm.status,
@@ -2534,6 +2397,38 @@ export default function AdminPatientDetailsPage() {
     URL.revokeObjectURL(url);
   };
 
+  if (isLoadingDb) {
+    return (
+      <div className="min-h-screen bg-slate-50 text-slate-800 flex items-center justify-center">
+        <div className="h-9 w-9 animate-spin rounded-full border-4 border-teal-600 border-t-transparent" />
+      </div>
+    );
+  }
+
+  if (patientNotFound) {
+    return (
+      <div className="min-h-screen bg-slate-50 text-slate-800 flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-white rounded-2xl border border-slate-200 shadow-sm p-8 text-center space-y-4">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-rose-50 border border-rose-100 text-rose-600">
+            <AlertCircle className="h-6 w-6" />
+          </div>
+          <div className="space-y-1">
+            <h3 className="text-sm font-bold text-slate-800">Patient Chart Not Found</h3>
+            <p className="text-xs text-slate-400 leading-relaxed">
+              The requested patient record could not be located in the database, or the ID format is invalid.
+            </p>
+          </div>
+          <button
+            onClick={() => navigate({ to: "/admin/patients" })}
+            className="mt-2 w-full rounded-xl bg-teal-600 py-2.5 text-xs font-semibold text-white shadow-sm hover:bg-teal-700 transition"
+          >
+            Back to Patient Directory
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 antialiased font-sans flex flex-col scroll-smooth">
       {/* STANDARD NAVIGATION HEADER */}
@@ -2548,7 +2443,7 @@ export default function AdminPatientDetailsPage() {
           <div className="h-4 w-px bg-slate-200" />
           <div className="flex items-center gap-2">
             <h1 className="text-sm font-bold text-slate-900 tracking-tight">
-              Lumident Patient Desk
+              Healthcare & Dental Clinic Patient Desk
             </h1>
             <span className="px-2 py-0.5 rounded-md bg-slate-100 text-[10px] font-mono font-bold text-slate-500 border border-slate-200">
               {patientData.id}
@@ -5306,7 +5201,7 @@ export default function AdminPatientDetailsPage() {
                   </div>
                   <div>
                     <span className="text-xs font-bold text-primary uppercase tracking-widest block">
-                      Lumident Clinical Portal
+                      Healthcare & Dental Clinic Clinical Portal
                     </span>
                     <h4 className="font-display font-bold text-foreground text-xl tracking-tight mt-0.5">
                       {selectedAppointment.type}

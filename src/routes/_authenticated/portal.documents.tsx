@@ -40,50 +40,7 @@ interface DentalDocument {
 // ==========================================
 // MOCK DATA
 // ==========================================
-const INITIAL_DOCUMENTS: DentalDocument[] = [
-  {
-    id: "doc-1",
-    title: "Post-Operative Care Antibiotics",
-    category: "prescription",
-    fileName: "prescription_2026_05_20.pdf",
-    fileSize: "142 KB",
-    uploadDate: "May 20, 2026",
-    doctorName: "Dr. Aisha Rahman",
-    description:
-      "Amoxicillin course instructions and recovery guidelines following root canal therapy.",
-  },
-  {
-    id: "doc-2",
-    title: "Full Panoramic Mandibular X-Ray",
-    category: "x-ray",
-    fileName: "panoramic_hd_xray.jpg",
-    fileSize: "4.2 MB",
-    uploadDate: "May 12, 2026",
-    doctorName: "Dr. Sara Kim",
-    description:
-      "High-resolution digital panoramic scan profiling bone structure and wisdom teeth placement.",
-  },
-  {
-    id: "doc-3",
-    title: "Periodontal Screening Assessment",
-    category: "report",
-    fileName: "gum_health_assessment.pdf",
-    fileSize: "890 KB",
-    uploadDate: "Apr 15, 2026",
-    doctorName: "Dr. Aisha Rahman",
-    description:
-      "Comprehensive 6-month tracking report examining pocket depths and tissue attachment levels.",
-  },
-  {
-    id: "doc-4",
-    title: "Aligner Check-in Treatment Bill",
-    category: "invoice",
-    fileName: "invoice_inv_9982.pdf",
-    fileSize: "95 KB",
-    uploadDate: "Mar 28, 2026",
-    description: "Itemized billing statement for clear aligner tracking phase 2 adjustments.",
-  },
-];
+const INITIAL_DOCUMENTS: DentalDocument[] = [];
 
 export default function DocumentsPage() {
   // ==========================================
@@ -276,7 +233,7 @@ export default function DocumentsPage() {
                         </span>
                       ) : (
                         <span className="text-[11px] text-slate-400 font-medium italic">
-                          Lumident Admin Record
+                          Clinic Admin Record
                         </span>
                       )}
                     </div>

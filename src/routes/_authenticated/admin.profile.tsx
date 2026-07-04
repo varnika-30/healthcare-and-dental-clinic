@@ -20,13 +20,13 @@ import { toast } from "sonner";
 import { useAuth } from "@/lib/auth-context";
 
 const INITIAL_DOCTOR_DATA = {
-  name: "Dr. Sarah Jenkins",
-  specialization: "General Dentistry & Endodontics",
-  clinicName: "Lumident Premium Care",
-  avatarUrl: "", // Blank invokes text-initials fallback badge
-  email: "s.jenkins@lumidentcare.com",
-  phone: "(415) 555-0182",
-  address: "450 Sutter St, Suite 1800, San Francisco, CA 94108",
+  name: "Doctor",
+  specialization: "General Dentistry",
+  clinicName: "Healthcare & Dental Clinic",
+  avatarUrl: "",
+  email: "",
+  phone: "",
+  address: "",
   schedule: {
     workingDays: "Monday – Friday",
     timings: "8:30 AM – 5:00 PM",
@@ -61,13 +61,13 @@ export default function AdminProfilePage() {
         console.error("Failed to load profile:", error);
       } else if (data) {
         setDoctorData({
-          name: data.full_name || "Dr. Sarah Jenkins",
-          specialization: data.specialization || "General Dentistry & Endodontics",
-          clinicName: "Lumident Premium Care",
-          avatarUrl: data.avatar_url || "",
-          email: user.email || "s.jenkins@lumidentcare.com",
-          phone: data.phone || "(415) 555-0182",
-          address: data.bio || "450 Sutter St, Suite 1800, San Francisco, CA 94108",
+          name: data.full_name || user.email?.split("@")[0] || "Doctor",
+          specialization: data.specialization || "General Dentistry",
+          clinicName: "Healthcare & Dental Clinic",
+          avatarUrl: "",
+          email: user.email || "",
+          phone: data.phone || "",
+          address: "",
           schedule: {
             workingDays: "Monday – Friday",
             timings: "8:30 AM – 5:00 PM",
@@ -88,17 +88,17 @@ export default function AdminProfilePage() {
         }
 
         const profileData = {
-          id: user.id,
           full_name: doctorData.name,
           specialization: doctorData.specialization,
           phone: doctorData.phone,
-          bio: doctorData.address,
-          avatar_url: doctorData.avatarUrl,
         };
 
-        console.log("Executing Supabase upsert on profiles table with:", profileData);
+        console.log("Executing Supabase update on profiles table with:", profileData);
 
-        const { error: dbError } = await supabase.from("profiles").upsert(profileData);
+        const { error: dbError } = await supabase
+          .from("profiles")
+          .update(profileData)
+          .eq("id", user.id);
 
         if (dbError) {
           throw new Error("Database write error: " + dbError.message);
@@ -120,10 +120,10 @@ export default function AdminProfilePage() {
             name: refreshedProfile.full_name || doctorData.name,
             specialization: refreshedProfile.specialization || doctorData.specialization,
             clinicName: doctorData.clinicName,
-            avatarUrl: refreshedProfile.avatar_url || doctorData.avatarUrl,
+            avatarUrl: "",
             email: user.email || doctorData.email,
             phone: refreshedProfile.phone || doctorData.phone,
-            address: refreshedProfile.bio || doctorData.address,
+            address: "",
             schedule: doctorData.schedule,
           });
         }

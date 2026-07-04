@@ -8,12 +8,12 @@ import {
   Users,
   Bell,
   LogOut,
-  Stethoscope,
   ClipboardList,
   Menu,
   UserCircle,
   X,
 } from "lucide-react";
+import { ToothIcon } from "@/components/ui/ToothIcon";
 import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -37,10 +37,10 @@ function DashboardSidebarBrand({ role }: { role: string | null }) {
   return (
     <div className="flex h-20 items-center gap-3.5 border-b border-teal-950/5 px-6">
       <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-teal-600 text-white shadow-2xs">
-        <Stethoscope className="h-5.5 w-5.5" />
+        <ToothIcon className="h-5.5 w-5.5" />
       </span>
       <div className="min-w-0">
-        <p className="font-sans text-base font-bold tracking-tight text-slate-900">Lumident</p>
+        <p className="font-sans text-base font-bold tracking-tight text-slate-900">Healthcare & Dental Clinic</p>
         <p className="text-[11px] font-bold uppercase tracking-wider text-teal-700/80 mt-0.5">
           {role ?? "staff"} portal
         </p>
@@ -154,10 +154,10 @@ export function DashboardShell({
           <div className="flex min-w-0 items-center gap-3">
             <Link to="/dashboard" className="flex min-w-0 items-center gap-3">
               <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-teal-600 text-white shadow-xs">
-                <Stethoscope className="h-5 w-5" />
+                <ToothIcon className="h-5 w-5" />
               </span>
               <span className="truncate font-sans text-base font-bold tracking-tight text-slate-900">
-                Lumident
+                Healthcare & Dental Clinic
               </span>
             </Link>
           </div>

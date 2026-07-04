@@ -9,7 +9,7 @@ import { Star } from "lucide-react";
 export const Route = createFileRoute("/doctors")({
   head: () => ({
     meta: [
-      { title: "Our Doctors — Lumident Dental" },
+      { title: "Our Doctors — Healthcare & Dental Clinic" },
       {
         name: "description",
         content:

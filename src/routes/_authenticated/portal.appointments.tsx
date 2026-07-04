@@ -80,7 +80,7 @@ function PortalAppointmentsPage() {
         status: a.status,
         notes: a.notes,
         dentist_name: a.doctor?.full_name || "To be assigned",
-        specialty: a.doctor?.specialization || "Lumident Care Team",
+        specialty: a.doctor?.specialization || "Healthcare & Dental Clinic Care Team",
         service_name: a.service || "General Dental Consultation",
         patient_phone: a.patient_phone,
         preferred_time_text: a.preferred_time_text || undefined,

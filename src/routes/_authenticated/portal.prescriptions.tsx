@@ -108,7 +108,7 @@ export default function PatientPrescriptionsPage() {
         return {
           id: rx.id,
           date: rx.created_at ? rx.created_at.split("T")[0] : "",
-          clinicName: "Lumident Premium Care",
+          clinicName: "Healthcare & Dental Clinic",
           prescribingDoctor,
           licenseNumber: "Registration number not available",
           issueDate: rx.created_at ? rx.created_at.split("T")[0] : "",

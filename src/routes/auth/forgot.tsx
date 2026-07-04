@@ -7,7 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/auth/forgot")({
-  head: () => ({ meta: [{ title: "Forgot password — Lumident" }] }),
+  head: () => ({ meta: [{ title: "Forgot password — Healthcare & Dental Clinic" }] }),
   component: Forgot,
 });
 

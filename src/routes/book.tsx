@@ -23,7 +23,7 @@ import { CalendarDays, Clock } from "lucide-react";
 export const Route = createFileRoute("/book")({
   head: () => ({
     meta: [
-      { title: "Book Appointment — Lumident" },
+      { title: "Book Appointment — Healthcare & Dental Clinic" },
       {
         name: "description",
         content: "Book your next dental appointment online in under a minute.",

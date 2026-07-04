@@ -73,14 +73,14 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lumident — Modern Dental Care" },
+      { title: "Healthcare & Dental Clinic — Modern Dental Care" },
       {
         name: "description",
         content:
           "Modern dental care, designed around you. Book online, manage visits, prescriptions and bills.",
       },
-      { name: "author", content: "Lumident" },
-      { property: "og:title", content: "Lumident — Modern Dental Care" },
+      { name: "author", content: "Healthcare & Dental Clinic" },
+      { property: "og:title", content: "Healthcare & Dental Clinic — Modern Dental Care" },
       {
         property: "og:description",
         content: "Book online, manage visits, prescriptions and bills — all in one place.",

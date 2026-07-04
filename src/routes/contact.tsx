@@ -12,7 +12,7 @@ import { toast } from "sonner";
 export const Route = createFileRoute("/contact")({
   head: () => ({
     meta: [
-      { title: "Contact — Lumident Dental" },
+      { title: "Contact — Healthcare & Dental Clinic" },
       {
         name: "description",
         content: "Get in touch with our team — phone, email or visit our clinic.",
@@ -40,7 +40,7 @@ function Contact() {
         <div className="space-y-4">
           {[
             { icon: Phone, title: "Phone", v: "(415) 555-0142" },
-            { icon: Mail, title: "Email", v: "hello@lumident.care" },
+            { icon: Mail, title: "Email", v: "hello@clinic.care" },
             { icon: MapPin, title: "Address", v: "24 Bayview Ave, Suite 300" },
             { icon: Clock, title: "Hours", v: "Mon–Sat · 9am–7pm" },
           ].map((c) => (

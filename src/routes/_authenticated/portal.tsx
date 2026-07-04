@@ -6,12 +6,12 @@ export const Route = createFileRoute("/_authenticated/portal")({
   beforeLoad: async () => {
     const { data: u } = await supabase.auth.getUser();
     //if (!u.user) throw redirect({ to: "/auth/login" });//
-    const { data: roles } = await supabase
-      .from("user_roles")
+    const { data: profile } = await (supabase as any)
+      .from("profiles")
       .select("role")
-      //.eq("user_id", u.user.id);//
-      .eq("user_id", u.user?.id ?? "");
-    const isStaff = (roles ?? []).some((r) => ["admin", "doctor", "receptionist"].includes(r.role));
+      .eq("id", u.user?.id ?? "")
+      .single();
+    const isStaff = ["admin", "doctor", "receptionist"].includes((profile as any)?.role || "");
     if (isStaff) throw redirect({ to: "/dashboard" });
   },
   component: () => (

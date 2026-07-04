@@ -7,7 +7,7 @@ import { ShieldCheck, Sparkles, HeartPulse } from "lucide-react";
 export const Route = createFileRoute("/about")({
   head: () => ({
     meta: [
-      { title: "About — Lumident Dental" },
+      { title: "About — Healthcare & Dental Clinic" },
       {
         name: "description",
         content: "Our story, our values, and the team behind a calmer dental experience.",
@@ -47,7 +47,7 @@ function About() {
             Dentistry, reimagined around you.
           </h1>
           <p className="mx-auto mt-4 max-w-2xl text-muted-foreground">
-            Lumident started with a simple belief: a dental visit shouldn't feel clinical. We built
+            Healthcare & Dental Clinic started with a simple belief: a dental visit shouldn't feel clinical. We built
             a clinic that feels like a calm studio — quiet, light, warm — and paired it with a team
             that explains everything, slowly, kindly.
           </p>

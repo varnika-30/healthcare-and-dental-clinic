@@ -20,13 +20,14 @@ import {
   Phone,
   Pill,
   ShieldCheck,
+  ShieldAlert,
   ArrowRight,
 } from "lucide-react";
 import { format } from "date-fns";
 import { AppointmentBookingModal } from "@/components/portal/AppointmentBookingModal";
 
 export const Route = createFileRoute("/_authenticated/portal/")({
-  head: () => ({ meta: [{ title: "Overview — Lumident" }] }),
+  head: () => ({ meta: [{ title: "Overview — Healthcare & Dental Clinic" }] }),
   component: PortalHome,
 });
 
@@ -99,6 +100,29 @@ function PortalHome() {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-teal-50/40 via-white to-cyan-50/30">
         <div className="h-9 w-9 animate-spin rounded-full border-4 border-teal-600 border-t-transparent" />
+      </div>
+    );
+  }
+
+  if (!dashboardData) {
+    return (
+      <div className="min-h-screen w-full bg-slate-50/40 font-sans antialiased text-slate-900 p-4 sm:p-6 md:p-8">
+        <div className="max-w-2xl mx-auto bg-white rounded-2xl border border-amber-200 shadow-xs p-8 space-y-4">
+          <div className="flex items-center gap-3 text-amber-600">
+            <span className="p-2 rounded-lg bg-amber-50">
+              <ShieldAlert className="w-6 h-6" />
+            </span>
+            <h2 className="text-lg font-bold">Account Link Pending</h2>
+          </div>
+          <p className="text-slate-600 text-sm leading-relaxed">
+            Your online account is not yet linked to an active clinic patient record. Please contact
+            our front desk or clinic staff to associate your registration with your medical chart.
+          </p>
+          <p className="text-slate-500 text-xs">
+            Once linked, you will be able to view your treatment plans, book appointments, check
+            billing histories, and access prescriptions.
+          </p>
+        </div>
       </div>
     );
   }
