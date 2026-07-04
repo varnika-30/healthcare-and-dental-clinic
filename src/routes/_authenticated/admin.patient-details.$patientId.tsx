@@ -2638,12 +2638,12 @@ export default function AdminPatientDetailsPage() {
         </div>
 
         <div className={`overflow-x-auto ${isHeaderCollapsed ? "mt-4" : "mt-8"}`}>
-          <nav className="flex min-w-[720px] gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm">
+          <nav className="flex min-w-[720px] gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700 shadow-sm">
             <a
               href="#overview"
               onClick={() => setActiveTab("#overview")}
               aria-current={activeTab === "#overview" ? "page" : undefined}
-              className={`inline-flex items-center whitespace-nowrap rounded-full px-3 sm:px-4 py-1.5 transition-all duration-200 ${
+              className={`inline-flex items-center whitespace-nowrap rounded-full px-5 sm:px-6 py-2.5 transition-all duration-200 ${
                 activeTab === "#overview"
                   ? "bg-teal-50 text-teal-700 border border-teal-100 shadow-sm"
                   : "bg-white text-slate-800 hover:bg-slate-100 hover:text-teal-700"
@@ -2655,7 +2655,7 @@ export default function AdminPatientDetailsPage() {
               href="#medical"
               onClick={() => setActiveTab("#medical")}
               aria-current={activeTab === "#medical" ? "page" : undefined}
-              className={`inline-flex items-center whitespace-nowrap rounded-full px-3 sm:px-4 py-1.5 transition-all duration-200 ${
+              className={`inline-flex items-center whitespace-nowrap rounded-full px-5 sm:px-6 py-2.5 transition-all duration-200 ${
                 activeTab === "#medical"
                   ? "bg-teal-50 text-teal-700 border border-teal-100 shadow-sm"
                   : "bg-white text-slate-800 hover:bg-slate-100 hover:text-teal-700"
@@ -2667,7 +2667,7 @@ export default function AdminPatientDetailsPage() {
               href="#billing"
               onClick={() => setActiveTab("#billing")}
               aria-current={activeTab === "#billing" ? "page" : undefined}
-              className={`inline-flex items-center whitespace-nowrap rounded-full px-3 sm:px-4 py-1.5 transition-all duration-200 ${
+              className={`inline-flex items-center whitespace-nowrap rounded-full px-5 sm:px-6 py-2.5 transition-all duration-200 ${
                 activeTab === "#billing"
                   ? "bg-teal-50 text-teal-700 border border-teal-100 shadow-sm"
                   : "bg-white text-slate-800 hover:bg-slate-100 hover:text-teal-700"
@@ -2679,7 +2679,7 @@ export default function AdminPatientDetailsPage() {
               href="#treatments"
               onClick={() => setActiveTab("#treatments")}
               aria-current={activeTab === "#treatments" ? "page" : undefined}
-              className={`inline-flex items-center whitespace-nowrap rounded-full px-3 sm:px-4 py-1.5 transition-all duration-200 ${
+              className={`inline-flex items-center whitespace-nowrap rounded-full px-5 sm:px-6 py-2.5 transition-all duration-200 ${
                 activeTab === "#treatments"
                   ? "bg-teal-50 text-teal-700 border border-teal-100 shadow-sm"
                   : "bg-white text-slate-800 hover:bg-slate-100 hover:text-teal-700"
@@ -2691,7 +2691,7 @@ export default function AdminPatientDetailsPage() {
               href="#scheduler"
               onClick={() => setActiveTab("#scheduler")}
               aria-current={activeTab === "#scheduler" ? "page" : undefined}
-              className={`inline-flex items-center whitespace-nowrap rounded-full px-3 sm:px-4 py-1.5 transition-all duration-200 ${
+              className={`inline-flex items-center whitespace-nowrap rounded-full px-5 sm:px-6 py-2.5 transition-all duration-200 ${
                 activeTab === "#scheduler"
                   ? "bg-teal-50 text-teal-700 border border-teal-100 shadow-sm"
                   : "bg-white text-slate-800 hover:bg-slate-100 hover:text-teal-700"
@@ -2703,7 +2703,7 @@ export default function AdminPatientDetailsPage() {
               href="#tooth-chart"
               onClick={() => setActiveTab("#tooth-chart")}
               aria-current={activeTab === "#tooth-chart" ? "page" : undefined}
-              className={`inline-flex items-center whitespace-nowrap rounded-full px-3 sm:px-4 py-1.5 transition-all duration-200 ${
+              className={`inline-flex items-center whitespace-nowrap rounded-full px-5 sm:px-6 py-2.5 transition-all duration-200 ${
                 activeTab === "#tooth-chart"
                   ? "bg-teal-50 text-teal-700 border border-teal-100 shadow-sm"
                   : "bg-white text-slate-800 hover:bg-slate-100 hover:text-teal-700"
@@ -2715,7 +2715,7 @@ export default function AdminPatientDetailsPage() {
               href="#prescriptions"
               onClick={() => setActiveTab("#prescriptions")}
               aria-current={activeTab === "#prescriptions" ? "page" : undefined}
-              className={`inline-flex items-center whitespace-nowrap rounded-full px-3 sm:px-4 py-1.5 transition-all duration-200 ${
+              className={`inline-flex items-center whitespace-nowrap rounded-full px-5 sm:px-6 py-2.5 transition-all duration-200 ${
                 activeTab === "#prescriptions"
                   ? "bg-teal-50 text-teal-700 border border-teal-100 shadow-sm"
                   : "bg-white text-slate-800 hover:bg-slate-100 hover:text-teal-700"
@@ -4209,9 +4209,9 @@ export default function AdminPatientDetailsPage() {
                 </div>
               </div>
 
-              <div className="p-1.5 flex flex-col space-y-1.5">
+              <div className="flex flex-col">
                 {/* Upper: Tooth Grid & Legend */}
-                <div className="flex justify-center items-center w-full">
+                <div className="p-1.5 flex justify-center items-center w-full">
                   <div className="w-full max-w-[920px] mx-auto">
                     <ToothChart
                       marks={getToothMarks()}
@@ -4222,7 +4222,7 @@ export default function AdminPatientDetailsPage() {
                   </div>
                 </div>
 
-                <div className="border-t border-slate-100 pt-3">
+                <div className="p-4 sm:p-5 border-t border-slate-100">
                   <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">
                     {fullMouthEditId ? "Edit Full-mouth Treatment" : "Add Full-mouth Treatment"}
                   </h4>

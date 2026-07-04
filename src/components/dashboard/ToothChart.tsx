@@ -62,12 +62,12 @@ export function ToothChart({
     };
 
     return (
-      <div className="flex flex-wrap xl:flex-nowrap justify-center items-center gap-2 sm:gap-4 md:gap-6 w-full">
-        <div className={cn("flex flex-wrap xl:flex-nowrap justify-center", gapClass)}>
+      <div className="flex flex-wrap 2xl:flex-nowrap justify-center items-center gap-2 sm:gap-4 md:gap-6 w-full">
+        <div className={cn("flex flex-wrap 2xl:flex-nowrap justify-center", gapClass)}>
           {leftGroup.map(renderTooth)}
         </div>
-        <div className="hidden xl:block h-10 w-px bg-slate-200" />
-        <div className={cn("flex flex-wrap xl:flex-nowrap justify-center", gapClass)}>
+        <div className="hidden 2xl:block h-10 w-px bg-slate-200" />
+        <div className={cn("flex flex-wrap 2xl:flex-nowrap justify-center", gapClass)}>
           {rightGroup.map(renderTooth)}
         </div>
       </div>
