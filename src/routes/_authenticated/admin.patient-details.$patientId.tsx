@@ -1406,8 +1406,12 @@ export default function AdminPatientDetailsPage() {
 
   useEffect(() => {
     const onScroll = () => {
-      const shouldCollapse = window.scrollY > 120;
-      setIsHeaderCollapsed(shouldCollapse);
+      setIsHeaderCollapsed((prev) => {
+        const y = window.scrollY;
+        if (!prev && y > 150) return true;
+        if (prev && y < 90) return false;
+        return prev;
+      });
     };
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
@@ -1449,6 +1453,14 @@ export default function AdminPatientDetailsPage() {
   const totalBilled = invoices.reduce((sum, inv) => sum + (Number(inv.total) || 0), 0);
   const totalPaid = payments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
   const outstandingDue = totalBilled - totalPaid;
+
+  const formatIndianRupee = (value: number): string => {
+    const formattedNum = new Intl.NumberFormat("en-IN", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(value);
+    return `₹${formattedNum}`;
+  };
   const latestPrescription =
     patientData.prescriptions[0] && patientData.prescriptions[0].status === "ACTIVE"
       ? patientData.prescriptions[0]
@@ -2607,7 +2619,7 @@ export default function AdminPatientDetailsPage() {
               <span
                 className={`font-bold text-slate-800 ${isHeaderCollapsed ? "text-xs" : "text-base sm:text-lg"}`}
               >
-                ${totalBilled.toFixed(2)}
+                {formatIndianRupee(totalBilled)}
               </span>
             </div>
             <div className="px-1 border-l border-slate-200">
@@ -2617,7 +2629,7 @@ export default function AdminPatientDetailsPage() {
               <span
                 className={`font-bold text-emerald-600 ${isHeaderCollapsed ? "text-xs" : "text-sm sm:text-base"}`}
               >
-                ${totalPaid.toFixed(2)}
+                {formatIndianRupee(totalPaid)}
               </span>
             </div>
             <div
@@ -2631,7 +2643,7 @@ export default function AdminPatientDetailsPage() {
               <span
                 className={`font-black ${isHeaderCollapsed ? "text-xs" : "text-sm sm:text-base"} ${outstandingDue > 0 ? "text-rose-700" : "text-emerald-700"}`}
               >
-                ${outstandingDue.toFixed(2)}
+                {formatIndianRupee(outstandingDue)}
               </span>
             </div>
           </div>
@@ -4211,7 +4223,7 @@ export default function AdminPatientDetailsPage() {
 
               <div className="flex flex-col">
                 {/* Upper: Tooth Grid & Legend */}
-                <div className="p-1.5 flex justify-center items-center w-full">
+                <div className="p-1.5 px-6 sm:px-10 xl:px-14 flex justify-center items-center w-full">
                   <div className="w-full max-w-[920px] mx-auto">
                     <ToothChart
                       marks={getToothMarks()}

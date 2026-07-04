@@ -29,12 +29,12 @@ export function ToothChart({
     size === "lg" ? "gap-1.5 sm:gap-2" : size === "sm" ? "gap-1" : "gap-1 sm:gap-1.5";
   const buttonClass =
     size === "lg"
-      ? "flex sm:h-[92px] sm:w-[55px] h-12 w-8 flex-col items-center justify-between py-2 rounded-md border bg-card sm:text-[10px] text-[8px] font-medium transition hover:border-primary cursor-pointer"
+      ? "flex sm:h-[84px] sm:w-[50px] h-12 w-8 flex-col items-center justify-between py-2 rounded-md border bg-card sm:text-[10px] text-[8px] font-medium transition hover:border-primary cursor-pointer"
       : size === "sm"
         ? "flex h-[50px] w-8 flex-col items-center justify-between py-1 rounded-md border bg-card text-[10px] font-medium transition hover:border-primary cursor-pointer"
         : "flex h-14 w-9 flex-col items-center justify-between py-1.5 rounded-md border bg-card text-[10px] font-medium transition hover:border-primary cursor-pointer";
   const iconClass =
-    size === "lg" ? "text-xs sm:text-3xl" : size === "sm" ? "text-xs" : "text-sm sm:text-base";
+    size === "lg" ? "text-xs sm:text-2xl" : size === "sm" ? "text-xs" : "text-sm sm:text-base";
 
   const Row = ({ teeth, midIndex }: { teeth: number[]; midIndex: number }) => {
     const leftGroup = teeth.slice(0, midIndex);
@@ -55,7 +55,7 @@ export function ToothChart({
             active && "ring-2 ring-primary ring-offset-2 ring-offset-background",
           )}
         >
-          <span className="text-[8px] sm:text-[11px] text-slate-400 font-bold">{t}</span>
+          <span className="text-[8px] sm:text-[10px] text-slate-400 font-bold">{t}</span>
           <span className={iconClass}>🦷</span>
         </button>
       );
