@@ -29,9 +29,7 @@ function Signup() {
     <div className="grid min-h-screen md:grid-cols-2">
       <div className="hidden bg-primary-gradient md:flex md:flex-col md:justify-between md:p-12 md:text-primary-foreground">
         <Link to="/" className="flex items-center gap-2 font-display text-xl font-bold">
-          <span className="grid h-9 w-9 place-items-center rounded-xl bg-white/15">
-            <ToothIcon className="h-5 w-5" />
-          </span>
+          <ToothIcon className="h-9 w-9 shrink-0" />
           Healthcare & Dental Clinic
         </Link>
         <div>

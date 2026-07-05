@@ -67,9 +67,7 @@ function BookAppointmentChoiceDialog({
       <DialogContent className="max-w-lg gap-0 overflow-hidden rounded-3xl border-border/60 p-0 shadow-card sm:max-w-xl">
         <DialogHeader className="space-y-2 border-b border-border/60 bg-muted/30 px-6 py-6 text-left sm:px-8">
           <div className="flex items-center gap-3">
-            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-primary-gradient text-primary-foreground shadow-soft">
-              <ToothIcon className="h-5 w-5" />
-            </span>
+            <ToothIcon className="h-11 w-11 shrink-0 shadow-soft" />
             <div>
               <DialogTitle className="font-display text-xl font-bold tracking-tight sm:text-2xl">
                 Book an appointment

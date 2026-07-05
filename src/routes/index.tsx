@@ -83,18 +83,21 @@ function Home() {
           <source src="/path-to-dental-clinic-video.mp4" type="video/mp4" />
         </video>
         <div className="absolute inset-0 bg-black/40" />
-        <div className="relative mx-auto flex min-h-screen max-w-[1400px] items-center px-8">
+        <div className="relative mx-auto flex min-h-screen max-w-[1900px] items-center px-8">
           <div className="rounded-3xl bg-white/80 p-12 shadow-lg backdrop-blur-md md:max-w-xl lg:max-w-2xl">
-            <h1 className="font-display text-6xl font-bold text-[#0F172A] sm:text-5xl md:text-6xl">
-              Welcome To Healthcare And Dental Clinic
+            <h1 className="font-display text-6xl font-bold text-[#0F172A] sm:text-5xl md:text-5xl">
+              Welcome To <h1>Healthcare & Dental Clinic</h1>
             </h1>
             <p className="mt-6 text-xl text-gray-700">
-              Open Monday – Saturday · 6:30 PM – 10 PM · Family Dental Care · Emergency Support
+              Gentle care for healthy teeth and happy smiles.
             </p>
-            <div className="mt-10 flex flex-wrap gap-6">
+            <p>
+              Because every smile deserves a little extra care.
+            </p>
+            <div className="mt-8 flex flex-wrap gap-6">
               <BookAppointmentButton
                 size="lg"
-                className="rounded-xl bg-[#27B7AE] px-8 py-4 text-white shadow-md hover:bg-[#1E9D94]"
+                className="text-lg rounded-xl bg-[#27B7AE] px-8 py-6 text-white shadow-md hover:bg-[#1E9D94]"
               >
                 Book an appointment
               </BookAppointmentButton>
@@ -102,7 +105,7 @@ function Home() {
                 asChild
                 size="lg"
                 variant="outline"
-                className="rounded-xl border-gray-300 bg-white px-8 py-4 text-[#0F172A] shadow-md hover:bg-gray-100"
+                className="text-lg rounded-xl border-gray-300 bg-white px-12 py-6 text-[#0F172A] shadow-md hover:bg-gray-100"
               >
                 <Link to="/services">Visit Us</Link>
               </Button>
@@ -138,10 +141,20 @@ function Home() {
       `}</style>
 
       {/* VISIT US SECTION */}
-      <section className="bg-gradient-to-br from-teal-100 to-teal-50 py-24">
-        <div className="mx-auto max-w-7xl px-6 grid gap-12 md:grid-cols-2">
-          <div className="rounded-3xl shadow-lg overflow-hidden">
-            <div className="h-64 bg-gray-200">Google Map Placeholder</div>
+      <section className="bg-gradient-to-br from-teal-100 to-teal-50 py-36">
+        <div className="mx-auto max-w-7xl px-6 grid gap-12 md:grid-cols-2 items-center">
+          <div className="rounded-xl shadow-lg overflow-hidden">
+            <div className="h-120">
+              <iframe
+                src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3772.130136223677!2d73.01040177519239!3d19.013986382177865!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3be7c37571cb5d93%3A0x51a8442c0fbd85a2!2sHealthcare%20and%20Dental%20Clinic!5e0!3m2!1sen!2sin!4v1783244716086!5m2!1sen!2sin"
+                width="100%"
+                height="100%"
+                style={{ border: 0 }}
+                allowFullScreen
+                loading="lazy"
+                referrerPolicy="strict-origin-when-cross-origin"
+              />
+            </div>
           </div>
           <div className="flex flex-col justify-center">
             <h2 className="font-display text-4xl font-bold text-teal-900">Visit Us</h2>
@@ -150,11 +163,30 @@ function Home() {
               Seawoods, Navi Mumbai, Maharashtra 400706
             </p>
             <p className="mt-4 text-lg text-gray-700">
-              <b>Clinic Hours:</b> Monday - Saturday, 5:30 PM – 10:00 PM
+              <b>Working Days: </b> Monday - Saturday
             </p>
-            <p className="mt-2 text-lg text-gray-700">
+            <p className="mt-3 text-lg text-gray-700">
+              <b>Clinic Hours: </b>5:30 PM – 10:00 PM
+            </p>
+            <p className="mt-3 text-lg text-gray-700">
               <b>Call us:</b> 8689991241
             </p>
+            <p className="mt-3 text-lg text-gray-700">
+              <b>Emergency Support:</b> Available during clinic hours or by arrangements via phone
+            </p>
+            <p className="mt-3 text-lg text-gray-700">
+              <b>Appointments:</b> Walk-ins are welcome and accommodated based on availability. Patients with prior appointments will be given priority.
+            </p>
+            <div className="mt-8">
+              <a
+                href="https://www.google.com/maps/place/Healthcare+and+Dental+Clinic/@19.0139864,73.0104018,17z/data=!3m1!4b1!4m6!3m5!1s0x3be7c37571cb5d93:0x51a8442c0fbd85a2!8m2!3d19.0139864!4d73.0129767!16s%2Fg%2F11w2_3m6j9"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-lg inline-flex items-center justify-center rounded-xl bg-teal-600 px-8 py-3 text-sm font-bold text-white shadow-md hover:bg-teal-700 transition"
+              >
+                Get Directions
+              </a>
+            </div>
           </div>
         </div>
       </section>

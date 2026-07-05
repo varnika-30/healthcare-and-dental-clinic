@@ -36,9 +36,7 @@ const NAV: Record<"doctor", { to: string; label: string; icon: LucideIcon }[]> =
 function DashboardSidebarBrand({ role }: { role: string | null }) {
   return (
     <div className="flex h-20 items-center gap-3.5 border-b border-teal-950/5 px-6">
-      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-teal-600 text-white shadow-2xs">
-        <ToothIcon className="h-5.5 w-5.5" />
-      </span>
+      <ToothIcon className="h-10 w-10 shrink-0 shadow-2xs" />
       <div className="min-w-0">
         <p className="font-sans text-base font-bold tracking-tight text-slate-900">Healthcare & Dental Clinic</p>
         <p className="text-[11px] font-bold uppercase tracking-wider text-teal-700/80 mt-0.5">
@@ -153,9 +151,7 @@ export function DashboardShell({
         <header className="sticky top-0 z-40 flex h-16 shrink-0 items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 sm:px-6 xl:hidden">
           <div className="flex min-w-0 items-center gap-3">
             <Link to="/dashboard" className="flex min-w-0 items-center gap-3">
-              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-teal-600 text-white shadow-xs">
-                <ToothIcon className="h-5 w-5" />
-              </span>
+              <ToothIcon className="h-9 w-9 shrink-0 shadow-xs" />
               <span className="truncate font-sans text-base font-bold tracking-tight text-slate-900">
                 Healthcare & Dental Clinic
               </span>

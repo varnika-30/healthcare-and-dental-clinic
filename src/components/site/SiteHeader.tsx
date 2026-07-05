@@ -19,9 +19,7 @@ export function SiteHeader() {
     <header className="sticky top-0 z-40 w-full border-b border-border/60 bg-background/70 backdrop-blur-xl">
       <div className="mx-auto flex h-24 max-w-[1600px] items-center justify-between px-8 sm:px-10">
         <Link to="/" className="flex items-center gap-2 font-display text-2xl font-bold">
-          <span className="grid h-12 w-12 place-items-center rounded-xl bg-primary-gradient text-primary-foreground shadow-soft">
-            <ToothIcon className="h-7 w-7" />
-          </span>
+          <ToothIcon className="h-12 w-12 shrink-0 shadow-soft" />
           <span>Healthcare & Dental Clinic</span>
         </Link>
         <nav className="hidden items-center gap-1 lg:flex">

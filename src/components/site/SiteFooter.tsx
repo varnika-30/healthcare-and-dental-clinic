@@ -9,9 +9,7 @@ export function SiteFooter() {
       <div className="mx-auto grid max-w-7xl gap-10 px-6 py-14 md:grid-cols-4">
         <div>
           <div className="flex items-center gap-2 font-display text-lg font-bold">
-            <span className="grid h-9 w-9 place-items-center rounded-xl bg-primary-gradient text-primary-foreground">
-              <ToothIcon className="h-5 w-5" />
-            </span>
+            <ToothIcon className="h-9 w-9 shrink-0" />
             Healthcare & Dental Clinic
           </div>
           <p className="mt-3 max-w-xs text-sm text-muted-foreground">

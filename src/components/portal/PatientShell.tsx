@@ -31,9 +31,7 @@ const NAV = [
 function SidebarBrand() {
   return (
     <div className="flex h-20 items-center gap-2 border-b border-sidebar-border px-5">
-      <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-primary-gradient text-primary-foreground">
-        <ToothIcon className="h-5 w-5" />
-      </span>
+      <ToothIcon className="h-11 w-11 shrink-0" />
       <div className="min-w-0">
         <p className="font-display text-lg font-bold leading-none">Healthcare & Dental Clinic</p>
         <p className="text-[10px] uppercase tracking-wider text-sidebar-foreground/60">
@@ -142,9 +140,7 @@ export function PatientShell({ children }: { children: ReactNode }) {
               {drawerOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </Button>
             <Link to="/portal" className="flex min-w-0 items-center gap-2">
-              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-primary-gradient text-primary-foreground">
-                <ToothIcon className="h-4 w-4" />
-              </span>
+              <ToothIcon className="h-9 w-9 shrink-0" />
               <span className="truncate font-display text-sm font-bold">Healthcare & Dental Clinic</span>
             </Link>
           </div>

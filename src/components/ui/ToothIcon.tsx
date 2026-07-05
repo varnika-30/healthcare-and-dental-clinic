@@ -1,25 +1,30 @@
 import React from "react";
 
-export function ToothIcon({ className = "", size = 24, ...props }: React.SVGProps<SVGSVGElement> & { size?: number }) {
+export function ToothIcon({ className = "", size, ...props }: React.SVGProps<SVGSVGElement> & { size?: number }) {
+  const width = size || "100%";
+  const height = size || "100%";
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
+      viewBox="0 0 100 100"
+      width={width}
+      height={height}
       className={className}
       {...props}
     >
-      <ellipse cx="8.5" cy="12.5" rx="1.2" ry="1.8" fill="currentColor" />
-      <ellipse cx="15.5" cy="12.5" rx="1.2" ry="1.8" fill="currentColor" />
-      <path d="M8 16.2 Q 12 20.2 16 16.2" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-      <path d="M5.5 15.7 Q 6 16.2 6.5 15.7" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-      <path d="M18.5 15.7 Q 18 16.2 17.5 15.7" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      {/* Teal rounded-square/squircle background matching primary brand teal color */}
+      <rect x="0" y="0" width="100" height="100" rx="28" ry="28" fill="var(--color-primary, oklch(0.66 0.11 185))" />
+      {/* Eyes */}
+      <circle cx="31" cy="38" r="6.5" fill="#ffffff" />
+      <circle cx="69" cy="38" r="6.5" fill="#ffffff" />
+      {/* Smile */}
+      <path
+        d="M 28 63 Q 50 84 72 63"
+        fill="none"
+        stroke="#ffffff"
+        strokeWidth="6"
+        strokeLinecap="round"
+      />
     </svg>
   );
 }
