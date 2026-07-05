@@ -14,8 +14,8 @@ import { useAuth } from "@/lib/auth-context";
 import { BOOKING_REDIRECT } from "@/lib/booking-redirect";
 import { cn } from "@/lib/utils";
 
-export const CLINIC_PHONE_DISPLAY = "(415) 555-0142";
-export const CLINIC_PHONE_TEL = "+14155550142";
+export const CLINIC_PHONE_DISPLAY = "8369559331";
+export const CLINIC_PHONE_TEL = "8369559331";
 
 type BookAppointmentContextValue = {
   openBooking: () => void;

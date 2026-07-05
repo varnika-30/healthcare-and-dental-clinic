@@ -18,6 +18,8 @@ import {
   Calendar,
   Phone,
   ChevronRight,
+  Baby,
+  AlertCircle,
 } from "lucide-react";
 import {
   Accordion,
@@ -47,19 +49,50 @@ export const Route = createFileRoute("/")({
 
 const services = [
   {
+    icon: Stethoscope,
+    title: "Dental Checkup",
+    desc: "Routine checkups to keep your teeth and gums healthy.",
+  },
+  {
     icon: Smile,
     title: "Dental Cleaning",
-    desc: "Gentle scaling & polish for fresh, healthy teeth.",
+    desc: "Gentle cleaning to remove plaque and stains, leaving your teeth fresh and clean.",
+  },
+  {
+    icon: ShieldCheck,
+    title: "Dental Fillings",
+    desc: "Natural-looking fillings to treat cavities and restore damaged teeth.",
+  },
+  {
+    icon: Activity,
+    title: "Root Canal Treatment",
+    desc: "Comfortable treatment to relieve tooth pain and save an infected tooth.",
   },
   {
     icon: Sparkles,
-    title: "Teeth Whitening",
-    desc: "Brighten your smile by up to 8 shades, safely.",
+    title: "Braces & Aligners",
+    desc: "Braces and clear aligners to help straighten teeth and improve your smile.",
   },
-  { icon: Activity, title: "Root Canal", desc: "Painless treatment with modern micro-tools." },
-  { icon: ShieldCheck, title: "Braces & Aligners", desc: "Clear aligners and traditional braces." },
-  { icon: HeartPulse, title: "Dental Implants", desc: "Permanent solutions that look natural." },
-  { icon: Stethoscope, title: "Cosmetic Dentistry", desc: "Veneers, contouring & smile design." },
+  {
+    icon: Heart,
+    title: "Dental Implants",
+    desc: "Long-lasting replacements for missing teeth that look and feel natural.",
+  },
+  {
+    icon: Sparkles,
+    title: "Cosmetic Dentistry",
+    desc: "Treatments to enhance and brighten your smile.",
+  },
+  {
+    icon: Baby,
+    title: "Kids Dentistry",
+    desc: "Friendly and gentle dental care to keep children's teeth healthy and strong.",
+  },
+  {
+    icon: AlertCircle,
+    title: "Emergency Dental Care",
+    desc: "Prompt care for dental pain, swelling, injuries, and emergencies.",
+  },
 ];
 
 const doctors = [
@@ -72,7 +105,7 @@ function Home() {
   return (
     <SiteLayout>
       {/* HERO */}
-      <section className="relative min-h-screen overflow-hidden">
+      <section id="hero" className="relative min-h-screen overflow-hidden scroll-mt-24">
         <video
           className="absolute inset-0 h-full w-full object-cover"
           autoPlay
@@ -107,7 +140,7 @@ function Home() {
                 variant="outline"
                 className="text-lg rounded-xl border-gray-300 bg-white px-12 py-6 text-[#0F172A] shadow-md hover:bg-gray-100"
               >
-                <Link to="/services">Visit Us</Link>
+                <Link to="/" hash="contact">Visit Us</Link>
               </Button>
             </div>
           </div>
@@ -141,7 +174,7 @@ function Home() {
       `}</style>
 
       {/* VISIT US SECTION */}
-      <section className="bg-gradient-to-br from-teal-100 to-teal-50 py-36">
+      <section id="contact" className="bg-gradient-to-br from-teal-100 to-teal-50 py-36 scroll-mt-24">
         <div className="mx-auto max-w-7xl px-6 grid gap-12 md:grid-cols-2 items-center">
           <div className="rounded-xl shadow-lg overflow-hidden">
             <div className="h-120">
@@ -192,7 +225,7 @@ function Home() {
       </section>
 
       {/* WHY CHOOSE DR. ANAHITA SECTION */}
-      <section className="bg-[#F5F1EB] py-24">
+      <section id="about" className="bg-[#F5F1EB] py-24 scroll-mt-24">
         <div className="mx-auto max-w-7xl px-6 grid gap-12 md:grid-cols-2">
           <div className="flex flex-col justify-center">
             <h2 className="font-display text-4xl font-bold text-gray-900">
@@ -234,7 +267,7 @@ function Home() {
       </section>
 
       {/* SERVICES */}
-      <section className="mx-auto max-w-7xl px-6 py-20">
+      <section id="services" className="mx-auto max-w-7xl px-6 py-20 scroll-mt-24">
         <div className="mb-12 flex items-end justify-between gap-6">
           <div>
             <Badge variant="secondary" className="mb-3 rounded-full">
@@ -246,11 +279,6 @@ function Home() {
               gentlest techniques.
             </p>
           </div>
-          <Button asChild variant="ghost" className="hidden md:inline-flex">
-            <Link to="/services">
-              All services <ChevronRight className="ml-1 h-4 w-4" />
-            </Link>
-          </Button>
         </div>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {services.map((s) => (
@@ -269,7 +297,7 @@ function Home() {
       </section>
 
       {/* DOCTORS */}
-      <section className="bg-secondary/40 py-20">
+      <section id="doctors" className="bg-secondary/40 py-20 scroll-mt-24">
         <div className="mx-auto max-w-7xl px-6">
           <div className="mb-10 text-center">
             <Badge variant="secondary" className="mb-3 rounded-full">
@@ -320,7 +348,7 @@ function Home() {
                 variant="outline"
                 className="border-primary-foreground/40 bg-transparent text-primary-foreground hover:bg-primary-foreground/10"
               >
-                <Link to="/contact">Contact us</Link>
+                <Link to="/" hash="contact">Contact us</Link>
               </Button>
             </div>
           </div>

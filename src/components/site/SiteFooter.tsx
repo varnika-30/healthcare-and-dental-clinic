@@ -1,41 +1,36 @@
 import { Link } from "@tanstack/react-router";
 import { Mail, Phone, MapPin } from "lucide-react";
-import { ToothIcon } from "@/components/ui/ToothIcon";
 import { BookAppointmentNavLink } from "./BookAppointmentChoice";
 
 export function SiteFooter() {
   return (
     <footer className="border-t border-border/60 bg-secondary/40">
-      <div className="mx-auto grid max-w-7xl gap-10 px-6 py-14 md:grid-cols-4">
-        <div>
-          <div className="flex items-center gap-2 font-display text-lg font-bold">
-            <ToothIcon className="h-9 w-9 shrink-0" />
+      <div className="mx-auto flex flex-col md:flex-row justify-between max-w-[1600px] px-8 sm:px-10 py-4 gap-6 w-full">
+        <div className="w-full md:w-[22%]">
+          <div className="font-display text-lg font-bold">
             Healthcare & Dental Clinic
           </div>
-          <p className="mt-3 max-w-xs text-sm text-muted-foreground">
-            Modern dental care, designed around you. Calm clinic, gentle hands, honest pricing.
+          <p className="mt-2.5 text-[11px] text-muted-foreground leading-relaxed">
+            Gentle care for healthy teeth and happy smiles.
           </p>
         </div>
-        <div>
-          <p className="mb-3 font-display text-sm font-semibold">Clinic</p>
-          <ul className="space-y-2 text-sm text-muted-foreground">
+        <div className="w-full md:w-[22%]">
+          <p className="mb-2 font-display text-sm font-semibold">Clinic</p>
+          <ul className="space-y-1.5 text-sm text-muted-foreground">
             <li>
-              <Link to="/about">About us</Link>
+              <Link to="/" hash="doctors">Our doctors</Link>
             </li>
             <li>
-              <Link to="/doctors">Our doctors</Link>
+              <Link to="/" hash="services">Services</Link>
             </li>
             <li>
-              <Link to="/services">Services</Link>
-            </li>
-            <li>
-              <Link to="/contact">Contact</Link>
+              <Link to="/" hash="contact">Contact</Link>
             </li>
           </ul>
         </div>
-        <div>
-          <p className="mb-3 font-display text-sm font-semibold">Patients</p>
-          <ul className="space-y-2 text-sm text-muted-foreground">
+        <div className="w-full md:w-[22%]">
+          <p className="mb-2 font-display text-sm font-semibold">Patients</p>
+          <ul className="space-y-1.5 text-sm text-muted-foreground">
             <li>
               <BookAppointmentNavLink className="transition-colors hover:text-foreground">
                 Book appointment
@@ -53,25 +48,27 @@ export function SiteFooter() {
             </li>
           </ul>
         </div>
-        <div>
-          <p className="mb-3 font-display text-sm font-semibold">Visit us</p>
-          <ul className="space-y-2 text-sm text-muted-foreground">
+        <div className="w-full md:w-[22%]">
+          <p className="mb-2 font-display text-sm font-semibold">Visit us</p>
+          <ul className="space-y-1.5 text-sm text-muted-foreground">
             <li className="flex gap-2">
-              <MapPin className="h-4 w-4 mt-0.5" />
-              24 Bayview Ave, Suite 300
+              <MapPin className="h-4 w-4 mt-0.5 shrink-0" />
+              <span>
+                Baba Sharan CHS, Plot 60/61, Sector 44, Seawoods, Navi Mumbai – 400706
+              </span>
             </li>
             <li className="flex gap-2">
-              <Phone className="h-4 w-4 mt-0.5" />
-              (415) 555-0142
+              <Phone className="h-4 w-4 mt-0.5 shrink-0" />
+              <span>8369559331</span>
             </li>
             <li className="flex gap-2">
-              <Mail className="h-4 w-4 mt-0.5" />
-              hello@clinic.care
+              <Mail className="h-4 w-4 mt-0.5 shrink-0" />
+              <span>dranahitamandal@gmail.com</span>
             </li>
           </ul>
         </div>
       </div>
-      <div className="border-t border-border/60 py-5 text-center text-xs text-muted-foreground">
+      <div className="border-t border-border/60 py-2 text-center text-xs text-muted-foreground">
         © {new Date().getFullYear()} Healthcare & Dental Clinic. All rights reserved.
       </div>
     </footer>
