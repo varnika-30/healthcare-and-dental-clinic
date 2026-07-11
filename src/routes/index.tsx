@@ -346,11 +346,6 @@ function Home() {
                 <h3 className="mt-4 font-display text-lg font-semibold">{d.name}</h3>
                 {d.spec && <p className="text-sm text-primary">{d.spec}</p>}
                 <p className="mt-2 text-xs text-muted-foreground">Available {d.avail}</p>
-                {!d.noBook && (
-                  <BookAppointmentButton size="sm" variant="outline" className="mt-4">
-                    Book a visit
-                  </BookAppointmentButton>
-                )}
               </Card>
             ))}
           </div>
