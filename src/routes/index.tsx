@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { SiteLayout } from "@/components/site/SiteLayout";
 import { BookAppointmentButton } from "@/components/site/BookAppointmentChoice";
@@ -122,22 +123,41 @@ const doctors = [
 ];
 
 function Home() {
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+    setPrefersReducedMotion(mediaQuery.matches);
+    const listener = (e: MediaQueryListEvent) => {
+      setPrefersReducedMotion(e.matches);
+    };
+    mediaQuery.addEventListener("change", listener);
+    return () => {
+      mediaQuery.removeEventListener("change", listener);
+    };
+  }, []);
+
   return (
     <SiteLayout>
       {/* HERO */}
       <section id="hero" className="relative min-h-screen overflow-hidden scroll-mt-24">
         <video
-          className="absolute inset-0 h-full w-full object-cover"
-          autoPlay
+          className="absolute inset-0 h-full w-full object-cover pointer-events-none"
+          autoPlay={!prefersReducedMotion}
           muted
           loop
           playsInline
+          controls={false}
+          preload="metadata"
         >
-          <source src="/path-to-dental-clinic-video.mp4" type="video/mp4" />
+          <source src="/hero-video.mp4" type="video/mp4" />
         </video>
-        <div className="absolute inset-0 bg-black/40" />
+        <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/50 to-black/40 pointer-events-none" />
         <div className="relative mx-auto flex min-h-screen max-w-[1900px] items-center px-8">
-          <div className="rounded-3xl bg-white/80 p-12 shadow-lg backdrop-blur-md md:max-w-xl lg:max-w-2xl">
+          <div
+            className="relative z-10 rounded-3xl p-12 shadow-lg backdrop-blur-md md:max-w-xl lg:max-w-2xl"
+            style={{ backgroundColor: "rgba(255, 255, 255, 0.95)" }}
+          >
             <h1 className="font-display text-6xl font-bold text-[#0F172A] sm:text-5xl md:text-5xl">
               Welcome To <h1>Healthcare & Dental Clinic</h1>
             </h1>
