@@ -5580,12 +5580,6 @@ export default function AdminPatientDetailsPage() {
                       onClick={async () => {
                         if (!selectedAppointment) return;
 
-                        const isUuid =
-                          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-                            selectedAppointment.id,
-                          );
-
-                        if (isUuid) {
                           console.log("SAVING CLINICAL VISIT RECORD", selectedAppointment.id);
 
                           // Check if record exists
@@ -5642,20 +5636,6 @@ export default function AdminPatientDetailsPage() {
                               prev ? { ...prev, clinicalRecord: appointmentClinicalDraft } : prev,
                             );
                           }
-                        } else {
-                          // fallback for mock
-                          setPatientData((prev) => ({
-                            ...prev,
-                            appointments: prev.appointments.map((a) =>
-                              a.id === selectedAppointment.id
-                                ? { ...a, clinicalRecord: appointmentClinicalDraft }
-                                : a,
-                            ),
-                          }));
-                          setSelectedAppointment((prev) =>
-                            prev ? { ...prev, clinicalRecord: appointmentClinicalDraft } : prev,
-                          );
-                        }
                       }}
                       className="w-full h-12 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl transition text-base shadow-soft hover:shadow-md flex justify-center items-center gap-2 cursor-pointer"
                     >
