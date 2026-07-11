@@ -468,6 +468,7 @@ function UpcomingAppointments({ appointments }: { appointments: any[] }) {
           </div>
           <Link
             to="/portal/appointments"
+            search={{}}
             className="self-start sm:self-center text-xs font-bold text-teal-600 hover:text-teal-700 bg-teal-50 px-3 py-1.5 rounded-lg border border-teal-100/50 transition-all"
           >
             View All
@@ -505,6 +506,7 @@ function UpcomingAppointments({ appointments }: { appointments: any[] }) {
                   </span>
                   <Link
                     to="/portal/appointments"
+                    search={{}}
                     className="rounded-full border border-slate-200 bg-white px-4 py-1.5 text-xs font-bold text-slate-700 shadow-2xs transition hover:border-teal-300 hover:text-teal-700"
                   >
                     Details
@@ -656,6 +658,7 @@ function TreatmentProgress({
         </div>
         <Link
           to="/portal/appointments"
+          search={{}}
           className={`w-full sm:w-auto rounded-full bg-teal-600 px-5 py-2 text-xs font-bold text-white shadow-xs transition hover:bg-teal-700 whitespace-nowrap text-center ${!hasNext ? "opacity-50 pointer-events-none" : ""}`}
         >
           Prepare Care

@@ -276,6 +276,7 @@ interface ReferralNetwork {
 
 interface CompletePatientState {
   id: string;
+  userId?: string | null;
   profile: PersonalDetails;
   appointments: AppointmentRecord[];
   treatments: TreatmentRecord[];
@@ -306,6 +307,7 @@ interface DatabasePatient {
 
 const DEFAULT_EMPTY_PATIENT: CompletePatientState = {
   id: "",
+  userId: null,
   profile: {
     fullName: "",
     email: "",
@@ -347,6 +349,75 @@ export default function AdminPatientDetailsPage() {
   const [reloadTrigger, setReloadTrigger] = useState(0);
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
   const [selectedTreatmentId, setSelectedTreatmentId] = useState<string | null>(null);
+
+  const [portalProfiles, setPortalProfiles] = useState<any[]>([]);
+  const [linkedProfile, setLinkedProfile] = useState<any | null>(null);
+  const [isLinking, setIsLinking] = useState(false);
+
+  useEffect(() => {
+    async function loadPortalAccounts() {
+      try {
+        const { data: allProfiles } = await supabase.from("profiles").select("*");
+        const { data: allPatients } = await supabase.from("patients").select("user_id");
+        const linkedUserIds = new Set(allPatients?.map((p) => p.user_id).filter(Boolean));
+
+        const unlinked = (allProfiles || []).filter(
+          (p) =>
+            !linkedUserIds.has(p.id) &&
+            !["admin", "doctor", "receptionist"].includes((p as any).role || "")
+        );
+        setPortalProfiles(unlinked);
+
+        if (patientData.userId) {
+          const matched = (allProfiles || []).find((p) => p.id === patientData.userId);
+          setLinkedProfile(matched || null);
+        } else {
+          setLinkedProfile(null);
+        }
+      } catch (err) {
+        console.error("Failed to load portal accounts:", err);
+      }
+    }
+    if (patientData.id) {
+      loadPortalAccounts();
+    }
+  }, [patientData.id, patientData.userId, reloadTrigger]);
+
+  const handleLinkProfile = async (profileId: string) => {
+    setIsLinking(true);
+    try {
+      const { error } = await supabase
+        .from("patients")
+        .update({ user_id: profileId })
+        .eq("id", patientData.id);
+
+      if (error) throw error;
+      toast.success("Online portal account linked successfully.");
+      setReloadTrigger((prev) => prev + 1);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to link portal account.");
+    } finally {
+      setIsLinking(false);
+    }
+  };
+
+  const handleUnlinkProfile = async () => {
+    setIsLinking(true);
+    try {
+      const { error } = await supabase
+        .from("patients")
+        .update({ user_id: null })
+        .eq("id", patientData.id);
+
+      if (error) throw error;
+      toast.success("Online portal account unlinked successfully.");
+      setReloadTrigger((prev) => prev + 1);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to unlink portal account.");
+    } finally {
+      setIsLinking(false);
+    }
+  };
 
   useEffect(() => {
     if (patientData.treatments.length > 0) {
@@ -882,6 +953,7 @@ export default function AdminPatientDetailsPage() {
       setPatientData((prev) => ({
         ...prev,
         id: dbPatient.id,
+        userId: dbPatient.user_id,
         appointments: mappedAppointments,
         treatments: mappedTreatments !== undefined ? mappedTreatments : prev.treatments,
         billingLogs,
@@ -2919,6 +2991,69 @@ export default function AdminPatientDetailsPage() {
                     {patientData.profile.address.street}, {patientData.profile.address.city},{" "}
                     {patientData.profile.address.state} {patientData.profile.address.zipCode}
                   </p>
+                </div>
+
+                {/* Secure Portal Account Linking Section */}
+                <div className="border-t border-slate-100 pt-4 mt-4 text-sm">
+                  <span className="text-[10px] font-medium text-slate-400 uppercase tracking-[0.18em] block mb-2">
+                    Online Portal Account Link
+                  </span>
+                  {linkedProfile ? (
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-teal-50/50 border border-teal-100/60 p-4 rounded-2xl">
+                      <div>
+                        <p className="font-bold text-slate-900 leading-5">
+                          {linkedProfile.full_name || "Portal User"}
+                        </p>
+                        <p className="text-xs text-slate-500 font-medium mt-0.5">
+                          Phone: {linkedProfile.phone || "Not provided"} · ID: {linkedProfile.id}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        disabled={isLinking}
+                        onClick={handleUnlinkProfile}
+                        className="text-xs font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 px-3.5 py-2 rounded-xl border border-rose-200 transition shrink-0 disabled:opacity-60"
+                      >
+                        Unlink Account
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-50 border border-slate-200/60 p-4 rounded-2xl">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-slate-700 leading-5">
+                          No linked online account
+                        </p>
+                        <p className="text-xs text-slate-400 font-medium mt-0.5">
+                          Search and link an unlinked portal account below to grant access to medical records.
+                        </p>
+                        {portalProfiles.length > 0 ? (
+                          <div className="mt-3 max-w-md">
+                            <select
+                              onChange={(e) => {
+                                if (e.target.value) {
+                                  handleLinkProfile(e.target.value);
+                                  e.target.value = "";
+                                }
+                              }}
+                              defaultValue=""
+                              className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold focus:border-teal-600 focus:outline-none"
+                            >
+                              <option value="">Choose an account to link...</option>
+                              {portalProfiles.map((p) => (
+                                <option key={p.id} value={p.id}>
+                                  {p.full_name || "No name"} ({p.phone || "No phone"})
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        ) : (
+                          <p className="text-xs text-slate-400 font-medium mt-2 italic">
+                            No unlinked portal accounts available to match.
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             )}

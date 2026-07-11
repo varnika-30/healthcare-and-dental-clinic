@@ -4,6 +4,10 @@ import { BookAppointmentButton } from "@/components/site/BookAppointmentChoice";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import drAnahitaImg from "./dr-anahita.jpg";
+import robinMatthewAvatar from "./robin-matthew-avatar.jpg";
+import gauravShettyAvatar from "./gaurav-shetty-avatar.jpg";
+import aafiyaAvatar from "./aafiya-avatar.jpg";
 import {
   Sparkles,
   Smile,
@@ -49,14 +53,9 @@ export const Route = createFileRoute("/")({
 
 const services = [
   {
-    icon: Stethoscope,
-    title: "Dental Checkup",
-    desc: "Routine checkups to keep your teeth and gums healthy.",
-  },
-  {
     icon: Smile,
-    title: "Dental Cleaning",
-    desc: "Gentle cleaning to remove plaque and stains, leaving your teeth fresh and clean.",
+    title: "Dental Checkup & Cleaning",
+    desc: "Routine checkups and gentle cleanings to keep your teeth and gums healthy.",
   },
   {
     icon: ShieldCheck,
@@ -74,6 +73,11 @@ const services = [
     desc: "Braces and clear aligners to help straighten teeth and improve your smile.",
   },
   {
+    icon: HeartPulse,
+    title: "Bridges & Tooth Replacement",
+    desc: "Replace missing teeth with strong, natural-looking bridges.",
+  },
+  {
     icon: Heart,
     title: "Dental Implants",
     desc: "Long-lasting replacements for missing teeth that look and feel natural.",
@@ -81,7 +85,7 @@ const services = [
   {
     icon: Sparkles,
     title: "Cosmetic Dentistry",
-    desc: "Treatments to enhance and brighten your smile.",
+    desc: "Treatments to enhance and beautify your smile.",
   },
   {
     icon: Baby,
@@ -96,9 +100,25 @@ const services = [
 ];
 
 const doctors = [
-  { name: "Dr. Aisha Rahman", spec: "Orthodontist", avail: "Mon–Thu" },
-  { name: "Dr. Marco Bellini", spec: "Implantologist", avail: "Tue–Sat" },
-  { name: "Dr. Sara Kim", spec: "Cosmetic Dentistry", avail: "Mon–Fri" },
+  {
+    name: "Dr. Robin Matthew",
+    spec: "Orthodontics",
+    avail: "on appointment",
+    avatar: robinMatthewAvatar,
+  },
+  {
+    name: "Dr. Gaurav Shetty",
+    spec: "Periodontics",
+    avail: "on appointment",
+    avatar: gauravShettyAvatar,
+  },
+  {
+    name: "Asst. Aafiya",
+    spec: "Patient Care Coordinator",
+    avail: "Mon–Sat",
+    noBook: true,
+    avatar: aafiyaAvatar,
+  },
 ];
 
 function Home() {
@@ -192,7 +212,7 @@ function Home() {
           <div className="flex flex-col justify-center">
             <h2 className="font-display text-4xl font-bold text-teal-900">Visit Us</h2>
             <p className="mt-6 text-lg text-gray-700">
-              Baba Sharan CHS, Plot# 60/61, behind HP Petrol pump, near Bank of Baroda, Sector 44,
+              Baba Sharan CHS, Plot# 60/61, behind HP Petrol pump, near Dominos, Sector 44,
               Seawoods, Navi Mumbai, Maharashtra 400706
             </p>
             <p className="mt-4 text-lg text-gray-700">
@@ -202,7 +222,7 @@ function Home() {
               <b>Clinic Hours: </b>5:30 PM – 10:00 PM
             </p>
             <p className="mt-3 text-lg text-gray-700">
-              <b>Call us:</b> 8689991241
+              <b>Call us:</b> 8369559331
             </p>
             <p className="mt-3 text-lg text-gray-700">
               <b>Emergency Support:</b> Available during clinic hours or by arrangements via phone
@@ -255,13 +275,18 @@ function Home() {
               <div>
                 <h3 className="text-xl font-semibold text-gray-800">Comfortable Experience</h3>
                 <p className="mt-2 text-gray-600">
-                  Our clinic is designed to make you feel at ease, with a focus on patient comfort.
+                  With over 20 years of clinical experience, our clinic is designed to make you
+                  feel at ease, with a focus on patient comfort.
                 </p>
               </div>
             </div>
           </div>
           <div className="rounded-3xl shadow-lg overflow-hidden">
-            <div className="h-64 bg-gray-200">Dental Clinic Image Placeholder</div>
+            <img
+              src={drAnahitaImg}
+              alt="Dr. Anahita"
+              className="h-64 w-full object-cover object-center"
+            />
           </div>
         </div>
       </section>
@@ -274,7 +299,7 @@ function Home() {
               Services
             </Badge>
             <h2 className="font-display text-3xl font-bold sm:text-4xl">Care for every smile.</h2>
-            <p className="mt-2 max-w-xl text-muted-foreground">
+            <p className="mt-2 max-w-xl lg:max-w-none text-muted-foreground">
               From routine cleanings to full smile design — our team is trained in the latest,
               gentlest techniques.
             </p>
@@ -313,13 +338,19 @@ function Home() {
                 key={d.name}
                 className="rounded-2xl border-border/60 p-6 text-center shadow-soft"
               >
-                <div className="mx-auto h-20 w-20 rounded-full bg-primary-gradient" />
+                <img
+                  src={d.avatar}
+                  alt={d.name}
+                  className="mx-auto h-20 w-20 rounded-full object-cover shadow-sm bg-white"
+                />
                 <h3 className="mt-4 font-display text-lg font-semibold">{d.name}</h3>
-                <p className="text-sm text-primary">{d.spec}</p>
+                {d.spec && <p className="text-sm text-primary">{d.spec}</p>}
                 <p className="mt-2 text-xs text-muted-foreground">Available {d.avail}</p>
-                <BookAppointmentButton size="sm" variant="outline" className="mt-4">
-                  Book a visit
-                </BookAppointmentButton>
+                {!d.noBook && (
+                  <BookAppointmentButton size="sm" variant="outline" className="mt-4">
+                    Book a visit
+                  </BookAppointmentButton>
+                )}
               </Card>
             ))}
           </div>

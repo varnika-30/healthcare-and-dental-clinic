@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import React, { useState, useEffect } from "react";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { getOrCreateMyPatient } from "@/lib/patient";
@@ -29,6 +29,17 @@ import {
 // TANSTACK ROUTE COUPLING
 // ==========================================
 export const Route = createFileRoute("/_authenticated/portal/appointments")({
+  validateSearch: (search: Record<string, unknown>): {
+    book?: boolean;
+    service?: string;
+    date?: string;
+    time?: string;
+  } => ({
+    book: search.book === "true" || search.book === true || undefined,
+    service: (search.service as string) || undefined,
+    date: (search.date as string) || undefined,
+    time: (search.time as string) || undefined,
+  }),
   component: PortalAppointmentsPage,
 });
 
@@ -88,13 +99,35 @@ function PortalAppointmentsPage() {
     },
   });
 
+  const { book, service, date, time } = Route.useSearch();
+  const navigate = Route.useNavigate();
   const queryClient = useQueryClient();
   const appointments = dbAppointments;
 
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isDialogOpen, setIsDialogOpen] = useState(book || false);
   const [showRequestChoice, setShowRequestChoice] = useState(false);
   const [showCallModal, setShowCallModal] = useState(false);
   const [focusedAppointment, setFocusedAppointment] = useState<Appointment | null>(null);
+
+  // Sync isDialogOpen with book search param
+  useEffect(() => {
+    if (book) {
+      setIsDialogOpen(true);
+    }
+  }, [book]);
+
+  const handleCloseDialog = () => {
+    setIsDialogOpen(false);
+    navigate({
+      search: (prev) => ({
+        ...prev,
+        book: undefined,
+        service: undefined,
+        date: undefined,
+        time: undefined,
+      }),
+    });
+  };
 
   // Dedicated functional operational callback to alter array record states safely
   const handleCancelRequest = async (id: string) => {
@@ -368,7 +401,13 @@ function PortalAppointmentsPage() {
         )}
       </div>
 
-      <AppointmentBookingModal open={isDialogOpen} onClose={() => setIsDialogOpen(false)} />
+      <AppointmentBookingModal
+        open={isDialogOpen}
+        onClose={handleCloseDialog}
+        initialServiceId={service}
+        initialDate={date}
+        initialTime={time}
+      />
 
       {/* Request Choice Modal */}
       {showRequestChoice && (

@@ -9,6 +9,9 @@ interface AppointmentBookingModalProps {
   open: boolean;
   onClose: () => void;
   onSuccess?: () => void;
+  initialServiceId?: string;
+  initialDate?: string;
+  initialTime?: string;
 }
 
 interface ServiceProfile {
@@ -34,6 +37,9 @@ export function AppointmentBookingModal({
   open,
   onClose,
   onSuccess,
+  initialServiceId,
+  initialDate,
+  initialTime,
 }: AppointmentBookingModalProps) {
   const queryClient = useQueryClient();
 
@@ -61,8 +67,16 @@ export function AppointmentBookingModal({
       setPatientStatus("existing");
       setDateError("");
       setIsSubmitting(false);
+    } else {
+      const matched = AVAILABLE_SERVICES.find(
+        (s) => s.id === initialServiceId || s.name.toLowerCase() === initialServiceId?.toLowerCase()
+      );
+      setSelectedServiceId(matched?.id || "");
+      setAppointmentDate(initialDate || "");
+      setHasTimePreference(initialTime ? "yes" : "no");
+      setPreferredTimeText(initialTime || "");
     }
-  }, [open]);
+  }, [open, initialServiceId, initialDate, initialTime]);
 
   const getMinDateString = () => {
     const tomorrow = new Date();
@@ -112,6 +126,27 @@ export function AppointmentBookingModal({
       });
 
       if (error) throw error;
+
+      // Notify clinic staff through the admin notification system
+      try {
+        const { data: staffProfiles } = await (supabase as any)
+          .from("profiles")
+          .select("id")
+          .in("role", ["admin", "doctor", "receptionist"]);
+
+        if (staffProfiles && staffProfiles.length > 0) {
+          const notificationsToInsert = staffProfiles.map((staff: any) => ({
+            user_id: staff.id,
+            title: "New Appointment Request",
+            body: `${patient.full_name || "A patient"} requested a ${service?.name || "General Dental Consultation"} on ${appointmentDate}.`,
+            type: "appointment",
+          }));
+
+          await supabase.from("notifications").insert(notificationsToInsert as any);
+        }
+      } catch (notifyErr) {
+        console.error("Failed to insert staff notifications:", notifyErr);
+      }
 
       toast.success("Appointment Request Submitted", {
         description:

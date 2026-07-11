@@ -56,10 +56,10 @@ function BookAppointmentChoiceDialog({
   const handleOnline = () => {
     onOpenChange(false);
     if (user) {
-      navigate({ to: BOOKING_REDIRECT });
+      navigate({ to: BOOKING_REDIRECT, search: { book: true } });
       return;
     }
-    navigate({ to: "/auth/login", search: { redirect: BOOKING_REDIRECT } });
+    navigate({ to: "/auth/login", search: { redirect: `${BOOKING_REDIRECT}?book=true` } });
   };
 
   return (
@@ -126,7 +126,7 @@ function BookAppointmentChoiceDialog({
                 New patient?{" "}
                 <Link
                   to="/auth/signup"
-                  search={{ redirect: BOOKING_REDIRECT }}
+                  search={{ redirect: `${BOOKING_REDIRECT}?book=true` }}
                   className="font-medium text-primary hover:underline"
                   onClick={() => onOpenChange(false)}
                 >
