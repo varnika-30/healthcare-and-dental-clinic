@@ -281,11 +281,11 @@ function Home() {
               </div>
             </div>
           </div>
-          <div className="rounded-3xl shadow-lg overflow-hidden">
+          <div className="rounded-3xl shadow-lg overflow-hidden aspect-square max-w-md mx-auto w-full self-center">
             <img
               src={drAnahitaImg}
               alt="Dr. Anahita"
-              className="h-64 w-full object-cover object-center"
+              className="h-full w-full object-cover object-center"
             />
           </div>
         </div>

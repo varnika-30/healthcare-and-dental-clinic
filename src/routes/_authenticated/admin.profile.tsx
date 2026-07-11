@@ -307,29 +307,6 @@ export default function AdminProfilePage() {
                       )}
                     </div>
                   </div>
-
-                  <div className="flex items-start gap-3">
-                    <MapPin className="h-4 w-4 text-slate-500 mt-0.5 shrink-0" />
-                    <div className="space-y-0.5">
-                      <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                        Practice Headquarters
-                      </span>
-                      {isEditing ? (
-                        <input
-                          value={doctorData.address}
-                          onChange={(e) =>
-                            setDoctorData({
-                              ...doctorData,
-                              address: e.target.value,
-                            })
-                          }
-                          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-900"
-                        />
-                      ) : (
-                        <p className="text-sm font-semibold text-slate-900">{doctorData.address}</p>
-                      )}
-                    </div>
-                  </div>
                 </div>
               </div>
             </div>

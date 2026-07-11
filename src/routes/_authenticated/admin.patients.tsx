@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useCallback } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { DashboardShell } from "@/components/dashboard/DashboardShell";
 import { motion, AnimatePresence } from "framer-motion";
@@ -267,6 +267,89 @@ const INITIAL_PATIENTS: PatientRecord[] = [
   },
 ];
 
+export function computePatientRecord(
+  patient: any,
+  plans: any[],
+  appointments: any[]
+): PatientRecord {
+  const patientPlans = plans.filter((p) => p.patient_id === patient.id);
+  const patientAppointments = appointments.filter((a) => a.patient_id === patient.id);
+
+  // 1. Calculate balanceDue & paymentStatus
+  let totalCost = 0;
+  let totalPaid = 0;
+  patientPlans.forEach((plan) => {
+    totalCost += Number(plan.estimated_cost || 0);
+    totalPaid += Number(plan.paid_amount || 0);
+  });
+  const balanceDue = Math.max(0, totalCost - totalPaid);
+
+  let paymentStatus: "paid" | "partial" | "overdue" = "paid";
+  if (balanceDue > 0) {
+    paymentStatus = totalPaid > 0 ? "partial" : "overdue";
+  }
+
+  // 2. Calculate category (Patient Status)
+  // - Active Care: has at least one treatment plan with status = 'in_progress'
+  // - Follow-up: has at least one treatment plan where follow_up_needed is true (or status is 'planned')
+  // - New Patient: default fallback
+  let category: "active" | "new" | "follow-up" = "new";
+  const hasInProgress = patientPlans.some((p) => p.status === "in_progress");
+  const hasFollowUp = patientPlans.some((p) => p.follow_up_needed || p.status === "planned");
+
+  if (hasInProgress) {
+    category = "active";
+  } else if (hasFollowUp) {
+    category = "follow-up";
+  }
+
+  // 3. Calculate lastTreatment
+  // Find the most recent treatment plan by start_date or created_at
+  const sortedPlans = [...patientPlans].sort(
+    (a, b) => new Date(b.start_date || b.created_at).getTime() - new Date(a.start_date || a.created_at).getTime()
+  );
+  const latestPlan = sortedPlans[0];
+  const lastTreatment = {
+    type: latestPlan ? latestPlan.title : "No Treatment",
+    date: latestPlan ? (latestPlan.start_date || latestPlan.created_at.split("T")[0]) : "",
+  };
+
+  // 4. Calculate upcomingAppointment
+  // Find the next upcoming appointment (date in the future)
+  const now = new Date();
+  const upcoming = patientAppointments
+    .filter((a) => a.appointment_date && new Date(a.appointment_date) > now && a.status !== "cancelled")
+    .sort((a, b) => new Date(a.appointment_date).getTime() - new Date(b.appointment_date).getTime())[0];
+
+  const upcomingAppointment = upcoming ? upcoming.appointment_date : null;
+
+  // Calculate age from date_of_birth or default to 0
+  let age = 0;
+  if (patient.date_of_birth) {
+    const birthDate = new Date(patient.date_of_birth);
+    let calculatedAge = now.getFullYear() - birthDate.getFullYear();
+    const monthDiff = now.getMonth() - birthDate.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && now.getDate() < birthDate.getDate())) {
+      calculatedAge--;
+    }
+    age = Math.max(0, calculatedAge);
+  }
+
+  return {
+    id: patient.id,
+    name: `${patient.first_name || ""} ${patient.last_name || ""}`.trim() || "Unknown",
+    age,
+    gender: patient.gender || "Unknown",
+    phone: patient.phone || "",
+    lastTreatment,
+    upcomingAppointment,
+    paymentStatus,
+    balanceDue,
+    category,
+    joinedDate: patient.created_at,
+  };
+}
+
 export default function PatientManagementPage() {
   // ==========================================
   // STATE MANAGEMENT
@@ -280,38 +363,29 @@ export default function PatientManagementPage() {
     treatment: "",
     notes: "",
   });
-  const [patients, setPatients] = useState(INITIAL_PATIENTS);
-  useEffect(() => {
-    async function loadPatients() {
-      const { data, error } = await supabase.from("patients").select("*");
+  const [patients, setPatients] = useState<PatientRecord[]>(INITIAL_PATIENTS);
 
-      console.log("PATIENTS:", data);
-      console.log("ERROR:", error);
+  const loadPatientsData = useCallback(async () => {
+    try {
+      const { data: dbPatients } = await supabase.from("patients").select("*");
+      const { data: dbPlans } = await supabase.from("treatment_plans").select("*");
+      const { data: dbAppointments } = await supabase.from("appointments").select("*");
 
-      if (data) {
+      if (dbPatients) {
+        const plans = dbPlans || [];
+        const appts = dbAppointments || [];
         setPatients(
-          (data as any[]).map((patient) => ({
-            id: patient.id,
-            name: `${patient.first_name} ${patient.last_name}`,
-            age: 0,
-            gender: patient.gender || "Unknown",
-            phone: patient.phone || "",
-            lastTreatment: {
-              type: "No Treatment",
-              date: "",
-            },
-            upcomingAppointment: null,
-            paymentStatus: "paid",
-            balanceDue: 0,
-            category: "new",
-            joinedDate: patient.created_at,
-          })),
+          dbPatients.map((p) => computePatientRecord(p, plans, appts))
         );
       }
+    } catch (err) {
+      console.error("Failed to load patients data:", err);
     }
-
-    loadPatients();
   }, []);
+
+  useEffect(() => {
+    loadPatientsData();
+  }, [loadPatientsData]);
   const [showRegisterModal, setShowRegisterModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<PatientFilterStatus>("all");
@@ -547,28 +621,7 @@ export default function PatientManagementPage() {
                         return;
                       }
 
-                      const { data } = await supabase.from("patients").select("*");
-
-                      if (data) {
-                        setPatients(
-                          (data as any[]).map((p) => ({
-                            id: p.id,
-                            name: `${p.first_name} ${p.last_name}`,
-                            age: 0,
-                            gender: p.gender || "Unknown",
-                            phone: p.phone || "",
-                            lastTreatment: {
-                              type: "No Treatment",
-                              date: "",
-                            },
-                            upcomingAppointment: null,
-                            paymentStatus: "paid",
-                            balanceDue: 0,
-                            category: "new",
-                            joinedDate: p.created_at,
-                          })),
-                        );
-                      }
+                      await loadPatientsData();
 
                       try {
                         if (typeof window !== "undefined" && window.localStorage) {

@@ -383,23 +383,7 @@ export default function AdminPatientDetailsPage() {
     }
   }, [patientData.id, patientData.userId, reloadTrigger]);
 
-  const handleLinkProfile = async (profileId: string) => {
-    setIsLinking(true);
-    try {
-      const { error } = await supabase
-        .from("patients")
-        .update({ user_id: profileId })
-        .eq("id", patientData.id);
 
-      if (error) throw error;
-      toast.success("Online portal account linked successfully.");
-      setReloadTrigger((prev) => prev + 1);
-    } catch (err: any) {
-      toast.error(err.message || "Failed to link portal account.");
-    } finally {
-      setIsLinking(false);
-    }
-  };
 
   const handleUnlinkProfile = async () => {
     setIsLinking(true);
@@ -2865,23 +2849,9 @@ export default function AdminPatientDetailsPage() {
 
                 <div className="p-3 bg-slate-50 rounded-2xl border border-slate-150 space-y-3">
                   <span className="text-[10px] uppercase font-semibold text-slate-500 block tracking-wider">
-                    Demographic Anchor Bounds
+                    Address
                   </span>
                   <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-                    <div className="sm:col-span-2">
-                      <input
-                        type="text"
-                        placeholder="Street Address"
-                        value={editableProfile.address.street}
-                        onChange={(e) =>
-                          setEditableProfile({
-                            ...editableProfile,
-                            address: { ...editableProfile.address, street: e.target.value },
-                          })
-                        }
-                        className="w-full p-3 bg-white border border-slate-200 rounded-2xl font-medium text-slate-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-teal-100"
-                      />
-                    </div>
                     <div>
                       <input
                         type="text"
@@ -2891,6 +2861,20 @@ export default function AdminPatientDetailsPage() {
                           setEditableProfile({
                             ...editableProfile,
                             address: { ...editableProfile.address, city: e.target.value },
+                          })
+                        }
+                        className="w-full p-3 bg-white border border-slate-200 rounded-2xl font-medium text-slate-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-teal-100"
+                      />
+                    </div>
+                    <div className="sm:col-span-2">
+                      <input
+                        type="text"
+                        placeholder="Street Address"
+                        value={editableProfile.address.street}
+                        onChange={(e) =>
+                          setEditableProfile({
+                            ...editableProfile,
+                            address: { ...editableProfile.address, street: e.target.value },
                           })
                         }
                         className="w-full p-3 bg-white border border-slate-200 rounded-2xl font-medium text-slate-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-teal-100"
@@ -2943,7 +2927,7 @@ export default function AdminPatientDetailsPage() {
 
                   <div>
                     <span className="text-[10px] font-medium text-slate-400 uppercase tracking-[0.18em] block">
-                      Secondary Phone
+                      Phone Number
                     </span>
                     <span className="font-semibold text-slate-900 mt-3 block leading-6 text-base">
                       {patientData.profile.secondaryPhone || "Not Provided"}
@@ -3024,33 +3008,16 @@ export default function AdminPatientDetailsPage() {
                           No linked online account
                         </p>
                         <p className="text-xs text-slate-400 font-medium mt-0.5">
-                          Search and link an unlinked portal account below to grant access to medical records.
+                          Online portal accounts can only be verified and linked through the Notifications page.
                         </p>
-                        {portalProfiles.length > 0 ? (
-                          <div className="mt-3 max-w-md">
-                            <select
-                              onChange={(e) => {
-                                if (e.target.value) {
-                                  handleLinkProfile(e.target.value);
-                                  e.target.value = "";
-                                }
-                              }}
-                              defaultValue=""
-                              className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold focus:border-teal-600 focus:outline-none"
-                            >
-                              <option value="">Choose an account to link...</option>
-                              {portalProfiles.map((p) => (
-                                <option key={p.id} value={p.id}>
-                                  {p.full_name || "No name"} ({p.phone || "No phone"})
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                        ) : (
-                          <p className="text-xs text-slate-400 font-medium mt-2 italic">
-                            No unlinked portal accounts available to match.
-                          </p>
-                        )}
+                        <div className="mt-3">
+                          <Link
+                            to="/admin/notifications"
+                            className="inline-flex items-center text-xs font-bold text-teal-700 hover:text-teal-900 transition"
+                          >
+                            Manage portal link requests →
+                          </Link>
+                        </div>
                       </div>
                     </div>
                   )}

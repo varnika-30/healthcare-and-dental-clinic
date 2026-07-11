@@ -93,6 +93,7 @@ export default function AdminNotificationsPage() {
   const [isLinkingModalOpen, setIsLinkingModalOpen] = useState(false);
   const [selectedPatientToLink, setSelectedPatientToLink] = useState<any | null>(null);
   const [isLinkingInProgress, setIsLinkingInProgress] = useState(false);
+  const [unlinkedPatients, setUnlinkedPatients] = useState<any[]>([]);
 
   async function loadNotifications() {
     const {
@@ -139,38 +140,57 @@ export default function AdminNotificationsPage() {
     setManualSearchResults([]);
     setIsLinkingModalOpen(true);
 
-    const { data: matches, error } = await (supabase as any).rpc(
-      "search_patient_matches_for_portal",
-      {
-        p_request_id: request.id,
-      },
-    );
+    // Reuse patient loading logic: Fetch unlinked patients live from Supabase patients table
+    const { data: allPatients, error } = await supabase
+      .from("patients")
+      .select("*")
+      .is("user_id", null);
+
     if (error) {
-      console.error("Failed to fetch suggested matches:", error);
+      console.error("Failed to fetch unlinked patients:", error);
       toast.error("Failed to query chart suggestions.");
-    } else if (matches) {
+      setSuggestedMatches([]);
+      setUnlinkedPatients([]);
+    } else if (allPatients) {
+      const patientsList = allPatients as any[];
+      setUnlinkedPatients(patientsList);
+
+      // Perform matching client-side to bypass trailing space and phone formatting bugs
+      const reqName = (request.full_name || "").trim().toLowerCase();
+      const reqEmail = (request.email || "").trim().toLowerCase();
+      const reqPhone = (request.phone || "").replace(/\D/g, "");
+
+      const matches = patientsList.filter((p) => {
+        const pFirstName = (p.first_name || "").trim();
+        const pLastName = (p.last_name || "").trim();
+        const pFullName = `${pFirstName} ${pLastName}`.trim().toLowerCase();
+
+        const nameMatch = reqName && pFullName && (pFullName.includes(reqName) || reqName.includes(pFullName));
+        const emailMatch = reqEmail && p.email && p.email.trim().toLowerCase() === reqEmail;
+
+        const pPhone = (p.phone || "").replace(/\D/g, "");
+        const phoneMatch = reqPhone && pPhone && pPhone === reqPhone;
+
+        return nameMatch || emailMatch || phoneMatch;
+      });
+
       setSuggestedMatches(matches);
     }
   };
 
-  const handleManualSearch = async (q: string) => {
+  const handleManualSearch = (q: string) => {
     setManualSearchQuery(q);
     if (!q.trim()) {
       setManualSearchResults([]);
       return;
     }
-    const { data, error } = await supabase
-      .from("patients")
-      .select("id, first_name, last_name, email, phone, dob, gender")
-      .or(`first_name.ilike.%${q}%,last_name.ilike.%${q}%`)
-      .is("user_id", null)
-      .limit(10);
-
-    if (error) {
-      console.error("Search patient error:", error);
-    } else if (data) {
-      setManualSearchResults(data);
-    }
+    const normQuery = q.toLowerCase().trim();
+    const results = unlinkedPatients.filter((p) => {
+      const firstName = (p.first_name || "").toLowerCase();
+      const lastName = (p.last_name || "").toLowerCase();
+      return firstName.includes(normQuery) || lastName.includes(normQuery);
+    });
+    setManualSearchResults(results.slice(0, 10));
   };
 
   const handlePerformLink = async () => {

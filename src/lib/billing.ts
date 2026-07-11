@@ -78,3 +78,57 @@ export async function fetchPlanBillingSummary(plan: TreatmentPlanRow): Promise<P
 
   return calculatePlanBilling(plan, transactions || []);
 }
+
+/**
+ * Calculates simplified billing dashboard metrics from raw treatment plans and transactions.
+ *
+ * @param plans An array of raw treatment plan records
+ * @param transactions An array of raw transaction records
+ */
+export function calculateBillingMetrics(
+  plans: any[],
+  transactions: any[],
+) {
+  const pendingPatients = new Set<string>();
+  const ongoingPatients = new Set<string>();
+  const overduePatients = new Set<string>();
+
+  const now = new Date();
+
+  plans.forEach((plan) => {
+    // 1. Pending Payments
+    const dbPaymentStatus = plan.payment_status?.toLowerCase();
+    if (dbPaymentStatus === "pending" || dbPaymentStatus === "partial") {
+      pendingPatients.add(plan.patient_id);
+    }
+
+    // 2. Ongoing Treatments
+    const dbTreatmentStatus = plan.status?.toLowerCase();
+    if (dbTreatmentStatus === "in_progress") {
+      ongoingPatients.add(plan.patient_id);
+    }
+
+    // 3. Overdue Patients
+    // Overdue logic: due_date in the past and outstanding amount > 0
+    if (plan.due_date && new Date(plan.due_date) < now) {
+      const planTransactions = transactions.filter((tx) => tx.plan_id === plan.id);
+      const estimatedCost = plan.estimated_cost ?? 0;
+      const actualCost = plan.actual_cost ?? 0;
+      const totalCost = actualCost > 0 ? actualCost : estimatedCost;
+      const discountAmount = plan.discount_amount ?? 0;
+      const finalCost = Math.max(0, totalCost - discountAmount);
+      const totalPaid = planTransactions.reduce((sum, tx) => sum + (tx.amount ?? 0), 0);
+      const outstandingAmount = Math.max(0, finalCost - totalPaid);
+
+      if (outstandingAmount > 0) {
+        overduePatients.add(plan.patient_id);
+      }
+    }
+  });
+
+  return {
+    pendingPaymentsCount: pendingPatients.size,
+    ongoingTreatmentsCount: ongoingPatients.size,
+    overduePatientsCount: overduePatients.size,
+  };
+}

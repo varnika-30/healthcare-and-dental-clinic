@@ -2,7 +2,7 @@ import { DashboardShell } from "@/components/dashboard/DashboardShell";
 import { createFileRoute } from "@tanstack/react-router";
 import React, { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { calculatePlanBilling } from "@/lib/billing";
+import { calculatePlanBilling, calculateBillingMetrics } from "@/lib/billing";
 import { toast } from "sonner";
 import ManageTreatmentPlanModal from "@/components/dashboard/ManageTreatmentPlanModal";
 import {
@@ -15,6 +15,10 @@ import {
   FileText,
   User,
   ArrowUpRight,
+  ChevronDown,
+  ChevronRight,
+  Users,
+  Activity,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/admin/billing")({
@@ -53,9 +57,9 @@ export default function BillingDashboardPage() {
 
   const [billingRecords, setBillingRecords] = useState<BillingRecord[]>([]);
   const [allTransactions, setAllTransactions] = useState<any[]>([]);
+  const [treatmentPlans, setTreatmentPlans] = useState<any[]>([]);
   const [selectedRecord, setSelectedRecord] = useState<BillingRecord | null>(null);
-  const [invoicesList, setInvoicesList] = useState<any[]>([]);
-  const [paymentsList, setPaymentsList] = useState<any[]>([]);
+  const [expandedPatientIds, setExpandedPatientIds] = useState<Record<string, boolean>>({});
 
   async function loadBillingData() {
     // 1. Fetch treatment plans with patients
@@ -66,6 +70,10 @@ export default function BillingDashboardPage() {
     if (plansError) {
       console.error("Failed to load treatment plans:", plansError);
       return;
+    }
+
+    if (plansData) {
+      setTreatmentPlans(plansData);
     }
 
     // 2. Fetch payment transactions
@@ -80,24 +88,6 @@ export default function BillingDashboardPage() {
 
     if (txsData) {
       setAllTransactions(txsData);
-    }
-
-    // 3. Fetch invoices
-    const { data: dbInvoices, error: invoicesError } = await supabase.from("invoices").select("*");
-
-    if (invoicesError) {
-      console.error("Failed to load invoices:", invoicesError);
-    } else if (dbInvoices) {
-      setInvoicesList(dbInvoices);
-    }
-
-    // 4. Fetch payments
-    const { data: dbPayments, error: paymentsError } = await supabase.from("payments").select("*");
-
-    if (paymentsError) {
-      console.error("Failed to load payments:", paymentsError);
-    } else if (dbPayments) {
-      setPaymentsList(dbPayments);
     }
 
     const mappedRecords: BillingRecord[] = (plansData || []).map((plan) => {
@@ -146,74 +136,137 @@ export default function BillingDashboardPage() {
   // FINANCIAL CALCULATIONS MATRIX
   // ==========================================
   const metrics = useMemo(() => {
-    const totalRevenue = paymentsList.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
-    const totalInvoiced = invoicesList.reduce((sum, inv) => sum + (Number(inv.total) || 0), 0);
-    const outstandingBalance = Math.max(0, totalInvoiced - totalRevenue);
-
-    const pendingPaymentsCount = invoicesList.filter((inv) => Number(inv.balance) > 0).length;
-
-    const fullyPaidCount = invoicesList.filter(
-      (inv) => inv.status === "paid" || Number(inv.balance) <= 0,
-    ).length;
-
-    return { totalRevenue, outstandingBalance, pendingPaymentsCount, fullyPaidCount };
-  }, [invoicesList, paymentsList]);
+    return calculateBillingMetrics(treatmentPlans, allTransactions);
+  }, [treatmentPlans, allTransactions]);
 
   // ==========================================
-  // FILTER & SEARCH PIPE LOGIC
+  // PATIENT GROUPING & LEVERAGED METRICS HOOKS
   // ==========================================
-  const filteredRecords = useMemo(() => {
-    return billingRecords.filter((rec) => {
-      const matchesFilter = activeFilter === "All" || rec.status === activeFilter;
-      const matchesSearch =
-        rec.patientName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        rec.treatment.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        rec.id.toLowerCase().includes(searchQuery.toLowerCase());
-
-      return matchesFilter && matchesSearch;
-    });
-  }, [billingRecords, activeFilter, searchQuery]);
-
-  const patientSummaries = useMemo(() => {
-    const summaryMap: Record<
+  const patientGroups = useMemo(() => {
+    const groupsMap: Record<
       string,
       {
-        patientName: string;
         patientId: string;
-        totalTreatmentCost: number;
-        totalDiscounts: number;
-        netCost: number;
-        totalPaid: number;
-        outstandingBalance: number;
-        planCount: number;
+        patientName: string;
+        patientCode: string;
+        treatmentPlans: BillingRecord[];
+        estimatedCost: number;
+        discount: number;
+        finalCost: number;
+        paidAmount: number;
+        outstandingAmount: number;
+        status: "Paid" | "Partial Payments" | "Payments Due" | "Overdue";
       }
     > = {};
 
-    filteredRecords.forEach((rec) => {
-      if (!summaryMap[rec.patientId]) {
-        summaryMap[rec.patientId] = {
-          patientName: rec.patientName,
+    billingRecords.forEach((rec) => {
+      if (!groupsMap[rec.patientId]) {
+        groupsMap[rec.patientId] = {
           patientId: rec.patientId,
-          totalTreatmentCost: 0,
-          totalDiscounts: 0,
-          netCost: 0,
-          totalPaid: 0,
-          outstandingBalance: 0,
-          planCount: 0,
+          patientName: rec.patientName,
+          patientCode: rec.patientId.slice(0, 8),
+          treatmentPlans: [],
+          estimatedCost: 0,
+          discount: 0,
+          finalCost: 0,
+          paidAmount: 0,
+          outstandingAmount: 0,
+          status: "Paid",
         };
       }
 
-      const s = summaryMap[rec.patientId];
-      s.totalTreatmentCost += rec.estimatedCost;
-      s.totalDiscounts += rec.discount;
-      s.netCost += rec.finalCost;
-      s.totalPaid += rec.paidAmount;
-      s.outstandingBalance += rec.outstandingAmount;
-      s.planCount += 1;
+      const g = groupsMap[rec.patientId];
+      g.treatmentPlans.push(rec);
+      g.estimatedCost += rec.estimatedCost;
+      g.discount += rec.discount;
+      g.finalCost += rec.finalCost;
+      g.paidAmount += rec.paidAmount;
+      g.outstandingAmount += rec.outstandingAmount;
     });
 
-    return Object.values(summaryMap);
-  }, [filteredRecords]);
+    // Compute overall payment status for each group
+    Object.values(groupsMap).forEach((g) => {
+      if (g.treatmentPlans.length === 0) {
+        g.status = "Paid";
+      } else if (g.treatmentPlans.every((p) => p.status === "Paid")) {
+        g.status = "Paid";
+      } else if (g.treatmentPlans.some((p) => p.status === "Overdue")) {
+        g.status = "Overdue";
+      } else if (g.treatmentPlans.some((p) => p.status === "Partial Payments")) {
+        g.status = "Partial Payments";
+      } else {
+        g.status = "Payments Due";
+      }
+    });
+
+    return Object.values(groupsMap);
+  }, [billingRecords]);
+
+  // Automatically expand row if searching by invoice
+  useEffect(() => {
+    if (!searchQuery.trim()) return;
+
+    const normQuery = searchQuery.toLowerCase().trim();
+    const matchingGroups = patientGroups.filter((g) =>
+      g.treatmentPlans.some((p) => p.id.toLowerCase().includes(normQuery))
+    );
+
+    if (matchingGroups.length > 0) {
+      setExpandedPatientIds((prev) => {
+        const next = { ...prev };
+        matchingGroups.forEach((g) => {
+          next[g.patientId] = true;
+        });
+        return next;
+      });
+    }
+  }, [searchQuery, patientGroups]);
+
+  const isHighlighted = (plan: BillingRecord) => {
+    if (!searchQuery.trim()) return false;
+    const normQuery = searchQuery.toLowerCase().trim();
+    return plan.id.toLowerCase().includes(normQuery) || plan.treatment.toLowerCase().includes(normQuery);
+  };
+
+  const filteredGroups = useMemo(() => {
+    return patientGroups.filter((g) => {
+      // 1. Apply filter at the PATIENT level
+      if (activeFilter === "Paid") {
+        if (!g.treatmentPlans.every((p) => p.status === "Paid")) return false;
+      } else if (activeFilter === "Partial Payments") {
+        if (!g.treatmentPlans.some((p) => p.status === "Partial Payments")) return false;
+      } else if (activeFilter === "Payments Due") {
+        if (!(g.outstandingAmount > 0)) return false;
+      } else if (activeFilter === "Overdue") {
+        if (!g.treatmentPlans.some((p) => p.status === "Overdue")) return false;
+      }
+
+      // 2. Apply search query
+      if (!searchQuery.trim()) return true;
+
+      const normQuery = searchQuery.toLowerCase().trim();
+      const nameMatch = g.patientName.toLowerCase().includes(normQuery);
+      const codeMatch = g.patientCode.toLowerCase().includes(normQuery);
+      const treatmentMatch = g.treatmentPlans.some((p) =>
+        p.treatment.toLowerCase().includes(normQuery)
+      );
+      const invoiceMatch = g.treatmentPlans.some((p) =>
+        p.id.toLowerCase().includes(normQuery)
+      );
+
+      return nameMatch || codeMatch || treatmentMatch || invoiceMatch;
+    });
+  }, [patientGroups, activeFilter, searchQuery]);
+
+  const patientSummaries = useMemo(() => {
+    return filteredGroups.map((g) => ({
+      patientId: g.patientId,
+      patientName: g.patientName,
+      netCost: g.finalCost,
+      totalPaid: g.paidAmount,
+      outstandingBalance: g.outstandingAmount,
+    }));
+  }, [filteredGroups]);
 
   // ==========================================
   // RENDER HELPERS
@@ -251,57 +304,44 @@ export default function BillingDashboardPage() {
         </div>
 
         {/* 2. OPERATIONAL SUMMARY METRIC CARDS */}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs flex items-center justify-between">
             <div className="space-y-1.5">
               <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block">
-                Total Collected Revenue
+                Pending Payments
               </span>
               <span className="text-2xl font-bold text-slate-900">
-                ₹{metrics.totalRevenue.toLocaleString()}
-              </span>
-            </div>
-            <div className="h-11 w-11 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100">
-              <CheckCircle2 className="h-5 w-5" />
-            </div>
-          </div>
-          <div className="rounded-2xl border border-rose-100 bg-rose-50/20 p-5 shadow-xs flex items-center justify-between">
-            <div className="space-y-1.5">
-              <span className="text-[10px] uppercase font-bold tracking-wider text-rose-400 block">
-                Outstanding Arrears
-              </span>
-              <span className="text-2xl font-bold text-slate-900">
-                ₹{metrics.outstandingBalance.toLocaleString()}
-              </span>
-            </div>
-            <div className="h-11 w-11 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center border border-rose-100">
-              <AlertTriangle className="h-5 w-5" />
-            </div>
-          </div>
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs flex items-center justify-between">
-            <div className="space-y-1.5">
-              <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block">
-                Pending Open Accounts
-              </span>
-              <span className="text-2xl font-bold text-slate-900">
-                {metrics.pendingPaymentsCount} Cases
+                {metrics.pendingPaymentsCount} Patient{metrics.pendingPaymentsCount === 1 ? "" : "s"}
               </span>
             </div>
             <div className="h-11 w-11 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center border border-amber-100">
-              <Clock className="h-5 w-5" />
+              <Users className="h-5 w-5" />
             </div>
           </div>
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs flex items-center justify-between">
             <div className="space-y-1.5">
               <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block">
-                Settled Claims
+                Ongoing Treatments
               </span>
               <span className="text-2xl font-bold text-slate-900">
-                {metrics.fullyPaidCount} Files
+                {metrics.ongoingTreatmentsCount} Patient{metrics.ongoingTreatmentsCount === 1 ? "" : "s"}
               </span>
             </div>
             <div className="h-11 w-11 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center border border-teal-100">
-              <FileText className="h-5 w-5" />
+              <Activity className="h-5 w-5" />
+            </div>
+          </div>
+          <div className="rounded-2xl border border-rose-100 bg-rose-50/10 p-5 shadow-xs flex items-center justify-between">
+            <div className="space-y-1.5">
+              <span className="text-[10px] uppercase font-bold tracking-wider text-rose-500 block">
+                Overdue Patients
+              </span>
+              <span className="text-2xl font-bold text-slate-900">
+                {metrics.overduePatientsCount} Patient{metrics.overduePatientsCount === 1 ? "" : "s"}
+              </span>
+            </div>
+            <div className="h-11 w-11 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center border border-rose-100">
+              <Clock className="h-5 w-5" />
             </div>
           </div>
         </div>
@@ -350,7 +390,7 @@ export default function BillingDashboardPage() {
                   : "border-transparent text-slate-400 hover:text-slate-700"
               }`}
             >
-              Treatment Plans Ledger ({filteredRecords.length})
+              Patients Ledger ({filteredGroups.length})
             </button>
             <button
               type="button"
@@ -365,7 +405,7 @@ export default function BillingDashboardPage() {
             </button>
           </div>
 
-          {filteredRecords.length === 0 ? (
+          {filteredGroups.length === 0 ? (
             <div className="py-16 px-4 text-center max-w-sm mx-auto space-y-4">
               <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-50 border border-dashed border-slate-200 text-slate-400">
                 <Filter className="h-5 w-5" />
@@ -379,63 +419,160 @@ export default function BillingDashboardPage() {
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-slate-50/70 border-b border-slate-200 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                    <th className="py-3 px-6 md:px-8">Invoice Reference</th>
-                    <th className="py-3 px-6 md:px-8">Patient Identity</th>
-                    <th className="py-3 px-6 md:px-8">Treatment</th>
-                    <th className="py-3 px-6 md:px-8 text-right">Estimated Cost</th>
-                    <th className="py-3 px-6 md:px-8 text-right">Discount</th>
-                    <th className="py-3 px-6 md:px-8 text-right">Final Cost</th>
-                    <th className="py-3 px-6 md:px-8 text-right">Paid Amount</th>
-                    <th className="py-3 px-6 md:px-8 text-right">Outstanding Amount</th>
-                    <th className="py-3 px-6 md:px-8 text-center">Settlement State</th>
-                    <th className="py-3 px-6 md:px-8 text-center">Actions</th>
+                    <th className="py-3 px-4 w-10"></th>
+                    <th className="py-3 px-4">Patient Code</th>
+                    <th className="py-3 px-4">Patient Name</th>
+                    <th className="py-3 px-4 text-center">Treatments</th>
+                    <th className="py-3 px-4 text-right">Est. Cost</th>
+                    <th className="py-3 px-4 text-right">Discount</th>
+                    <th className="py-3 px-4 text-right">Final Cost</th>
+                    <th className="py-3 px-4 text-right">Paid Amount</th>
+                    <th className="py-3 px-4 text-right">Outstanding</th>
+                    <th className="py-3 px-4 text-center">Status</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-sm font-medium text-slate-700">
-                  {filteredRecords.map((rec) => (
-                    <tr key={rec.id} className="hover:bg-slate-50/50 transition-colors">
-                      <td className="py-4 px-6 md:px-8 text-xs font-bold text-slate-400 tabular-nums">
-                        {rec.id.slice(0, 8)}
-                      </td>
-                      <td className="py-4 px-6 md:px-8 font-bold text-slate-900">
-                        {rec.patientName}
-                      </td>
-                      <td className="py-4 px-6 md:px-8 text-xs font-semibold text-slate-500">
-                        {rec.treatment}
-                      </td>
-                      <td className="py-4 px-6 md:px-8 text-right font-semibold text-slate-700">
-                        ₹{rec.estimatedCost.toLocaleString()}
-                      </td>
-                      <td className="py-4 px-6 md:px-8 text-right font-semibold text-rose-600">
-                        ₹{rec.discount.toLocaleString()}
-                      </td>
-                      <td className="py-4 px-6 md:px-8 text-right font-semibold text-slate-900">
-                        ₹{rec.finalCost.toLocaleString()}
-                      </td>
-                      <td className="py-4 px-6 md:px-8 text-right font-semibold text-emerald-600">
-                        ₹{rec.paidAmount.toLocaleString()}
-                      </td>
-                      <td className="py-4 px-6 md:px-8 text-right font-bold text-rose-600">
-                        ₹{rec.outstandingAmount.toLocaleString()}
-                      </td>
-                      <td className="py-4 px-6 md:px-8 text-center">
-                        <span
-                          className={`px-2 py-0.5 rounded-full text-[10px] uppercase ${getStatusStyles(rec.status)}`}
+                  {filteredGroups.map((g) => {
+                    const isExpanded = !!expandedPatientIds[g.patientId];
+                    return (
+                      <React.Fragment key={g.patientId}>
+                        <tr
+                          className="hover:bg-slate-50/50 transition-colors cursor-pointer"
+                          onClick={() =>
+                            setExpandedPatientIds((prev) => ({
+                              ...prev,
+                              [g.patientId]: !isExpanded,
+                            }))
+                          }
                         >
-                          {rec.status}
-                        </span>
-                      </td>
-                      <td className="py-4 px-6 md:px-8 text-center">
-                        <button
-                          type="button"
-                          onClick={() => setSelectedRecord(rec)}
-                          className="text-teal-600 font-bold hover:underline"
-                        >
-                          Manage
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                          <td className="py-4 px-4 text-center">
+                            {isExpanded ? (
+                              <ChevronDown className="h-4 w-4 text-slate-400 mx-auto" />
+                            ) : (
+                              <ChevronRight className="h-4 w-4 text-slate-400 mx-auto" />
+                            )}
+                          </td>
+                          <td className="py-4 px-4 text-xs font-bold text-slate-400 tabular-nums">
+                            {g.patientCode}
+                          </td>
+                          <td className="py-4 px-4 font-bold text-slate-900">
+                            {g.patientName}
+                          </td>
+                          <td className="py-4 px-4 text-center text-xs font-semibold text-slate-500">
+                            {g.treatmentPlans.length}
+                          </td>
+                          <td className="py-4 px-4 text-right font-semibold text-slate-700">
+                            ₹{g.estimatedCost.toLocaleString()}
+                          </td>
+                          <td className="py-4 px-4 text-right font-semibold text-rose-600">
+                            ₹{g.discount.toLocaleString()}
+                          </td>
+                          <td className="py-4 px-4 text-right font-bold text-slate-900">
+                            ₹{g.finalCost.toLocaleString()}
+                          </td>
+                          <td className="py-4 px-4 text-right font-semibold text-emerald-600">
+                            ₹{g.paidAmount.toLocaleString()}
+                          </td>
+                          <td className="py-4 px-4 text-right font-bold text-rose-600">
+                            ₹{g.outstandingAmount.toLocaleString()}
+                          </td>
+                          <td className="py-4 px-4 text-center">
+                            <span
+                              className={`px-2.5 py-0.5 rounded-full text-[10px] uppercase font-bold ${getStatusStyles(g.status)}`}
+                            >
+                              {g.status}
+                            </span>
+                          </td>
+                        </tr>
+
+                        {isExpanded && (
+                          <tr>
+                            <td colSpan={10} className="bg-slate-50/40 p-0 border-t border-slate-100">
+                              <div className="px-6 py-4 bg-slate-50/30">
+                                <div className="overflow-x-auto rounded-xl border border-slate-200/60 bg-white shadow-xs">
+                                  <table className="w-full text-left text-xs border-collapse">
+                                    <thead>
+                                      <tr className="bg-slate-50 border-b border-slate-200 text-[9px] font-bold text-slate-400 uppercase tracking-wider">
+                                        <th className="py-2.5 px-4">Treatment Name</th>
+                                        <th className="py-2.5 px-4">Invoice Reference</th>
+                                        <th className="py-2.5 px-4">Treatment Date</th>
+                                        <th className="py-2.5 px-4 text-right">Est. Cost</th>
+                                        <th className="py-2.5 px-4 text-right">Discount</th>
+                                        <th className="py-2.5 px-4 text-right">Final Cost</th>
+                                        <th className="py-2.5 px-4 text-right">Paid Amount</th>
+                                        <th className="py-2.5 px-4 text-right">Outstanding</th>
+                                        <th className="py-2.5 px-4 text-center">Status</th>
+                                        <th className="py-2.5 px-4 text-center">Actions</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100 font-medium text-slate-600">
+                                      {g.treatmentPlans.map((plan) => {
+                                        const highlight = isHighlighted(plan);
+                                        return (
+                                          <tr
+                                            key={plan.id}
+                                            className={`hover:bg-slate-50/30 transition-all ${
+                                              highlight
+                                                ? "bg-teal-50/70 border-l-4 border-l-teal-500 font-semibold animate-pulse"
+                                                : ""
+                                            }`}
+                                          >
+                                            <td className="py-3 px-4 font-bold text-slate-800">
+                                              {plan.treatment}
+                                            </td>
+                                            <td className="py-3 px-4 font-mono text-slate-400 tabular-nums">
+                                              {plan.id.slice(0, 8)}
+                                            </td>
+                                            <td className="py-3 px-4 tabular-nums">
+                                              {plan.dueDate || "—"}
+                                            </td>
+                                            <td className="py-3 px-4 text-right tabular-nums">
+                                              ₹{plan.estimatedCost.toLocaleString()}
+                                            </td>
+                                            <td className="py-3 px-4 text-right text-rose-600 tabular-nums">
+                                              ₹{plan.discount.toLocaleString()}
+                                            </td>
+                                            <td className="py-3 px-4 text-right text-slate-900 font-bold tabular-nums">
+                                              ₹{plan.finalCost.toLocaleString()}
+                                            </td>
+                                            <td className="py-3 px-4 text-right text-emerald-600 tabular-nums">
+                                              ₹{plan.paidAmount.toLocaleString()}
+                                            </td>
+                                            <td className="py-3 px-4 text-right text-rose-600 font-bold tabular-nums">
+                                              ₹{plan.outstandingAmount.toLocaleString()}
+                                            </td>
+                                            <td className="py-3 px-4 text-center">
+                                              <span
+                                                className={`px-2 py-0.5 rounded-full text-[9px] uppercase font-bold ${getStatusStyles(plan.status)}`}
+                                              >
+                                                {plan.status}
+                                              </span>
+                                            </td>
+                                            <td className="py-3 px-4 text-center">
+                                              <button
+                                                type="button"
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  setSelectedRecord(plan);
+                                                }}
+                                                className="text-teal-600 font-bold hover:underline"
+                                              >
+                                                Manage
+                                              </button>
+                                            </td>
+                                          </tr>
+                                        );
+                                      })}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
