@@ -153,24 +153,24 @@ function Home() {
           <source src="/hero-video.mp4" type="video/mp4" />
         </video>
         <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/50 to-black/40 pointer-events-none" />
-        <div className="relative mx-auto flex min-h-screen max-w-[1900px] items-center px-8">
+        <div className="relative mx-auto flex min-h-screen max-w-[1900px] items-center px-4 sm:px-8">
           <div
-            className="relative z-10 rounded-3xl p-12 shadow-lg backdrop-blur-md md:max-w-xl lg:max-w-2xl"
+            className="relative z-10 rounded-3xl p-6 sm:p-12 shadow-lg backdrop-blur-md md:max-w-xl lg:max-w-2xl w-full"
             style={{ backgroundColor: "rgba(255, 255, 255, 0.95)" }}
           >
-            <h1 className="font-display text-6xl font-bold text-[#0F172A] sm:text-5xl md:text-5xl">
-              Welcome To <h1>Healthcare & Dental Clinic</h1>
+            <h1 className="font-display text-4xl font-bold text-[#0F172A] sm:text-5xl lg:text-6xl leading-tight">
+              Welcome To <span className="block">Healthcare & Dental Clinic</span>
             </h1>
-            <p className="mt-6 text-xl text-gray-700">
+            <p className="mt-6 text-lg text-gray-700">
               Gentle care for healthy teeth and happy smiles.
             </p>
-            <p>
+            <p className="text-gray-700 mt-2">
               Because every smile deserves a little extra care.
             </p>
-            <div className="mt-8 flex flex-wrap gap-6">
+            <div className="mt-8 flex flex-wrap gap-4 sm:gap-6">
               <BookAppointmentButton
                 size="lg"
-                className="text-lg rounded-xl bg-[#27B7AE] px-8 py-6 text-white shadow-md hover:bg-[#1E9D94]"
+                className="text-lg rounded-xl bg-[#27B7AE] px-6 sm:px-8 py-5 sm:py-6 text-white shadow-md hover:bg-[#1E9D94] w-full sm:w-auto"
               >
                 Book an appointment
               </BookAppointmentButton>
@@ -178,7 +178,7 @@ function Home() {
                 asChild
                 size="lg"
                 variant="outline"
-                className="text-lg rounded-xl border-gray-300 bg-white px-12 py-6 text-[#0F172A] shadow-md hover:bg-gray-100"
+                className="text-lg rounded-xl border-gray-300 bg-white px-6 sm:px-12 py-5 sm:py-6 text-[#0F172A] shadow-md hover:bg-gray-100 w-full sm:w-auto"
               >
                 <Link to="/" hash="contact">Visit Us</Link>
               </Button>
@@ -214,10 +214,10 @@ function Home() {
       `}</style>
 
       {/* VISIT US SECTION */}
-      <section id="contact" className="bg-gradient-to-br from-teal-100 to-teal-50 py-36 scroll-mt-24">
+      <section id="contact" className="bg-gradient-to-br from-teal-100 to-teal-50 py-16 md:py-36 scroll-mt-24">
         <div className="mx-auto max-w-7xl px-6 grid gap-12 md:grid-cols-2 items-center">
           <div className="rounded-xl shadow-lg overflow-hidden">
-            <div className="h-120">
+            <div className="h-80 sm:h-120">
               <iframe
                 src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3772.130136223677!2d73.01040177519239!3d19.013986382177865!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3be7c37571cb5d93%3A0x51a8442c0fbd85a2!2sHealthcare%20and%20Dental%20Clinic!5e0!3m2!1sen!2sin!4v1783244716086!5m2!1sen!2sin"
                 width="100%"
@@ -265,13 +265,13 @@ function Home() {
       </section>
 
       {/* WHY CHOOSE DR. ANAHITA SECTION */}
-      <section id="about" className="bg-[#F5F1EB] py-24 scroll-mt-24">
-        <div className="mx-auto max-w-7xl px-6 grid gap-12 md:grid-cols-2">
-          <div className="flex flex-col justify-center">
-            <h2 className="font-display text-4xl font-bold text-gray-900">
+      <section id="about" className="bg-[#F5F1EB] py-12 md:py-24 scroll-mt-24">
+        <div className="mx-auto max-w-7xl px-6 flex flex-col md:grid md:grid-cols-2 gap-12">
+          <div className="contents md:flex md:flex-col md:justify-center md:order-1">
+            <h2 className="font-display text-4xl font-bold text-gray-900 order-1">
               Why Choose Dr. Anahita
             </h2>
-            <div className="mt-8 space-y-6">
+            <div className="mt-0 md:mt-8 space-y-6 order-3">
               <div>
                 <h3 className="text-xl font-semibold text-gray-800">Expertise</h3>
                 <p className="mt-2 text-gray-600">
@@ -301,7 +301,7 @@ function Home() {
               </div>
             </div>
           </div>
-          <div className="rounded-3xl shadow-lg overflow-hidden aspect-square max-w-md mx-auto w-full self-center">
+          <div className="rounded-3xl shadow-lg overflow-hidden aspect-square max-w-md mx-auto w-full self-center order-2 md:order-2">
             <img
               src={drAnahitaImg}
               alt="Dr. Anahita"
@@ -312,7 +312,7 @@ function Home() {
       </section>
 
       {/* SERVICES */}
-      <section id="services" className="mx-auto max-w-7xl px-6 py-20 scroll-mt-24">
+      <section id="services" className="mx-auto max-w-7xl px-6 py-12 md:py-20 scroll-mt-24">
         <div className="mb-12 flex items-end justify-between gap-6">
           <div>
             <Badge variant="secondary" className="mb-3 rounded-full">
@@ -342,7 +342,7 @@ function Home() {
       </section>
 
       {/* DOCTORS */}
-      <section id="doctors" className="bg-secondary/40 py-20 scroll-mt-24">
+      <section id="doctors" className="bg-secondary/40 py-12 md:py-20 scroll-mt-24">
         <div className="mx-auto max-w-7xl px-6">
           <div className="mb-10 text-center">
             <Badge variant="secondary" className="mb-3 rounded-full">
@@ -373,26 +373,30 @@ function Home() {
       </section>
 
       {/* CTA */}
-      <section className="mt-20 px-6 pb-20">
-        <div className="mx-auto max-w-6xl overflow-hidden rounded-3xl bg-primary-gradient p-10 text-primary-foreground shadow-card md:p-16">
-          <div className="flex flex-col items-start justify-between gap-6 md:flex-row md:items-center">
-            <div>
+      <section className="mt-8 px-4 pb-12 md:mt-20 md:px-6 md:pb-20">
+        <div className="mx-auto max-w-6xl overflow-hidden rounded-3xl bg-primary-gradient p-6 sm:p-10 text-primary-foreground shadow-card md:p-16">
+          <div className="flex flex-col items-stretch justify-between gap-6 md:flex-row md:items-center">
+            <div className="text-left">
               <h2 className="font-display text-3xl font-bold md:text-4xl">
                 Ready for a brighter visit?
               </h2>
-              <p className="mt-2 max-w-xl opacity-90">
+              <p className="mt-2 max-w-xl opacity-90 text-base leading-relaxed">
                 Book online in under a minute. We'll confirm by SMS and email.
               </p>
             </div>
-            <div className="flex gap-3">
-              <BookAppointmentButton size="lg" variant="secondary">
+            <div className="flex flex-col md:flex-row gap-3 w-full md:w-auto shrink-0">
+              <BookAppointmentButton
+                size="lg"
+                variant="secondary"
+                className="w-full md:w-auto justify-center cursor-pointer font-semibold py-4"
+              >
                 Book appointment
               </BookAppointmentButton>
               <Button
                 asChild
                 size="lg"
                 variant="outline"
-                className="border-primary-foreground/40 bg-transparent text-primary-foreground hover:bg-primary-foreground/10"
+                className="w-full md:w-auto justify-center border-primary-foreground/40 bg-transparent text-primary-foreground hover:bg-primary-foreground/10 cursor-pointer font-semibold py-4"
               >
                 <Link to="/" hash="contact">Contact us</Link>
               </Button>

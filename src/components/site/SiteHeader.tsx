@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Menu, X } from "lucide-react";
 import { ToothIcon } from "@/components/ui/ToothIcon";
 import { useState, useEffect } from "react";
-import { BookAppointmentButton } from "./BookAppointmentChoice";
+import { BookAppointmentButton, BookAppointmentNavLink } from "./BookAppointmentChoice";
 
 const nav = [
   { to: "/", hash: "hero", label: "Home" },
@@ -18,6 +18,15 @@ export function SiteHeader() {
   const routerState = useRouterState();
   const isHome = routerState.location.pathname === "/";
   const [activeSection, setActiveSection] = useState("hero");
+
+  useEffect(() => {
+    if (!open) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [open]);
 
   useEffect(() => {
     if (!isHome) return;
@@ -86,39 +95,48 @@ export function SiteHeader() {
           </BookAppointmentButton>
         </div>
         <button
-          className="rounded-lg p-2 md:hidden"
+          className="rounded-lg w-11 h-11 flex items-center justify-center lg:hidden hover:bg-accent/50 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 cursor-pointer transition-colors"
           onClick={() => setOpen(!open)}
           aria-label="Menu"
         >
-          {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          {open ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
         </button>
       </div>
       {open && (
-        <div className="border-t border-border bg-background lg:hidden">
-          <div className="space-y-1 px-4 py-3">
-            {nav.map((n) => (
-              <Link
-                key={n.hash}
-                to={n.to}
-                hash={n.hash}
-                onClick={() => setOpen(false)}
-                className="block rounded-lg px-3 py-2 text-lg font-medium hover:bg-accent"
-              >
-                {n.label}
-              </Link>
-            ))}
-            <div className="flex gap-2 pt-2">
-              <Button asChild variant="outline" size="lg" className="flex-1">
-                <Link to="/auth/login" search={{ redirect: undefined }}>
-                  Sign in
+        <>
+          <div
+            className="fixed inset-x-0 bottom-0 top-[96px] z-30 bg-slate-900/40 backdrop-blur-xs transition-opacity duration-300 lg:hidden cursor-pointer"
+            onClick={() => setOpen(false)}
+          />
+          <div className="border-t border-border bg-background lg:hidden relative z-40 w-full shadow-lg">
+            <div className="space-y-1 px-4 py-3">
+              {nav.map((n) => (
+                <Link
+                  key={n.hash}
+                  to={n.to}
+                  hash={n.hash}
+                  onClick={() => setOpen(false)}
+                  className="block rounded-lg px-3 py-2 text-lg font-medium hover:bg-accent"
+                >
+                  {n.label}
                 </Link>
-              </Button>
-              <BookAppointmentButton size="lg" className="flex-1 bg-primary-gradient">
-                Book
-              </BookAppointmentButton>
+              ))}
+              <div className="flex gap-2 pt-2">
+                <Button asChild variant="outline" size="lg" className="flex-1 rounded-xl h-11 cursor-pointer">
+                  <Link to="/auth/login" search={{ redirect: undefined }} onClick={() => setOpen(false)}>
+                    Sign in
+                  </Link>
+                </Button>
+                <BookAppointmentNavLink
+                  onClick={() => setOpen(false)}
+                  className="flex-1 rounded-xl bg-primary-gradient text-white flex items-center justify-center font-semibold text-lg py-3 px-4 shadow-soft h-11 cursor-pointer transition hover:opacity-90"
+                >
+                  Book
+                </BookAppointmentNavLink>
+              </div>
             </div>
           </div>
-        </div>
+        </>
       )}
     </header>
   );

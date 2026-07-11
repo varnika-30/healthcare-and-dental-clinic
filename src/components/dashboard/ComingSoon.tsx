@@ -20,7 +20,7 @@ export function ComingSoon({
         <h1 className="font-display text-3xl font-bold">{title}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{description}</p>
       </div>
-      <Card className="flex flex-col items-center justify-center rounded-3xl border-dashed border-border p-16 text-center shadow-soft">
+      <Card className="flex flex-col items-center justify-center rounded-3xl border-dashed border-border p-6 sm:p-16 text-center shadow-soft">
         <span className="grid h-14 w-14 place-items-center rounded-2xl bg-primary-soft text-primary">
           <Icon className="h-6 w-6" />
         </span>

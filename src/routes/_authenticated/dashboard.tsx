@@ -238,38 +238,38 @@ export default function PatientDashboardOverview() {
               Quick Actions
             </span>
 
-            <div className="grid grid-cols-3 sm:flex sm:items-center gap-2.5 w-full sm:w-auto flex-1">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2.5 w-full sm:w-auto flex-1">
               <button
                 type="button"
                 onClick={() => navigate({ to: "/admin/appointments" })}
-                className="flex items-center gap-3 px-4 py-2.5 hover:bg-teal-50/50 rounded-xl text-sm font-semibold text-slate-700 transition group"
+                className="flex items-center gap-3 px-4 py-3 hover:bg-teal-50/50 rounded-xl text-sm font-semibold text-slate-700 transition group w-full sm:w-auto justify-start border border-slate-100/50 sm:border-0 h-12"
               >
-                <div className="p-2 rounded-lg bg-teal-50 text-teal-600 group-hover:bg-teal-500 group-hover:text-white transition-all shadow-3xs">
+                <div className="p-2 rounded-lg bg-teal-50 text-teal-600 group-hover:bg-teal-500 group-hover:text-white transition-all shadow-3xs flex items-center justify-center h-8 w-8 shrink-0">
                   <Plus className="h-4 w-4" />
                 </div>
-                <span>Add Appointment</span>
+                <span className="truncate">Add Appointment</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => navigate({ to: "/admin/ongoing-treatments" })}
-                className="flex items-center gap-3 px-4 py-2.5 hover:bg-emerald-50/50 rounded-xl text-sm font-semibold text-slate-700 transition group"
+                className="flex items-center gap-3 px-4 py-3 hover:bg-emerald-50/50 rounded-xl text-sm font-semibold text-slate-700 transition group w-full sm:w-auto justify-start border border-slate-100/50 sm:border-0 h-12"
               >
-                <div className="p-2 rounded-lg bg-emerald-50 text-emerald-600 group-hover:bg-emerald-500 group-hover:text-white transition-all shadow-3xs">
+                <div className="p-2 rounded-lg bg-emerald-50 text-emerald-600 group-hover:bg-emerald-500 group-hover:text-white transition-all shadow-3xs flex items-center justify-center h-8 w-8 shrink-0">
                   <DollarSign className="h-4 w-4" />
                 </div>
-                <span>Generate Invoice</span>
+                <span className="truncate">Generate Invoice</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => navigate({ to: "/admin/appointments" })}
-                className="flex items-center gap-3 px-4 py-2.5 hover:bg-purple-50/50 rounded-xl text-sm font-semibold text-slate-700 transition group"
+                className="flex items-center gap-3 px-4 py-3 hover:bg-purple-50/50 rounded-xl text-sm font-semibold text-slate-700 transition group w-full sm:w-auto justify-start border border-slate-100/50 sm:border-0 h-12"
               >
-                <div className="p-2 rounded-lg bg-purple-50 text-purple-600 group-hover:bg-purple-500 group-hover:text-white transition-all shadow-3xs">
+                <div className="p-2 rounded-lg bg-purple-50 text-purple-600 group-hover:bg-purple-500 group-hover:text-white transition-all shadow-3xs flex items-center justify-center h-8 w-8 shrink-0">
                   <Activity className="h-4 w-4" />
                 </div>
-                <span>Book Follow-up</span>
+                <span className="truncate">Book Follow-up</span>
               </button>
             </div>
           </div>

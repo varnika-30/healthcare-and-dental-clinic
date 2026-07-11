@@ -543,7 +543,7 @@ function PortalBillingPage() {
               </div>
 
               {/* Responsive Scrollable Inner Body */}
-              <div className="overflow-y-auto flex-1 min-h-0">
+              <div className="overflow-y-auto flex-1 min-h-0 overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead className="sticky top-0 bg-white z-10 border-b border-slate-200 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                     <tr>

@@ -2488,7 +2488,7 @@ export default function AdminPatientDetailsPage() {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 antialiased font-sans flex flex-col scroll-smooth">
       {/* STANDARD NAVIGATION HEADER */}
-      <header className="h-14 bg-white border-b border-slate-200 px-4 sm:px-6 flex items-center justify-between sticky top-0 z-30 shrink-0">
+      <header className="h-14 bg-white border-b border-slate-200 px-4 sm:px-6 flex items-center justify-between relative md:sticky md:top-0 z-30 shrink-0">
         <div className="flex items-center gap-3">
           <Link
             to="/admin/patients"
@@ -2512,16 +2512,16 @@ export default function AdminPatientDetailsPage() {
           COMPACTABLE PATIENT IDENTITY HEADER
          ========================================== */}
       <div
-        className={`sticky top-14 z-20 bg-white border-b border-slate-200 shadow-xs px-4 sm:px-8 transition-all duration-300 ${
-          isHeaderCollapsed ? "py-2" : "py-4 sm:py-5"
-        } flex flex-col`}
+        className={`contents md:flex md:flex-col md:sticky md:top-14 md:z-20 md:bg-white md:border-b md:border-slate-200 md:shadow-xs md:px-8 md:transition-all md:duration-300 ${
+          isHeaderCollapsed ? "md:py-2" : "md:py-5"
+        }`}
       >
         <div
-          className={`flex items-center justify-between w-full transition-all duration-300 ${isHeaderCollapsed ? "gap-2" : "gap-4"}`}
+          className={`flex flex-col lg:flex-row justify-between w-full transition-all duration-300 gap-4 ${isHeaderCollapsed ? "lg:gap-2" : "lg:gap-4"} bg-white border-b border-slate-200 px-4 py-4 md:bg-transparent md:border-none md:p-0`}
         >
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-4 sm:gap-6">
             <div
-              className={`rounded-2xl bg-teal-600 shadow-sm flex items-center justify-center text-white font-bold tracking-wider transition-all duration-300 ${
+              className={`rounded-2xl bg-teal-600 shadow-sm flex items-center justify-center text-white font-bold tracking-wider transition-all duration-300 shrink-0 ${
                 isHeaderCollapsed ? "w-13 h-13 text-sm" : "w-15 h-15 text-xl"
               }`}
             >
@@ -2530,9 +2530,9 @@ export default function AdminPatientDetailsPage() {
                 .map((n) => n[0])
                 .join("")}
             </div>
-            <div className={`${isHeaderCollapsed ? "" : "space-y-1"}`}>
+            <div className={`${isHeaderCollapsed ? "" : "space-y-1"} min-w-0`}>
               <h2
-                className={`text-slate-900 tracking-tight leading-none transition-all duration-300 ${
+                className={`text-slate-900 tracking-tight leading-none transition-all duration-300 truncate ${
                   isHeaderCollapsed
                     ? "text-sm sm:text-base font-semibold"
                     : "text-lg sm:text-xl font-bold"
@@ -2542,13 +2542,13 @@ export default function AdminPatientDetailsPage() {
               </h2>
               {!isHeaderCollapsed && (
                 <div className="text-xs text-slate-500 font-medium flex flex-wrap items-center gap-x-2 gap-y-1">
-                  <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded font-semibold text-[11px]">
+                  <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded font-semibold text-[11px] shrink-0">
                     {patientData.profile.age} Yrs •{" "}
                     {patientData.profile.sex || patientData.profile.gender}
                   </span>
 
-                  <span className="text-xs uppercase tracking-[0.12em] text-slate-400 font-medium">
-                    Patient ID {patientData.id}
+                  <span className="text-xs uppercase tracking-[0.12em] text-slate-400 font-medium break-all block">
+                    Patient ID: {patientData.id}
                   </span>
                 </div>
               )}
@@ -2557,14 +2557,14 @@ export default function AdminPatientDetailsPage() {
 
           {/* METRICS VIEWPORTS GRID - stays right aligned and becomes compact */}
           <div
-            className={`grid grid-cols-3 gap-3 bg-slate-50 rounded-2xl border border-slate-200/60 transition-all duration-300 ${
+            className={`grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3 bg-slate-50 rounded-2xl border border-slate-200/60 transition-all duration-300 w-full lg:w-auto ${
               isHeaderCollapsed
-                ? "p-1 text-sm min-w-[240px]"
-                : "gap-3 p-2.5 min-w-full md:min-w-[300px]"
+                ? "p-2 text-sm lg:min-w-[240px]"
+                : "p-3 sm:p-4 lg:min-w-[300px]"
             }`}
           >
             <div className="px-2">
-              <span className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider block mb-0.5">
+              <span className="text-[10px] sm:text-[11px] font-extrabold text-slate-400 uppercase tracking-wider block mb-0.5">
                 Total Gross Billed
               </span>
               <span
@@ -2573,8 +2573,8 @@ export default function AdminPatientDetailsPage() {
                 {formatIndianRupee(totalBilled)}
               </span>
             </div>
-            <div className="px-1 border-l border-slate-200">
-              <span className="text-xs font-extrabold text-slate-400 uppercase tracking-wider block mb-0.5">
+            <div className="px-2 border-t sm:border-t-0 sm:border-l pt-2 sm:pt-0 border-slate-200/80">
+              <span className="text-[10px] sm:text-xs font-extrabold text-slate-400 uppercase tracking-wider block mb-0.5">
                 Cleared Credits
               </span>
               <span
@@ -2584,10 +2584,10 @@ export default function AdminPatientDetailsPage() {
               </span>
             </div>
             <div
-              className={`px-2 py-1 rounded-lg border -my-1 ${outstandingDue > 0 ? "bg-rose-50/80 border-rose-100" : "bg-emerald-50/80 border-emerald-100"}`}
+              className={`px-2 py-2 sm:py-1 rounded-lg border border-t-0 sm:border-t mt-1 sm:mt-0 ${outstandingDue > 0 ? "bg-rose-50/80 border-rose-100" : "bg-emerald-50/80 border-emerald-100"}`}
             >
               <span
-                className={`text-xs font-extrabold uppercase tracking-wider block ${outstandingDue > 0 ? "text-rose-500" : "text-emerald-500"}`}
+                className={`text-[10px] sm:text-xs font-extrabold uppercase tracking-wider block ${outstandingDue > 0 ? "text-rose-500" : "text-emerald-500"}`}
               >
                 {outstandingDue > 0 ? "Balance Liability" : "Settled Asset"}
               </span>
@@ -2600,8 +2600,8 @@ export default function AdminPatientDetailsPage() {
           </div>
         </div>
 
-        <div className={`overflow-x-auto ${isHeaderCollapsed ? "mt-4" : "mt-8"}`}>
-          <nav className="flex min-w-[720px] gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700 shadow-sm">
+        <div className={`sticky top-0 md:relative md:top-auto z-20 bg-slate-50 pt-0 pb-2 md:py-0 -mx-6 px-6 md:mx-0 md:px-0 overflow-x-auto scrollbar-none scroll-smooth mt-0 ${isHeaderCollapsed ? "md:mt-4" : "md:mt-8"}`}>
+          <nav className="flex min-w-[720px] gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700 shadow-sm flex-nowrap">
             <a
               href="#overview"
               onClick={() => setActiveTab("#overview")}

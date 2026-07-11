@@ -724,7 +724,7 @@ export default function DentalTreatmentOperationsDashboard() {
               )}
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="grid gap-1.5">
                 <Label className="text-xs font-semibold text-slate-700" htmlFor="amount">
                   Total Treatment Valuation Base ($)
