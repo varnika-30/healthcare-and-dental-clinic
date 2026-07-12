@@ -26,15 +26,15 @@ export function ToothChart({
   marks.forEach((m) => byTooth.set(m.tooth_number, m));
 
   const gapClass =
-    size === "lg" ? "gap-1.5 sm:gap-2" : size === "sm" ? "gap-1" : "gap-1 sm:gap-1.5";
+    size === "lg" ? "gap-1 sm:gap-1.5" : size === "sm" ? "gap-1" : "gap-1 sm:gap-1.5";
   const buttonClass =
     size === "lg"
-      ? "flex sm:h-[84px] sm:w-[50px] h-12 w-8 flex-col items-center justify-between py-2 rounded-md border bg-card sm:text-[10px] text-[8px] font-medium transition hover:border-primary cursor-pointer"
+      ? "flex sm:h-[66px] sm:w-[38px] h-10 w-7 flex-col items-center justify-between py-1.5 rounded-md border bg-card sm:text-[10px] text-[8px] font-medium transition hover:border-primary cursor-pointer"
       : size === "sm"
         ? "flex h-[50px] w-8 flex-col items-center justify-between py-1 rounded-md border bg-card text-[10px] font-medium transition hover:border-primary cursor-pointer"
         : "flex h-14 w-9 flex-col items-center justify-between py-1.5 rounded-md border bg-card text-[10px] font-medium transition hover:border-primary cursor-pointer";
   const iconClass =
-    size === "lg" ? "text-xs sm:text-2xl" : size === "sm" ? "text-xs" : "text-sm sm:text-base";
+    size === "lg" ? "text-xs sm:text-xl" : size === "sm" ? "text-xs" : "text-sm sm:text-base";
 
   const Row = ({ teeth, midIndex }: { teeth: number[]; midIndex: number }) => {
     const leftGroup = teeth.slice(0, midIndex);
@@ -62,11 +62,11 @@ export function ToothChart({
     };
 
     return (
-      <div className="flex flex-wrap 2xl:flex-nowrap justify-center items-center gap-2 sm:gap-4 md:gap-6 w-full">
+      <div className="flex flex-wrap 2xl:flex-nowrap justify-center items-center gap-1.5 sm:gap-3 md:gap-4 w-full">
         <div className={cn("flex flex-wrap 2xl:flex-nowrap justify-center", gapClass)}>
           {leftGroup.map(renderTooth)}
         </div>
-        <div className="hidden 2xl:block h-10 w-px bg-slate-200" />
+        <div className="hidden 2xl:block h-8 w-px bg-slate-200" />
         <div className={cn("flex flex-wrap 2xl:flex-nowrap justify-center", gapClass)}>
           {rightGroup.map(renderTooth)}
         </div>
@@ -75,11 +75,11 @@ export function ToothChart({
   };
 
   return (
-    <div className="space-y-4 w-full py-1">
+    <div className="space-y-2.5 w-full py-0.5">
       <Row teeth={FDI_UPPER} midIndex={8} />
-      <div className="mx-auto h-px w-[92%] max-w-[880px] bg-slate-200 my-3" />
+      <div className="mx-auto h-px w-[92%] max-w-[880px] bg-slate-200 my-2" />
       <Row teeth={FDI_LOWER} midIndex={8} />
-      <div className="mt-4 flex flex-wrap justify-center gap-3 text-xs text-muted-foreground">
+      <div className="mt-2.5 flex flex-wrap justify-center gap-2.5 text-xs text-muted-foreground">
         <Legend color="bg-yellow-50 border border-yellow-200" label="Planned" />
         <Legend color="bg-teal-50 border border-teal-200" label="In progress" />
         <Legend color="bg-emerald-50 border border-emerald-200" label="Completed" />

@@ -4048,14 +4048,14 @@ export default function AdminPatientDetailsPage() {
         {/* ==========================================
               CALENDAR & INTERACTIVE TOOTH CHART SIDE-BY-SIDE GRID
              ========================================== */}
-        <div className="flex flex-col xl:flex-row gap-4 items-stretch mb-6 w-full xl:min-h-[660px]">
+        <div className="flex flex-col xl:flex-row gap-3 items-stretch mb-4 w-full xl:min-h-[510px]">
           {/* SIMPLIFIED CLINIC APPOINTMENT SCHEDULER MATRIX */}
           <div
             id="scheduler"
             className="w-full xl:w-[40%] shrink-0 bg-white rounded-xl border border-slate-200 border-l-4 border-l-rose-200 shadow-sm overflow-hidden flex flex-col justify-between scroll-mt-[160px]"
           >
             <div>
-              <div className="px-4 sm:px-5 py-3 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
+              <div className="px-3.5 sm:px-4 py-2 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
                 <h3 className="text-xs sm:text-sm font-bold text-slate-900 flex items-center gap-2">
                   <Calendar className="w-4 h-4 text-indigo-600" /> Operational Scheduler Matrix Grid
                 </h3>
@@ -4071,11 +4071,11 @@ export default function AdminPatientDetailsPage() {
                         return prev - 1;
                       });
                     }}
-                    className="p-1 hover:bg-slate-200 rounded text-slate-600 transition cursor-pointer"
+                    className="p-0.5 hover:bg-slate-200 rounded text-slate-600 transition cursor-pointer"
                   >
-                    <ChevronLeft className="w-4 h-4" />
+                    <ChevronLeft className="w-3.5 h-3.5" />
                   </button>
-                  <span className="text-xs font-black text-slate-700 min-w-[80px] text-center select-none bg-indigo-50 px-2.5 py-1 rounded-full border border-indigo-100">
+                  <span className="text-xs font-black text-slate-700 min-w-[76px] text-center select-none bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">
                     {new Date(currentYear, currentMonth).toLocaleDateString("en-US", {
                       month: "long",
                       year: "numeric",
@@ -4092,20 +4092,20 @@ export default function AdminPatientDetailsPage() {
                         return prev + 1;
                       });
                     }}
-                    className="p-1 hover:bg-slate-200 rounded text-slate-600 transition cursor-pointer"
+                    className="p-0.5 hover:bg-slate-200 rounded text-slate-600 transition cursor-pointer"
                   >
-                    <ChevronRight className="w-4 h-4" />
+                    <ChevronRight className="w-3.5 h-3.5" />
                   </button>
                 </div>
               </div>
 
-              <div className="p-3 space-y-3">
+              <div className="p-2.5 space-y-2.5">
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block">
                   Interactive Active Calendar Road-Track
                 </span>
 
                 {/* INTERACTIVE CALENDAR MINI-GRID */}
-                <div className="grid grid-cols-7 xl:auto-rows-[82px] auto-rows-[64px] gap-1.5 bg-white p-1.5 rounded-xl border border-slate-100">
+                <div className="grid grid-cols-7 xl:auto-rows-[62px] auto-rows-[48px] gap-1 bg-white p-1 rounded-xl border border-slate-100">
                   {calendarDays.map((day, i) => {
                     const matchedAppt = patientData.appointments.find(
                       (a) => a.date === day.dateStr,
@@ -4179,7 +4179,7 @@ export default function AdminPatientDetailsPage() {
                   })}
                 </div>
 
-                <div className="p-3 bg-indigo-50/50 border border-indigo-100 rounded-xl flex items-start gap-2.5 text-xs text-indigo-900 font-medium">
+                <div className="p-2.5 bg-indigo-50/50 border border-indigo-100 rounded-xl flex items-start gap-2 text-xs text-indigo-900 font-medium">
                   <Info className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
                   <p>
                     <strong>Scheduler Quick Guide:</strong> Click any cell with a green dot to view
@@ -4197,12 +4197,12 @@ export default function AdminPatientDetailsPage() {
             className="w-full xl:flex-1 bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col justify-between scroll-mt-[160px]"
           >
             <div>
-              <div className="px-3 sm:px-4 py-3 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
+              <div className="px-3.5 sm:px-4 py-2 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
                 <div>
                   <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
                     <FileText className="w-4 h-4 text-emerald-600" /> Interactive Tooth Chart
                   </h3>
-                  <p className="text-xs text-slate-500 mt-1">
+                  <p className="text-[11px] text-slate-500 mt-0.5">
                     Click a tooth to add procedures, update status, or add notes. Changes sync to
                     the patient portal (read-only).
                   </p>
@@ -4220,7 +4220,7 @@ export default function AdminPatientDetailsPage() {
 
               <div className="flex flex-col">
                 {/* Upper: Tooth Grid & Legend */}
-                <div className="p-1.5 px-6 sm:px-10 xl:px-14 flex justify-center items-center w-full">
+                <div className="p-1 px-4 sm:px-6 xl:px-8 flex justify-center items-center w-full">
                   <div className="w-full max-w-[920px] mx-auto">
                     <ToothChart
                       marks={getToothMarks()}
@@ -4231,12 +4231,12 @@ export default function AdminPatientDetailsPage() {
                   </div>
                 </div>
 
-                <div className="p-4 sm:p-5 border-t border-slate-100">
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">
+                <div className="p-3 sm:p-4 border-t border-slate-100">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
                     {fullMouthEditId ? "Edit Full-mouth Treatment" : "Add Full-mouth Treatment"}
                   </h4>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="space-y-3">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div className="space-y-2">
                       <div>
                         <label className="block text-slate-500 text-xs font-bold mb-1">
                           Treatment Name
@@ -4248,7 +4248,7 @@ export default function AdminPatientDetailsPage() {
                           onChange={(e) =>
                             setFullMouthForm({ ...fullMouthForm, title: e.target.value })
                           }
-                          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-teal-500"
+                          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-sm outline-none focus:border-teal-500"
                         />
                       </div>
                       <div>
@@ -4264,7 +4264,7 @@ export default function AdminPatientDetailsPage() {
                                 status: e.target.value as any,
                               })
                             }
-                            className="w-full rounded-xl border border-slate-200 bg-white pl-3 pr-8 py-2 text-sm outline-none focus:border-teal-500 appearance-none cursor-pointer"
+                            className="w-full rounded-xl border border-slate-200 bg-white pl-3 pr-8 py-1.5 text-sm outline-none focus:border-teal-500 appearance-none cursor-pointer"
                           >
                             <option value="planned">Planned</option>
                             <option value="in_progress">In Progress</option>
@@ -4286,19 +4286,19 @@ export default function AdminPatientDetailsPage() {
                           onChange={(e) =>
                             setFullMouthForm({ ...fullMouthForm, description: e.target.value })
                           }
-                          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-teal-500 resize-none h-[82px]"
+                          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-sm outline-none focus:border-teal-500 resize-none h-[72px]"
                         />
                       </div>
                     </div>
                   </div>
 
                   {/* Action Buttons: Add Treatment & Active Treatments (N) */}
-                  <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                  <div className="mt-3 flex flex-wrap items-center justify-between gap-2.5">
                     <div className="flex items-center gap-2">
                       <button
                         type="button"
                         onClick={() => setIsFullMouthActiveModalOpen(true)}
-                        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 transition-colors cursor-pointer"
+                        className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 transition-colors cursor-pointer"
                       >
                         <History className="w-3.5 h-3.5 text-slate-500" />
                         Active Treatments (
@@ -4317,14 +4317,14 @@ export default function AdminPatientDetailsPage() {
                           <button
                             type="button"
                             onClick={handleCancelFullMouthEdit}
-                            className="py-2 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-colors cursor-pointer"
+                            className="py-1.5 px-3.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-colors cursor-pointer"
                           >
                             Cancel
                           </button>
                           <button
                             type="button"
                             onClick={handleSaveFullMouth}
-                            className="py-2 px-4 bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold rounded-xl transition-colors cursor-pointer"
+                            className="py-1.5 px-3.5 bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold rounded-xl transition-colors cursor-pointer"
                           >
                             Save Changes
                           </button>
@@ -4333,7 +4333,7 @@ export default function AdminPatientDetailsPage() {
                         <button
                           type="button"
                           onClick={handleSaveFullMouth}
-                          className="py-2 px-6 bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold rounded-xl transition-colors cursor-pointer"
+                          className="py-1.5 px-5 bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold rounded-xl transition-colors cursor-pointer"
                         >
                           Add Treatment
                         </button>
