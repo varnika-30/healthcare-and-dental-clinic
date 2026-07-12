@@ -29,12 +29,12 @@ export function ToothChart({
     size === "lg" ? "gap-1 sm:gap-1.5" : size === "sm" ? "gap-1" : "gap-1 sm:gap-1.5";
   const buttonClass =
     size === "lg"
-      ? "flex sm:h-[66px] sm:w-[38px] h-10 w-7 flex-col items-center justify-between py-1.5 rounded-md border bg-card sm:text-[10px] text-[8px] font-medium transition hover:border-primary cursor-pointer"
+      ? "flex sm:h-[60px] sm:w-[34px] h-9 w-6 flex-col items-center justify-between py-1 rounded-md border bg-card sm:text-[10px] text-[8px] font-medium transition hover:border-primary cursor-pointer"
       : size === "sm"
         ? "flex h-[50px] w-8 flex-col items-center justify-between py-1 rounded-md border bg-card text-[10px] font-medium transition hover:border-primary cursor-pointer"
         : "flex h-14 w-9 flex-col items-center justify-between py-1.5 rounded-md border bg-card text-[10px] font-medium transition hover:border-primary cursor-pointer";
   const iconClass =
-    size === "lg" ? "text-xs sm:text-xl" : size === "sm" ? "text-xs" : "text-sm sm:text-base";
+    size === "lg" ? "text-xs sm:text-[18px]" : size === "sm" ? "text-xs" : "text-sm sm:text-base";
 
   const Row = ({ teeth, midIndex }: { teeth: number[]; midIndex: number }) => {
     const leftGroup = teeth.slice(0, midIndex);
@@ -79,7 +79,7 @@ export function ToothChart({
       <Row teeth={FDI_UPPER} midIndex={8} />
       <div className="mx-auto h-px w-[92%] max-w-[880px] bg-slate-200 my-2" />
       <Row teeth={FDI_LOWER} midIndex={8} />
-      <div className="mt-2.5 flex flex-wrap justify-center gap-2.5 text-xs text-muted-foreground">
+      <div className="mt-4 flex flex-wrap justify-center gap-2.5 text-xs text-muted-foreground">
         <Legend color="bg-yellow-50 border border-yellow-200" label="Planned" />
         <Legend color="bg-teal-50 border border-teal-200" label="In progress" />
         <Legend color="bg-emerald-50 border border-emerald-200" label="Completed" />
