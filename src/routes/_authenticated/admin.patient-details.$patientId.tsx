@@ -640,10 +640,10 @@ export default function AdminPatientDetailsPage() {
       setToothHistory(mappedToothHistory);
 
       // Fetch payment transactions
-      const { data: dbTransactions, error: txError } =
-        planIds.length > 0
-          ? await supabase.from("payment_transactions").select("*").in("plan_id", planIds)
-          : { data: [], error: null };
+      const { data: dbTransactions, error: txError } = await supabase
+        .from("payment_transactions")
+        .select("*")
+        .eq("patient_id", dbPatient.id);
 
       if (txError) {
         console.error("Failed to load payment transactions:", txError);
@@ -1369,9 +1369,31 @@ export default function AdminPatientDetailsPage() {
   };
 
   // Central Derived Balances calculations engine
-  const totalBilled = invoices.reduce((sum, inv) => sum + (Number(inv.total) || 0), 0);
-  const totalPaid = payments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
-  const outstandingDue = totalBilled - totalPaid;
+  const invoiceBilled = invoices.reduce((sum, inv) => sum + (Number(inv.total) || 0), 0);
+  const logBilled = (patientData.billingLogs || []).reduce(
+    (sum, log) =>
+      sum +
+      Math.max(
+        Number(log.amountBilled || 0),
+        Number(log.estimatedCost || 0),
+        Number(log.amountPaid || 0),
+      ),
+    0,
+  );
+  const totalBilled = invoiceBilled > 0 ? invoiceBilled : logBilled;
+
+  const invoicePaid = payments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+  const logPaid = (patientData.billingLogs || []).reduce(
+    (sum, log) => sum + Number(log.amountPaid || 0),
+    0,
+  );
+  const txPaid = (paymentTransactions || []).reduce(
+    (sum, tx) => sum + Number(tx.amount || 0),
+    0,
+  );
+  const totalPaid = Math.max(invoicePaid, logPaid, txPaid);
+
+  const outstandingDue = Math.max(0, totalBilled - totalPaid);
 
   const formatIndianRupee = (value: number): string => {
     const formattedNum = new Intl.NumberFormat("en-IN", {
@@ -2488,7 +2510,7 @@ export default function AdminPatientDetailsPage() {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 antialiased font-sans flex flex-col scroll-smooth">
       {/* STANDARD NAVIGATION HEADER */}
-      <header className="h-14 bg-white border-b border-slate-200 px-4 sm:px-6 flex items-center justify-between relative md:sticky md:top-0 z-30 shrink-0">
+      <header className="h-14 bg-white border-b border-slate-200 px-4 sm:px-6 flex items-center justify-between sticky top-0 z-30 shrink-0 shadow-2xs">
         <div className="flex items-center gap-3">
           <Link
             to="/admin/patients"
@@ -2501,75 +2523,42 @@ export default function AdminPatientDetailsPage() {
             <h1 className="text-sm font-bold text-slate-900 tracking-tight">
               Healthcare & Dental Clinic Patient Desk
             </h1>
-            <span className="px-2 py-0.5 rounded-md bg-slate-100 text-[10px] font-mono font-bold text-slate-500 border border-slate-200">
-              {patientData.id}
-            </span>
           </div>
         </div>
       </header>
 
       {/* ==========================================
-          COMPACTABLE PATIENT IDENTITY HEADER
+          STATIC PATIENT IDENTITY HEADER (SCROLLS AWAY)
          ========================================== */}
-      <div
-        className={`contents md:flex md:flex-col md:sticky md:top-14 md:z-20 md:bg-white md:border-b md:border-slate-200 md:shadow-xs md:px-8 md:transition-all md:duration-300 ${
-          isHeaderCollapsed ? "md:py-1.5" : "md:py-3.5"
-        }`}
-      >
-        <div
-          className={`flex flex-col lg:flex-row justify-between w-full transition-all duration-300 gap-3 ${isHeaderCollapsed ? "lg:gap-1.5" : "lg:gap-3"} bg-white border-b border-slate-200 px-4 py-2.5 md:bg-transparent md:border-none md:p-0`}
-        >
+      <div className="flex flex-col bg-white border-b border-slate-200 px-4 md:px-8 py-3.5 shadow-2xs">
+        <div className="flex flex-col lg:flex-row justify-between w-full gap-3 bg-white px-4 py-2.5 md:bg-transparent md:border-none md:p-0">
           <div className="flex items-center gap-3 sm:gap-4">
-            <div
-              className={`rounded-2xl bg-teal-600 shadow-sm flex items-center justify-center text-white font-bold tracking-wider transition-all duration-300 shrink-0 ${
-                isHeaderCollapsed ? "w-10 h-10 text-xs" : "w-12 h-12 text-lg"
-              }`}
-            >
+            <div className="w-12 h-12 text-lg rounded-2xl bg-teal-600 shadow-sm flex items-center justify-center text-white font-bold tracking-wider shrink-0">
               {patientData.profile.fullName
                 .split(" ")
                 .map((n) => n[0])
                 .join("")}
             </div>
-            <div className={`${isHeaderCollapsed ? "" : "space-y-0.5"} min-w-0`}>
-              <h2
-                className={`text-slate-900 tracking-tight leading-none transition-all duration-300 truncate ${
-                  isHeaderCollapsed
-                    ? "text-xs sm:text-sm font-semibold"
-                    : "text-base sm:text-lg font-bold"
-                }`}
-              >
+            <div className="space-y-2 min-w-0">
+              <h2 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight leading-none truncate">
                 {patientData.profile.fullName}
               </h2>
-              {!isHeaderCollapsed && (
-                <div className="text-xs text-slate-500 font-medium flex flex-wrap items-center gap-x-2 gap-y-1">
-                  <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded font-semibold text-[11px] shrink-0">
-                    {patientData.profile.age} Yrs •{" "}
-                    {patientData.profile.sex || patientData.profile.gender}
-                  </span>
-
-                  <span className="text-xs uppercase tracking-[0.12em] text-slate-400 font-medium break-all block">
-                    Patient ID: {patientData.id}
-                  </span>
-                </div>
-              )}
+              <div className="text-xs text-slate-500 font-medium flex items-center gap-x-2">
+                <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded font-semibold text-[11px] shrink-0">
+                  {patientData.profile.age} Yrs •{" "}
+                  {patientData.profile.sex || patientData.profile.gender}
+                </span>
+              </div>
             </div>
           </div>
 
-          {/* METRICS VIEWPORTS GRID - stays right aligned and becomes compact */}
-          <div
-            className={`grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3 bg-slate-50 rounded-2xl border border-slate-200/60 transition-all duration-300 w-full lg:w-auto ${
-              isHeaderCollapsed
-                ? "p-1.5 text-sm lg:min-w-[240px]"
-                : "p-2 sm:p-2.5 lg:min-w-[300px]"
-            }`}
-          >
+          {/* METRICS VIEWPORTS GRID */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3 bg-slate-50 rounded-2xl border border-slate-200/60 p-2 sm:p-2.5 w-full lg:w-auto lg:min-w-[300px]">
             <div className="px-2">
               <span className="text-[10px] sm:text-[11px] font-extrabold text-slate-400 uppercase tracking-wider block mb-0.5">
                 Total Gross Billed
               </span>
-              <span
-                className={`font-bold text-slate-800 ${isHeaderCollapsed ? "text-xs" : "text-base sm:text-lg"}`}
-              >
+              <span className="font-bold text-slate-800 text-base sm:text-lg">
                 {formatIndianRupee(totalBilled)}
               </span>
             </div>
@@ -2577,9 +2566,7 @@ export default function AdminPatientDetailsPage() {
               <span className="text-[10px] sm:text-xs font-extrabold text-slate-400 uppercase tracking-wider block mb-0.5">
                 Cleared Credits
               </span>
-              <span
-                className={`font-bold text-emerald-600 ${isHeaderCollapsed ? "text-xs" : "text-sm sm:text-base"}`}
-              >
+              <span className="font-bold text-emerald-600 text-sm sm:text-base">
                 {formatIndianRupee(totalPaid)}
               </span>
             </div>
@@ -2592,102 +2579,105 @@ export default function AdminPatientDetailsPage() {
                 {outstandingDue > 0 ? "Balance Liability" : "Settled Asset"}
               </span>
               <span
-                className={`font-black ${isHeaderCollapsed ? "text-xs" : "text-sm sm:text-base"} ${outstandingDue > 0 ? "text-rose-700" : "text-emerald-700"}`}
+                className={`font-black text-sm sm:text-base ${outstandingDue > 0 ? "text-rose-700" : "text-emerald-700"}`}
               >
                 {formatIndianRupee(outstandingDue)}
               </span>
             </div>
           </div>
         </div>
+      </div>
 
-        <div className={`sticky top-0 md:relative md:top-auto z-20 bg-slate-50 pt-0 pb-2 md:py-0 -mx-6 px-6 md:mx-0 md:px-0 overflow-x-auto scrollbar-none scroll-smooth mt-0 ${isHeaderCollapsed ? "md:mt-2.5" : "md:mt-5"}`}>
-          <nav className="flex min-w-[720px] gap-1.5 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm flex-nowrap">
-            <a
-              href="#overview"
-              onClick={() => setActiveTab("#overview")}
-              aria-current={activeTab === "#overview" ? "page" : undefined}
-              className={`inline-flex items-center whitespace-nowrap rounded-full px-4 sm:px-5 py-1.5 transition-all duration-200 ${
-                activeTab === "#overview"
-                  ? "bg-teal-50 text-teal-700 border border-teal-100 shadow-sm"
-                  : "bg-white text-slate-800 hover:bg-slate-100 hover:text-teal-700"
-              }`}
-            >
-              Overview
-            </a>
-            <a
-              href="#medical"
-              onClick={() => setActiveTab("#medical")}
-              aria-current={activeTab === "#medical" ? "page" : undefined}
-              className={`inline-flex items-center whitespace-nowrap rounded-full px-4 sm:px-5 py-1.5 transition-all duration-200 ${
-                activeTab === "#medical"
-                  ? "bg-teal-50 text-teal-700 border border-teal-100 shadow-sm"
-                  : "bg-white text-slate-800 hover:bg-slate-100 hover:text-teal-700"
-              }`}
-            >
-              Medical
-            </a>
-            <a
-              href="#billing"
-              onClick={() => setActiveTab("#billing")}
-              aria-current={activeTab === "#billing" ? "page" : undefined}
-              className={`inline-flex items-center whitespace-nowrap rounded-full px-4 sm:px-5 py-1.5 transition-all duration-200 ${
-                activeTab === "#billing"
-                  ? "bg-teal-50 text-teal-700 border border-teal-100 shadow-sm"
-                  : "bg-white text-slate-800 hover:bg-slate-100 hover:text-teal-700"
-              }`}
-            >
-              Billing
-            </a>
-            <a
-              href="#treatments"
-              onClick={() => setActiveTab("#treatments")}
-              aria-current={activeTab === "#treatments" ? "page" : undefined}
-              className={`inline-flex items-center whitespace-nowrap rounded-full px-4 sm:px-5 py-1.5 transition-all duration-200 ${
-                activeTab === "#treatments"
-                  ? "bg-teal-50 text-teal-700 border border-teal-100 shadow-sm"
-                  : "bg-white text-slate-800 hover:bg-slate-100 hover:text-teal-700"
-              }`}
-            >
-              Treatments
-            </a>
-            <a
-              href="#scheduler"
-              onClick={() => setActiveTab("#scheduler")}
-              aria-current={activeTab === "#scheduler" ? "page" : undefined}
-              className={`inline-flex items-center whitespace-nowrap rounded-full px-4 sm:px-5 py-1.5 transition-all duration-200 ${
-                activeTab === "#scheduler"
-                  ? "bg-teal-50 text-teal-700 border border-teal-100 shadow-sm"
-                  : "bg-white text-slate-800 hover:bg-slate-100 hover:text-teal-700"
-              }`}
-            >
-              Scheduler
-            </a>
-            <a
-              href="#tooth-chart"
-              onClick={() => setActiveTab("#tooth-chart")}
-              aria-current={activeTab === "#tooth-chart" ? "page" : undefined}
-              className={`inline-flex items-center whitespace-nowrap rounded-full px-4 sm:px-5 py-1.5 transition-all duration-200 ${
-                activeTab === "#tooth-chart"
-                  ? "bg-teal-50 text-teal-700 border border-teal-100 shadow-sm"
-                  : "bg-white text-slate-800 hover:bg-slate-100 hover:text-teal-700"
-              }`}
-            >
-              Tooth Chart
-            </a>
-            <a
-              href="#prescriptions"
-              onClick={() => setActiveTab("#prescriptions")}
-              aria-current={activeTab === "#prescriptions" ? "page" : undefined}
-              className={`inline-flex items-center whitespace-nowrap rounded-full px-4 sm:px-5 py-1.5 transition-all duration-200 ${
-                activeTab === "#prescriptions"
-                  ? "bg-teal-50 text-teal-700 border border-teal-100 shadow-sm"
-                  : "bg-white text-slate-800 hover:bg-slate-100 hover:text-teal-700"
-              }`}
-            >
-              Prescriptions
-            </a>
-          </nav>
-        </div>
+      {/* ==========================================
+          STICKY NAVIGATION TABS (REMAINS VISIBLE ON SCROLL)
+         ========================================== */}
+      <div className="sticky top-14 z-20 bg-white border-b border-slate-200 shadow-2xs px-4 md:px-8 py-2.5 overflow-x-auto scrollbar-none scroll-smooth">
+        <nav className="flex min-w-[720px] gap-1.5 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm font-semibold text-slate-700 shadow-2xs flex-nowrap">
+          <a
+            href="#overview"
+            onClick={() => setActiveTab("#overview")}
+            aria-current={activeTab === "#overview" ? "page" : undefined}
+            className={`inline-flex items-center whitespace-nowrap rounded-full px-4 sm:px-5 py-1.5 transition-all duration-200 ${
+              activeTab === "#overview"
+                ? "bg-teal-50 text-teal-700 border border-teal-100 shadow-2xs"
+                : "bg-white text-slate-800 hover:bg-slate-100 hover:text-teal-700"
+            }`}
+          >
+            Overview
+          </a>
+          <a
+            href="#medical"
+            onClick={() => setActiveTab("#medical")}
+            aria-current={activeTab === "#medical" ? "page" : undefined}
+            className={`inline-flex items-center whitespace-nowrap rounded-full px-4 sm:px-5 py-1.5 transition-all duration-200 ${
+              activeTab === "#medical"
+                ? "bg-teal-50 text-teal-700 border border-teal-100 shadow-2xs"
+                : "bg-white text-slate-800 hover:bg-slate-100 hover:text-teal-700"
+            }`}
+          >
+            Medical
+          </a>
+          <a
+            href="#billing"
+            onClick={() => setActiveTab("#billing")}
+            aria-current={activeTab === "#billing" ? "page" : undefined}
+            className={`inline-flex items-center whitespace-nowrap rounded-full px-4 sm:px-5 py-1.5 transition-all duration-200 ${
+              activeTab === "#billing"
+                ? "bg-teal-50 text-teal-700 border border-teal-100 shadow-2xs"
+                : "bg-white text-slate-800 hover:bg-slate-100 hover:text-teal-700"
+            }`}
+          >
+            Billing
+          </a>
+          <a
+            href="#treatments"
+            onClick={() => setActiveTab("#treatments")}
+            aria-current={activeTab === "#treatments" ? "page" : undefined}
+            className={`inline-flex items-center whitespace-nowrap rounded-full px-4 sm:px-5 py-1.5 transition-all duration-200 ${
+              activeTab === "#treatments"
+                ? "bg-teal-50 text-teal-700 border border-teal-100 shadow-2xs"
+                : "bg-white text-slate-800 hover:bg-slate-100 hover:text-teal-700"
+            }`}
+          >
+            Treatments
+          </a>
+          <a
+            href="#scheduler"
+            onClick={() => setActiveTab("#scheduler")}
+            aria-current={activeTab === "#scheduler" ? "page" : undefined}
+            className={`inline-flex items-center whitespace-nowrap rounded-full px-4 sm:px-5 py-1.5 transition-all duration-200 ${
+              activeTab === "#scheduler"
+                ? "bg-teal-50 text-teal-700 border border-teal-100 shadow-2xs"
+                : "bg-white text-slate-800 hover:bg-slate-100 hover:text-teal-700"
+            }`}
+          >
+            Scheduler
+          </a>
+          <a
+            href="#tooth-chart"
+            onClick={() => setActiveTab("#tooth-chart")}
+            aria-current={activeTab === "#tooth-chart" ? "page" : undefined}
+            className={`inline-flex items-center whitespace-nowrap rounded-full px-4 sm:px-5 py-1.5 transition-all duration-200 ${
+              activeTab === "#tooth-chart"
+                ? "bg-teal-50 text-teal-700 border border-teal-100 shadow-2xs"
+                : "bg-white text-slate-800 hover:bg-slate-100 hover:text-teal-700"
+            }`}
+          >
+            Tooth Chart
+          </a>
+          <a
+            href="#prescriptions"
+            onClick={() => setActiveTab("#prescriptions")}
+            aria-current={activeTab === "#prescriptions" ? "page" : undefined}
+            className={`inline-flex items-center whitespace-nowrap rounded-full px-4 sm:px-5 py-1.5 transition-all duration-200 ${
+              activeTab === "#prescriptions"
+                ? "bg-teal-50 text-teal-700 border border-teal-100 shadow-2xs"
+                : "bg-white text-slate-800 hover:bg-slate-100 hover:text-teal-700"
+            }`}
+          >
+            Prescriptions
+          </a>
+        </nav>
       </div>
 
       {/* CORE WORKSPACE CONTENT GRID CONTAINER */}
@@ -4583,16 +4573,16 @@ export default function AdminPatientDetailsPage() {
                     <button
                       type="button"
                       onClick={() => handleOpenPrescriptionModal("create")}
-                      className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-violet-600 text-white px-4 py-3 text-base font-bold hover:bg-violet-700 transition"
+                      className="w-full h-9.5 inline-flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 text-white px-3.5 text-xs font-bold tracking-tight shadow-sm shadow-violet-500/20 hover:from-violet-700 hover:to-indigo-700 active:scale-[0.99] transition-all cursor-pointer select-none"
                     >
-                      <Plus className="w-6 h-6" /> Create Prescription
+                      <Plus className="w-3.5 h-3.5 shrink-0" /> Create Prescription
                     </button>
                     <button
                       type="button"
                       onClick={() => handleOpenPrescriptionModal("history")}
-                      className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-slate-100 text-slate-700 px-4 py-3 text-sm font-semibold hover:bg-slate-200 transition"
+                      className="w-full h-9.5 inline-flex items-center justify-center gap-1.5 rounded-xl bg-violet-50 text-violet-700 border border-violet-200/80 px-3.5 text-xs font-bold tracking-tight hover:bg-violet-100 hover:border-violet-300 active:scale-[0.99] transition-all cursor-pointer select-none"
                     >
-                      <History className="w-6 h-6" /> View Prescription History
+                      <History className="w-3.5 h-3.5 shrink-0" /> View Prescription History
                     </button>
                     <button
                       type="button"
@@ -4600,9 +4590,9 @@ export default function AdminPatientDetailsPage() {
                       onClick={() =>
                         latestPrescription && handleGeneratePrescriptionPdf(latestPrescription)
                       }
-                      className="w-full inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white text-slate-700 px-4 py-3 text-sm font-semibold hover:bg-slate-50 transition disabled:cursor-not-allowed disabled:opacity-60"
+                      className="w-full h-9.5 inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-700 px-3.5 text-xs font-bold tracking-tight hover:bg-slate-100 hover:text-slate-900 active:scale-[0.99] transition-all disabled:opacity-50 disabled:bg-slate-50 disabled:text-slate-400 disabled:border-slate-200 disabled:cursor-not-allowed disabled:shadow-none disabled:active:scale-100 cursor-pointer select-none"
                     >
-                      <FileDown className="w-6 h-6" /> Generate Prescription PDF
+                      <FileDown className="w-3.5 h-3.5 shrink-0" /> Generate Prescription PDF
                     </button>
                   </div>
                 </div>
