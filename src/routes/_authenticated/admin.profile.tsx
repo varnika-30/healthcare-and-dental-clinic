@@ -424,35 +424,64 @@ export default function AdminProfilePage() {
                 )}
 
                 {showPasswordForm && (
-                  <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-4 space-y-3">
-                    <input
-                      type="password"
-                      placeholder="Current Password"
-                      className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
-                    />
+                  <form
+                    onSubmit={async (e) => {
+                      e.preventDefault();
+                      const fd = new FormData(e.currentTarget);
+                      const newPassword = String(fd.get("newPassword"));
+                      const confirmPassword = String(fd.get("confirmPassword"));
 
+                      if (newPassword !== confirmPassword) {
+                        return toast.error("New passwords do not match.");
+                      }
+                      if (newPassword.length < 6) {
+                        return toast.error("Password must be at least 6 characters.");
+                      }
+
+                      const { error } = await supabase.auth.updateUser({ password: newPassword });
+                      if (error) {
+                        return toast.error(error.message);
+                      }
+
+                      toast.success("Password updated successfully!");
+                      setShowPasswordForm(false);
+                    }}
+                    className="mt-4 rounded-2xl border border-slate-200 bg-white p-4 space-y-3"
+                  >
                     <input
+                      name="newPassword"
                       type="password"
+                      required
+                      minLength={6}
                       placeholder="New Password"
                       className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
                     />
 
                     <input
+                      name="confirmPassword"
                       type="password"
+                      required
+                      minLength={6}
                       placeholder="Confirm New Password"
                       className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
                     />
 
-                    <button
-                      onClick={() => {
-                        alert("Password updated successfully");
-                        setShowPasswordForm(false);
-                      }}
-                      className="rounded-xl bg-teal-600 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-700 transition-colors"
-                    >
-                      Update Password
-                    </button>
-                  </div>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowPasswordForm(false)}
+                        className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        className="rounded-xl bg-teal-600 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-700 transition-colors"
+                      >
+                        Update Password
+                      </button>
+                    </div>
+                  </form>
                 )}
 
                 <button

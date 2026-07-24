@@ -186,87 +186,6 @@ const getEcosystemAwareResults = (
 // ==========================================
 // REALISTIC PRIVATE CLINIC PATIENT DATA
 // ==========================================
-const INITIAL_PATIENTS: PatientRecord[] = [
-  {
-    id: "P-8832",
-    name: "Eleanor Vance",
-    age: 28,
-    gender: "Female",
-    phone: "(555) 432-1098",
-    lastTreatment: { type: "X-Ray & Initial Assessment", date: "2026-05-20" },
-    upcomingAppointment: "2026-05-26T09:00:00",
-    paymentStatus: "paid",
-    balanceDue: 0,
-    category: "new",
-    joinedDate: "2026-05-20",
-  },
-  {
-    id: "P-9831",
-    name: "Samuel Oakley",
-    age: 42,
-    gender: "Male",
-    phone: "(555) 234-5678",
-    lastTreatment: { type: "Deep Scaling & Root Planing", date: "2025-11-24" },
-    upcomingAppointment: "2026-05-26T10:30:00",
-    paymentStatus: "paid",
-    balanceDue: 0,
-    category: "active",
-    joinedDate: "2024-03-12",
-  },
-  {
-    id: "P-1102",
-    name: "Marcus Brody",
-    age: 55,
-    gender: "Male",
-    phone: "(555) 876-1122",
-    lastTreatment: { type: "Composite Filling (Molar)", date: "2026-05-15" },
-    upcomingAppointment: "2026-05-26T13:00:00",
-    paymentStatus: "partial",
-    balanceDue: 180,
-    category: "follow-up",
-    joinedDate: "2023-08-19",
-  },
-  {
-    id: "P-4491",
-    name: "Clara Oswald",
-    age: 31,
-    gender: "Female",
-    phone: "(555) 901-2345",
-    lastTreatment: { type: "In-Office Laser Whitening", date: "2026-05-26" },
-    upcomingAppointment: null,
-    paymentStatus: "paid",
-    balanceDue: 0,
-    category: "active",
-    joinedDate: "2025-01-10",
-  },
-  {
-    id: "P-3091",
-    name: "Arthur Pendelton",
-    age: 67,
-    gender: "Male",
-    phone: "(555) 654-7890",
-    lastTreatment: { type: "Crown Preparation", date: "2026-05-11" },
-    upcomingAppointment: "2026-06-02T11:00:00",
-    paymentStatus: "overdue",
-    balanceDue: 650,
-    category: "follow-up",
-    joinedDate: "2022-11-04",
-  },
-  {
-    id: "P-5521",
-    name: "Miriam Vance",
-    age: 34,
-    gender: "Female",
-    phone: "(555) 221-9988",
-    lastTreatment: { type: "Routine Prophylaxis", date: "2026-05-21" },
-    upcomingAppointment: null,
-    paymentStatus: "paid",
-    balanceDue: 0,
-    category: "active",
-    joinedDate: "2024-09-30",
-  },
-];
-
 export function computePatientRecord(
   patient: any,
   plans: any[],
@@ -290,9 +209,6 @@ export function computePatientRecord(
   }
 
   // 2. Calculate category (Patient Status)
-  // - Active Care: has at least one treatment plan with status = 'in_progress'
-  // - Follow-up: has at least one treatment plan where follow_up_needed is true (or status is 'planned')
-  // - New Patient: default fallback
   let category: "active" | "new" | "follow-up" = "new";
   const hasInProgress = patientPlans.some((p) => p.status === "in_progress");
   const hasFollowUp = patientPlans.some((p) => p.follow_up_needed || p.status === "planned");
@@ -304,7 +220,6 @@ export function computePatientRecord(
   }
 
   // 3. Calculate lastTreatment
-  // Find the most recent treatment plan by start_date or created_at
   const sortedPlans = [...patientPlans].sort(
     (a, b) => new Date(b.start_date || b.created_at).getTime() - new Date(a.start_date || a.created_at).getTime()
   );
@@ -315,7 +230,6 @@ export function computePatientRecord(
   };
 
   // 4. Calculate upcomingAppointment
-  // Find the next upcoming appointment (date in the future)
   const now = new Date();
   const upcoming = patientAppointments
     .filter((a) => a.appointment_date && new Date(a.appointment_date) > now && a.status !== "cancelled")
@@ -323,7 +237,6 @@ export function computePatientRecord(
 
   const upcomingAppointment = upcoming ? upcoming.appointment_date : null;
 
-  // Calculate age from date_of_birth or default to 0
   let age = 0;
   if (patient.date_of_birth) {
     const birthDate = new Date(patient.date_of_birth);
@@ -337,7 +250,7 @@ export function computePatientRecord(
 
   return {
     id: patient.id,
-    name: `${patient.first_name || ""} ${patient.last_name || ""}`.trim() || "Unknown",
+    name: patient.full_name || `${patient.first_name || ""} ${patient.last_name || ""}`.trim() || "Unknown",
     age,
     gender: patient.gender || "Unknown",
     phone: patient.phone || "",
@@ -363,7 +276,7 @@ export default function PatientManagementPage() {
     treatment: "",
     notes: "",
   });
-  const [patients, setPatients] = useState<PatientRecord[]>(INITIAL_PATIENTS);
+  const [patients, setPatients] = useState<PatientRecord[]>([]);
 
   const loadPatientsData = useCallback(async () => {
     try {

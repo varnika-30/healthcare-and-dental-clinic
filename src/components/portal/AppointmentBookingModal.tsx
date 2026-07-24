@@ -106,8 +106,26 @@ export function AppointmentBookingModal({
       }
 
       const service = AVAILABLE_SERVICES.find((s) => s.id === selectedServiceId);
-      const fallbackTimeStr = "09:00:00";
-      const combinedDateTime = new Date(`${appointmentDate}T${fallbackTimeStr}`).toISOString();
+
+      let hour = 9;
+      let minute = 0;
+      if (hasTimePreference === "yes" && preferredTimeText.trim()) {
+        const timeMatch = preferredTimeText.match(/(\d{1,2}):?(\d{2})?\s*(AM|PM)?/i);
+        if (timeMatch) {
+          let h = parseInt(timeMatch[1]);
+          const m = timeMatch[2] ? parseInt(timeMatch[2]) : 0;
+          const ampm = timeMatch[3] ? timeMatch[3].toUpperCase() : null;
+          if (ampm === "PM" && h < 12) h += 12;
+          if (ampm === "AM" && h === 12) h = 0;
+          if (h >= 0 && h <= 23 && m >= 0 && m <= 59) {
+            hour = h;
+            minute = m;
+          }
+        }
+      }
+
+      const [yr, mo, dy] = appointmentDate.split("-").map(Number);
+      const combinedDateTime = new Date(yr, mo - 1, dy, hour, minute).toISOString();
 
       let formattedNotes = notes.trim();
       if (hasTimePreference === "yes" && preferredTimeText.trim()) {

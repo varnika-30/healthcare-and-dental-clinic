@@ -142,7 +142,7 @@ function Home() {
       {/* HERO */}
       <section id="hero" className="relative min-h-screen overflow-hidden scroll-mt-24">
         <video
-          className="absolute inset-0 h-full w-full object-cover pointer-events-none"
+          className="absolute inset-0 h-full w-full object-cover scale-[1.08] brightness-[1.12] contrast-[1.18] saturate-[1.25] pointer-events-none transition-all duration-300"
           autoPlay={!prefersReducedMotion}
           muted
           loop
@@ -152,7 +152,7 @@ function Home() {
         >
           <source src="/hero-video.mp4" type="video/mp4" />
         </video>
-        <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/50 to-black/40 pointer-events-none" />
+        <div className="absolute inset-0 bg-gradient-to-r from-slate-950/50 via-slate-900/30 to-black/20 pointer-events-none" />
         <div className="relative mx-auto flex min-h-screen max-w-[1900px] items-center px-4 sm:px-8">
           <div
             className="relative z-10 rounded-3xl p-6 sm:p-12 shadow-lg backdrop-blur-md md:max-w-xl lg:max-w-2xl w-full"

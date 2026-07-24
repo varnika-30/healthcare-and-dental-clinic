@@ -5,16 +5,14 @@ import tsconfigPaths from "vite-tsconfig-paths";
 import tailwindcss from "@tailwindcss/vite";
 import { nitro } from "nitro/vite";
 
-export default defineConfig({
+export default defineConfig(({ command }) => ({
   plugins: [
     tsconfigPaths(),
     tailwindcss(),
     tanstackStart({
       server: { entry: "src/server.ts" },
     }),
-    nitro({
-      preset: "vercel",
-    }),
+    command === "build" ? nitro() : null,
     viteReact(),
-  ],
-});
+  ].filter(Boolean),
+}));

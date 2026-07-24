@@ -1,5 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { createFileRoute } from "@tanstack/react-router";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/portal/notifications")({
   component: NotificationsPage,
@@ -32,76 +34,105 @@ interface DentalNotification {
   meta?: string;
 }
 
-// ==========================================
-// INITIAL PRODUCTION-READY SEED DATA
-// ==========================================
-const INITIAL_NOTIFICATIONS: DentalNotification[] = [
-  {
-    id: "notif-1",
-    type: "appointment",
-    title: "Confirm your upcoming visit",
-    description:
-      "Your Teeth Whitening session with Dr. Aisha Patel is scheduled for tomorrow at 10:30 AM. Please confirm your attendance to secure your time slot.",
-    timestamp: "2 hours ago",
-    isUnread: true,
-    actionLabel: "Confirm Appointment",
-    meta: "Tue, May 26 · 10:30 AM",
-  },
-  {
-    id: "notif-2",
-    type: "payment",
-    title: "Outstanding Invoice Pending",
-    description:
-      "An invoice statement of $240.00 for your recent treatment (Root Canal · Session 1) is ready for settlement.",
-    timestamp: "5 hours ago",
-    isUnread: true,
-    actionLabel: "Pay Bill Now",
-  },
-  {
-    id: "notif-3",
-    type: "medical",
-    title: "Prescription Care Instructions",
-    description:
-      "Dr. Marco Liu updated your post-procedure clinical notes. Remember to take your Amoxicillin 500mg strictly after dinner.",
-    timestamp: "1 day ago",
-    isUnread: false,
-  },
-  {
-    id: "notif-4",
-    type: "followup",
-    title: "6-Month Hygiene Recall Due",
-    description:
-      "It has been 6 months since your last professional cleaning. Book a comprehensive scale and polish to maintain optimal gum health.",
-    timestamp: "3 days ago",
-    isUnread: false,
-    actionLabel: "Book Cleaning",
-  },
-];
-
 export default function NotificationsPage() {
   // ==========================================
   // COMPONENT STATE HOOKS
   // ==========================================
-  const [notifications, setNotifications] = useState<DentalNotification[]>(INITIAL_NOTIFICATIONS);
+  const [notifications, setNotifications] = useState<DentalNotification[]>([]);
   const [activeFilter, setActiveFilter] = useState<"all" | "unread" | "appointment" | "payment">(
     "all",
   );
+
+  const loadNotifications = useCallback(async () => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { data, error } = await supabase
+      .from("notifications")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false });
+
+    if (data) {
+      setNotifications(
+        data.map((dbN: any) => {
+          let type: DentalNotification["type"] = "appointment";
+          if (dbN.type === "billing") type = "payment";
+          else if (dbN.type === "followup") type = "followup";
+
+          const dateObj = new Date(dbN.created_at);
+          const timeDiff = new Date().getTime() - dateObj.getTime();
+          let timestamp = dbN.created_at.split("T")[0];
+          if (timeDiff < 60000) timestamp = "just now";
+          else if (timeDiff < 3600000) timestamp = `${Math.floor(timeDiff / 60000)} mins ago`;
+          else if (timeDiff < 86400000) timestamp = `${Math.floor(timeDiff / 3600000)} hours ago`;
+          else timestamp = `${Math.floor(timeDiff / 86400000)} days ago`;
+
+          return {
+            id: dbN.id,
+            type,
+            title: dbN.title || "Clinic Alert",
+            description: dbN.body || dbN.message || "",
+            timestamp,
+            isUnread: !dbN.read_at && !dbN.is_read,
+          };
+        }),
+      );
+    }
+  }, []);
+
+  useEffect(() => {
+    loadNotifications();
+  }, [loadNotifications]);
 
   const unreadCount = notifications.filter((n) => n.isUnread).length;
 
   // ==========================================
   // ACTION HANDLERS
   // ==========================================
-  const handleMarkAllRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, isUnread: false })));
+  const handleMarkAllRead = async () => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { error } = await (supabase as any)
+      .from("notifications")
+      .update({ read_at: new Date().toISOString(), is_read: true })
+      .eq("user_id", user.id);
+
+    if (error) {
+      toast.error("Failed to update notifications.");
+    } else {
+      setNotifications((prev) => prev.map((n) => ({ ...n, isUnread: false })));
+      toast.success("All notifications marked as read.");
+    }
   };
 
-  const handleMarkAsRead = (id: string) => {
-    setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, isUnread: false } : n)));
+  const handleMarkAsRead = async (id: string) => {
+    const { error } = await (supabase as any)
+      .from("notifications")
+      .update({ read_at: new Date().toISOString(), is_read: true })
+      .eq("id", id);
+
+    if (error) {
+      toast.error("Failed to mark read.");
+    } else {
+      setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, isUnread: false } : n)));
+    }
   };
 
-  const handleDelete = (id: string) => {
-    setNotifications((prev) => prev.filter((n) => n.id !== id));
+  const handleDelete = async (id: string) => {
+    const { error } = await supabase.from("notifications").delete().eq("id", id);
+
+    if (error) {
+      toast.error("Failed to delete notification.");
+    } else {
+      setNotifications((prev) => prev.filter((n) => n.id !== id));
+      toast.info("Notification removed.");
+    }
   };
 
   // ==========================================
@@ -274,23 +305,25 @@ export default function NotificationsPage() {
                       )}
                     </div>
 
-                    {/* Contextual Utilities (Appears smoothly on card hover) */}
-                    <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-150 flex items-center gap-1 self-start pt-0.5">
+                    {/* Contextual Utilities & Always Visible Delete Action */}
+                    <div className="flex items-center gap-1.5 self-start pt-0.5 shrink-0">
                       {notif.isUnread && (
                         <button
                           onClick={() => handleMarkAsRead(notif.id)}
-                          title="Mark read"
-                          className="p-1.5 rounded-xl text-slate-400 hover:bg-slate-50 hover:text-slate-600 transition"
+                          title="Mark as read"
+                          className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 transition"
                         >
-                          <CheckCircle2 className="h-4 w-4" />
+                          <CheckCircle2 className="h-3.5 w-3.5 text-teal-600" />
+                          <span className="hidden sm:inline">Read</span>
                         </button>
                       )}
                       <button
                         onClick={() => handleDelete(notif.id)}
                         title="Delete notification"
-                        className="p-1.5 rounded-xl text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition"
+                        className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-lg border border-rose-200/80 bg-rose-50/50 text-rose-700 hover:bg-rose-100 transition"
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <Trash2 className="h-3.5 w-3.5 text-rose-600" />
+                        <span>Delete</span>
                       </button>
                     </div>
                   </div>

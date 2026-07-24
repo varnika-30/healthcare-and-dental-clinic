@@ -276,6 +276,25 @@ export default function AdminNotificationsPage() {
     }
   };
 
+  const clearAllNotifications = async () => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { error } = await supabase
+      .from("notifications")
+      .delete()
+      .eq("user_id", user.id);
+
+    if (error) {
+      toast.error("Failed to clear notifications.");
+    } else {
+      setNotifications([]);
+      toast.success("All notifications cleared.");
+    }
+  };
+
   const getMergedNotifications = (): ClinicNotification[] => {
     const items = [...notifications];
     portalRequests.forEach((req) => {
@@ -389,15 +408,26 @@ export default function AdminNotificationsPage() {
                 configurations.
               </p>
             </div>
-            {unreadCount > 0 && (
-              <button
-                onClick={markAllAsRead}
-                className="inline-flex items-center gap-1.5 self-start sm:self-center px-3 py-1.5 text-xs font-bold tracking-wider uppercase border border-slate-200 bg-white rounded-lg text-slate-700 hover:bg-slate-50 active:bg-slate-100 transition"
-              >
-                <Check className="h-3.5 w-3.5 text-slate-400" />
-                <span>Mark All Read</span>
-              </button>
-            )}
+            <div className="flex flex-wrap items-center gap-2 self-start sm:self-center">
+              {unreadCount > 0 && (
+                <button
+                  onClick={markAllAsRead}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold tracking-wider uppercase border border-slate-200 bg-white rounded-lg text-slate-700 hover:bg-slate-50 active:bg-slate-100 transition"
+                >
+                  <Check className="h-3.5 w-3.5 text-slate-400" />
+                  <span>Mark All Read</span>
+                </button>
+              )}
+              {notifications.length > 0 && (
+                <button
+                  onClick={clearAllNotifications}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold tracking-wider uppercase border border-rose-200 bg-rose-50/50 rounded-lg text-rose-700 hover:bg-rose-100 transition"
+                >
+                  <Trash2 className="h-3.5 w-3.5 text-rose-500" />
+                  <span>Clear All</span>
+                </button>
+              )}
+            </div>
           </div>
 
           {/* ==========================================
@@ -635,17 +665,12 @@ export default function AdminNotificationsPage() {
                                   <span>View Details</span>
                                 </button>
                                 <button
-                                  onClick={() =>
-                                    setExpandedNotification(
-                                      expandedNotification === notification.id
-                                        ? null
-                                        : notification.id,
-                                    )
-                                  }
-                                  className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded transition"
-                                  title="Dismiss notification"
+                                  onClick={() => handleDismiss(notification.id)}
+                                  className="inline-flex items-center gap-1 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider bg-rose-50 text-rose-700 border border-rose-200/80 rounded-md hover:bg-rose-100 transition"
+                                  title="Delete notification"
                                 >
-                                  <Trash2 className="h-3.5 w-3.5" />
+                                  <Trash2 className="h-3 w-3 text-rose-600" />
+                                  <span>Delete</span>
                                 </button>
                               </>
                             )}

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { calculatePlanBilling } from "@/lib/billing";
 import { toast } from "sonner";
+import { X } from "lucide-react";
 
 interface ManageTreatmentPlanModalProps {
   planId: string;
@@ -268,51 +269,74 @@ export default function ManageTreatmentPlanModal({
   if (!currentRecord) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-xs" onClick={onClose} />
-      <div className="relative bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-4xl w-full overflow-hidden z-10 animate-in fade-in zoom-in-95 duration-200">
-        <div className="bg-gradient-to-r from-teal-500 to-emerald-600 px-10 py-6 text-white">
-          <h3 className="text-3xl font-bold">Manage Treatment Plan</h3>
-          <p className="text-base text-teal-100 mt-1">ID: {currentRecord.id}</p>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs">
+      <div className="relative bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-2xl w-full max-h-[85vh] flex flex-col overflow-hidden z-10 animate-in fade-in zoom-in-95 duration-200">
+        {/* Fixed Header */}
+        <div className="bg-gradient-to-r from-teal-600 to-emerald-600 px-5 py-3.5 text-white flex items-center justify-between shrink-0">
+          <div>
+            <h3 className="text-base font-extrabold tracking-tight">Manage Treatment Plan</h3>
+            <p className="text-[11px] text-teal-100 font-mono mt-0.5">ID: {currentRecord.id}</p>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-1 text-teal-100 hover:text-white hover:bg-white/10 rounded-lg transition"
+            aria-label="Close modal"
+          >
+            <X className="w-5 h-5" />
+          </button>
         </div>
 
-        <div className="p-10 space-y-8 max-h-[75vh] overflow-y-auto">
-          <div className="space-y-2">
-            <span className="text-lg uppercase font-bold text-slate-400">Patient Name</span>
-            <div className="text-2xl font-bold text-slate-800">{currentRecord.patientName}</div>
+        {/* Scrollable Body */}
+        <div className="p-5 space-y-5 overflow-y-auto flex-1 text-slate-800">
+          {/* Patient Overview */}
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+            <div className="space-y-0.5">
+              <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
+                Patient Name
+              </span>
+              <div className="text-base font-black text-slate-900">{currentRecord.patientName}</div>
+            </div>
+            <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 border border-slate-200/60">
+              Active Case File
+            </span>
           </div>
 
-          <div className="bg-slate-50 p-8 rounded-xl border border-slate-200/60 space-y-5">
-            <h4 className="text-xl font-bold text-slate-700 uppercase">Billing Summary</h4>
-            <div className="grid grid-cols-2 gap-x-8 gap-y-4 text-2xl">
+          {/* Compact Billing Summary */}
+          <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/60 space-y-2.5">
+            <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+              Billing Summary
+            </h4>
+            <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-xs">
               <div className="flex justify-between text-slate-500">
                 <span>Treatment:</span>
-                <span className="font-semibold text-slate-800">
+                <span className="font-bold text-slate-800">
                   ₹{currentRecord.estimatedCost.toLocaleString()}
                 </span>
               </div>
               <div className="flex justify-between text-slate-500">
                 <span>Discount:</span>
-                <span className="font-semibold text-rose-600">
+                <span className="font-bold text-rose-600">
                   -₹{currentRecord.discount.toLocaleString()}
                 </span>
               </div>
-              <div className="flex justify-between text-slate-500 border-t pt-3 col-span-2">
-                <span className="font-bold text-slate-700 text-2xl">Net:</span>
-                <span className="font-bold text-slate-900 text-3xl">
+              <div className="flex justify-between text-slate-600 border-t border-slate-200/60 pt-2">
+                <span className="font-bold">Net Total:</span>
+                <span className="font-bold text-slate-900">
                   ₹{currentRecord.finalCost.toLocaleString()}
                 </span>
               </div>
-              <div className="flex justify-between text-slate-500 border-t pt-3 col-span-2">
-                <span className="text-2xl">Paid:</span>
-                <span className="font-bold text-emerald-600 text-3xl">
+              <div className="flex justify-between text-slate-600 border-t border-slate-200/60 pt-2">
+                <span>Paid Amount:</span>
+                <span className="font-bold text-emerald-600">
                   ₹{currentRecord.paidAmount.toLocaleString()}
                 </span>
               </div>
-              <div className="flex justify-between text-slate-500 border-t pt-3 col-span-2">
-                <span className="font-extrabold text-slate-800 text-3xl">Outstanding:</span>
+              <div className="flex justify-between border-t border-slate-200/80 pt-2 col-span-2 text-sm">
+                <span className="font-extrabold text-slate-800">Outstanding Balance:</span>
                 <span
-                  className={`font-extrabold text-4xl ${currentRecord.outstandingAmount > 0 ? "text-rose-600" : "text-slate-400"}`}
+                  className={`font-extrabold ${
+                    currentRecord.outstandingAmount > 0 ? "text-rose-600" : "text-slate-400"
+                  }`}
                 >
                   ₹{currentRecord.outstandingAmount.toLocaleString()}
                 </span>
@@ -321,31 +345,33 @@ export default function ManageTreatmentPlanModal({
           </div>
 
           {/* Treatment Discount Section */}
-          <div className="space-y-4 pt-8 border-t border-slate-100">
-            <h4 className="text-xl font-bold text-slate-700 uppercase">Treatment Discount</h4>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+          <div className="space-y-3 pt-3 border-t border-slate-100">
+            <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+              Apply Treatment Discount
+            </h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <input
                 type="number"
-                placeholder="Discount (₹)"
+                placeholder="Discount Amount (₹)"
                 value={discountAmount}
                 disabled={isSaving || isSavingDiscount}
                 onChange={(e) => setDiscountAmount(Number(e.target.value))}
-                className="w-full h-14 px-5 text-2xl border border-slate-200 rounded-xl placeholder:text-xl placeholder:text-slate-400"
+                className="w-full h-9 px-3 text-xs border border-slate-200 rounded-lg placeholder:text-slate-400 bg-white"
               />
               <input
                 type="text"
-                placeholder="Reason"
+                placeholder="Reason for discount"
                 value={discountReason}
                 disabled={isSaving || isSavingDiscount}
                 onChange={(e) => setDiscountReason(e.target.value)}
-                className="w-full h-14 px-5 text-2xl border border-slate-200 rounded-xl placeholder:text-xl placeholder:text-slate-400"
+                className="w-full h-9 px-3 text-xs border border-slate-200 rounded-lg placeholder:text-slate-400 bg-white"
               />
             </div>
             <button
               type="button"
               onClick={handleSaveDiscount}
               disabled={isSaving || isSavingDiscount}
-              className="w-full py-4 px-8 text-2xl font-bold text-white bg-slate-800 rounded-xl cursor-pointer hover:bg-slate-700 transition-colors"
+              className="w-full py-2 px-4 text-xs font-bold text-white bg-slate-800 hover:bg-slate-700 rounded-lg cursor-pointer transition-colors shadow-2xs"
             >
               {isSavingDiscount ? "Saving..." : "Save Discount"}
             </button>
@@ -355,20 +381,20 @@ export default function ManageTreatmentPlanModal({
           <form
             id="payment-form"
             onSubmit={handleSave}
-            className="space-y-8 pt-8 border-t border-slate-100"
+            className="space-y-3 pt-3 border-t border-slate-100"
           >
-            <h4 className="text-2xl font-bold text-slate-700 uppercase">
+            <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
               {editingTransaction ? "Edit Payment Details" : "Record New Payment"}
             </h4>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {/* Amount */}
-              <div className="space-y-2.5">
+              <div className="space-y-1">
                 <label
                   htmlFor="payment-amount"
-                  className="text-xl uppercase font-bold text-slate-400 block"
+                  className="text-[10px] uppercase font-bold text-slate-400 block"
                 >
-                  Payment Amount (₹)
+                  Payment Amount (₹) *
                 </label>
                 <input
                   id="payment-amount"
@@ -377,17 +403,17 @@ export default function ManageTreatmentPlanModal({
                   value={paymentAmount}
                   disabled={isSaving || isSavingDiscount}
                   onChange={(e) => setPaymentAmount(Number(e.target.value))}
-                  className="w-full h-14 px-5 text-2xl border border-slate-200 rounded-xl placeholder:text-xl placeholder:text-slate-400"
+                  className="w-full h-9 px-3 text-xs border border-slate-200 rounded-lg placeholder:text-slate-400 bg-white"
                   placeholder="Enter amount"
                   required
                 />
               </div>
 
               {/* Method */}
-              <div className="space-y-2.5">
+              <div className="space-y-1">
                 <label
                   htmlFor="payment-method"
-                  className="text-xl uppercase font-bold text-slate-400 block"
+                  className="text-[10px] uppercase font-bold text-slate-400 block"
                 >
                   Payment Method
                 </label>
@@ -396,7 +422,7 @@ export default function ManageTreatmentPlanModal({
                   value={paymentMethod}
                   disabled={isSaving || isSavingDiscount}
                   onChange={(e) => setPaymentMethod(e.target.value as any)}
-                  className="w-full h-14 px-5 text-2xl border border-slate-200 rounded-xl bg-white"
+                  className="w-full h-9 px-3 text-xs border border-slate-200 rounded-lg bg-white"
                 >
                   <option value="upi">UPI</option>
                   <option value="card">Card</option>
@@ -406,10 +432,10 @@ export default function ManageTreatmentPlanModal({
               </div>
 
               {/* Purpose */}
-              <div className="space-y-2.5">
+              <div className="space-y-1">
                 <label
                   htmlFor="payment-purpose"
-                  className="text-xl uppercase font-bold text-slate-400 block"
+                  className="text-[10px] uppercase font-bold text-slate-400 block"
                 >
                   Payment Purpose *
                 </label>
@@ -419,16 +445,16 @@ export default function ManageTreatmentPlanModal({
                   value={paymentPurpose}
                   disabled={isSaving || isSavingDiscount}
                   onChange={(e) => setPaymentPurpose(e.target.value)}
-                  className="w-full h-14 px-5 text-2xl border border-slate-200 rounded-xl placeholder:text-xl placeholder:text-slate-400"
+                  className="w-full h-9 px-3 text-xs border border-slate-200 rounded-lg placeholder:text-slate-400 bg-white"
                   placeholder="e.g. Advance for Implant"
                 />
               </div>
 
               {/* Date */}
-              <div className="space-y-2.5">
+              <div className="space-y-1">
                 <label
                   htmlFor="payment-date"
-                  className="text-xl uppercase font-bold text-slate-400 block"
+                  className="text-[10px] uppercase font-bold text-slate-400 block"
                 >
                   Payment Date
                 </label>
@@ -438,17 +464,17 @@ export default function ManageTreatmentPlanModal({
                   value={paymentDate}
                   disabled={isSaving || isSavingDiscount}
                   onChange={(e) => setPaymentDate(e.target.value)}
-                  className="w-full h-14 px-5 text-2xl border border-slate-200 rounded-xl"
+                  className="w-full h-9 px-3 text-xs border border-slate-200 rounded-lg bg-white"
                   required
                 />
               </div>
             </div>
 
             {/* Notes */}
-            <div className="space-y-2.5">
+            <div className="space-y-1">
               <label
                 htmlFor="payment-notes"
-                className="text-xl uppercase font-bold text-slate-400 block"
+                className="text-[10px] uppercase font-bold text-slate-400 block"
               >
                 Notes (Optional)
               </label>
@@ -457,55 +483,60 @@ export default function ManageTreatmentPlanModal({
                 value={paymentNotes}
                 disabled={isSaving || isSavingDiscount}
                 onChange={(e) => setPaymentNotes(e.target.value)}
-                rows={4}
-                className="w-full p-5 text-2xl border border-slate-200 rounded-xl resize-none placeholder:text-xl placeholder:text-slate-400"
+                rows={2}
+                className="w-full p-2.5 text-xs border border-slate-200 rounded-lg resize-none placeholder:text-slate-400 bg-white"
                 placeholder="Add optional remarks..."
               />
             </div>
           </form>
 
-          <div className="space-y-4 pt-8 border-t border-slate-100">
-            <h4 className="text-2xl font-bold text-slate-700 uppercase">Transaction History</h4>
+          {/* Transaction History */}
+          <div className="space-y-3 pt-3 border-t border-slate-100">
+            <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+              Transaction History
+            </h4>
             {selectedPlanTransactions.length === 0 ? (
-              <div className="text-center py-8 border border-dashed border-slate-200 rounded-xl bg-slate-50/50">
-                <p className="text-xl text-slate-400">No payments recorded for this plan yet.</p>
+              <div className="text-center py-4 border border-dashed border-slate-200 rounded-lg bg-slate-50/50">
+                <p className="text-xs text-slate-400 font-medium">
+                  No payments recorded for this plan yet.
+                </p>
               </div>
             ) : (
-              <div className="space-y-4 max-h-[280px] overflow-y-auto pr-1">
+              <div className="space-y-2 max-h-[160px] overflow-y-auto pr-1">
                 {selectedPlanTransactions.map((tx) => (
                   <div
                     key={tx.id}
-                    className="flex justify-between items-start p-5 border border-slate-200 bg-white rounded-xl shadow-xs gap-4 group animate-fade-in"
+                    className="flex justify-between items-center p-3 border border-slate-200 bg-white rounded-lg shadow-2xs gap-3 text-xs"
                   >
-                    <div className="space-y-1.5 text-xl">
+                    <div className="space-y-0.5 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-bold text-slate-800 text-2xl">
+                        <span className="font-extrabold text-slate-900 text-sm">
                           ₹{tx.amount.toLocaleString()}
                         </span>
-                        <span className="text-base text-slate-500 font-semibold bg-slate-50 border border-slate-200/60 px-2.5 py-0.5 rounded">
+                        <span className="text-[10px] font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded">
                           {tx.payment_method === "bank_transfer"
                             ? "Net Banking"
                             : tx.payment_method.toUpperCase()}
                         </span>
-                        <span className="text-base text-slate-400 font-semibold">
+                        <span className="text-[10px] text-slate-400 font-mono">
                           {tx.payment_date}
                         </span>
                       </div>
-                      <div className="text-xl text-slate-700 font-semibold">
-                        <span className="text-slate-400 font-medium">Purpose: </span>
+                      <div className="text-xs text-slate-600 font-medium truncate">
+                        <span className="text-slate-400 font-normal">Purpose: </span>
                         {tx.purpose}
                       </div>
                       {tx.notes && (
-                        <div className="text-lg text-slate-400 italic">
-                          <span className="text-slate-400 font-medium">Notes: </span>"{tx.notes}"
+                        <div className="text-[11px] text-slate-400 italic truncate">
+                          "{tx.notes}"
                         </div>
                       )}
                     </div>
-                    <div className="flex gap-4 shrink-0 self-center">
+                    <div className="flex items-center gap-2 shrink-0">
                       <button
                         type="button"
                         onClick={() => startEditTransaction(tx)}
-                        className="text-xl text-teal-600 font-bold hover:underline cursor-pointer"
+                        className="text-xs text-teal-600 font-bold hover:underline cursor-pointer"
                       >
                         Edit
                       </button>
@@ -513,7 +544,7 @@ export default function ManageTreatmentPlanModal({
                         <button
                           type="button"
                           onClick={cancelEditTransaction}
-                          className="text-xl text-slate-500 font-bold hover:underline cursor-pointer"
+                          className="text-xs text-slate-500 font-bold hover:underline cursor-pointer"
                         >
                           Cancel
                         </button>
@@ -521,7 +552,7 @@ export default function ManageTreatmentPlanModal({
                       <button
                         type="button"
                         onClick={() => handleDeleteTransaction(tx.id)}
-                        className="text-xl text-rose-600 font-bold hover:underline cursor-pointer"
+                        className="text-xs text-rose-600 font-bold hover:underline cursor-pointer"
                       >
                         Delete
                       </button>
@@ -533,12 +564,13 @@ export default function ManageTreatmentPlanModal({
           </div>
         </div>
 
-        <div className="bg-slate-50 px-10 py-6 flex justify-end gap-3 border-t">
+        {/* Fixed Footer */}
+        <div className="bg-slate-50 px-5 py-3 flex items-center justify-end gap-2 border-t border-slate-100 shrink-0">
           <button
             type="button"
             onClick={onClose}
             disabled={isSaving || isSavingDiscount}
-            className="px-8 py-3.5 text-2xl font-bold text-slate-600 bg-white border rounded-xl hover:bg-slate-50 transition-colors"
+            className="px-4 py-2 text-xs font-bold text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition"
           >
             Close
           </button>
@@ -546,7 +578,7 @@ export default function ManageTreatmentPlanModal({
             type="submit"
             form="payment-form"
             disabled={isSaving || isSavingDiscount}
-            className="px-8 py-3.5 text-2xl font-bold text-white bg-teal-600 rounded-xl cursor-pointer disabled:opacity-50 hover:bg-teal-700 transition-colors"
+            className="px-4 py-2 text-xs font-bold text-white bg-teal-600 rounded-lg cursor-pointer disabled:opacity-50 hover:bg-teal-700 transition shadow-2xs"
           >
             {isSaving ? "Saving..." : "Save Payment"}
           </button>

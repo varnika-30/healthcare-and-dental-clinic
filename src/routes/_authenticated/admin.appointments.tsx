@@ -1,8 +1,9 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useCallback } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { DashboardShell } from "@/components/dashboard/DashboardShell";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 import {
   CalendarDays,
   Clock,
@@ -38,71 +39,8 @@ interface Appointment {
   notes: string;
 }
 
-const INITIAL_APPOINTMENTS: Appointment[] = [
-  {
-    id: "APT-2041",
-    patientName: "Eleanor Vance",
-    patientId: "#P-8832",
-    phone: "(555) 432-1098",
-    treatmentType: "Invisalign Consultation",
-    dateTime: "2026-05-26T09:00:00",
-    duration: "45 mins",
-    status: "pending",
-    priority: "normal",
-    notes:
-      "New patient requesting clear aligner assessment. Has panoramic X-rays from previous clinic.",
-  },
-  {
-    id: "APT-2042",
-    patientName: "Samuel Oakley",
-    patientId: "#P-9831",
-    phone: "(555) 234-5678",
-    treatmentType: "Routine Cleaning & Checkup",
-    dateTime: "2026-05-26T10:30:00",
-    duration: "30 mins",
-    status: "approved",
-    priority: "normal",
-    notes: "6-month recall visit. Needs routine scaling and polishing.",
-  },
-  {
-    id: "APT-2043",
-    patientName: "Marcus Brody",
-    patientId: "#P-1102",
-    phone: "(555) 876-1122",
-    treatmentType: "Emergency Toothache / Filling",
-    dateTime: "2026-05-26T13:00:00",
-    duration: "60 mins",
-    status: "approved",
-    priority: "normal",
-    notes: "Reporting acute pain on lower left molar when chewing cold food.",
-  },
-  {
-    id: "APT-2039",
-    patientName: "Clara Oswald",
-    patientId: "#P-4491",
-    phone: "(555) 901-2345",
-    treatmentType: "Teeth Whitening",
-    dateTime: "2026-05-26T15:00:00",
-    duration: "45 mins",
-    status: "completed",
-    priority: "normal",
-    notes: "In-office laser whitening course completed successfully.",
-  },
-  {
-    id: "APT-2040",
-    patientName: "Arthur Pendelton",
-    patientId: "#P-3091",
-    phone: "(555) 654-7890",
-    treatmentType: "Crown Fit Assessment",
-    dateTime: "2026-05-25T11:00:00",
-    duration: "90 mins",
-    status: "cancelled",
-    priority: "normal",
-    notes: "Patient cancelled due to work trip travel emergency.",
-  },
-];
-
 const TIMELINE_SLOTS = [
+  "08:00 AM",
   "09:00 AM",
   "10:00 AM",
   "11:00 AM",
@@ -112,10 +50,13 @@ const TIMELINE_SLOTS = [
   "03:00 PM",
   "04:00 PM",
   "05:00 PM",
+  "06:00 PM",
+  "07:00 PM",
+  "08:00 PM",
 ];
 
 export default function AppointmentManagementPage() {
-  const [appointments, setAppointments] = useState<Appointment[]>(INITIAL_APPOINTMENTS);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [patientOptions, setPatientOptions] = useState<{ id: string; name: string }[]>([]);
   const [patientSearchQuery, setPatientSearchQuery] = useState("");
   const [selectedPatient, setSelectedPatient] = useState<{ id: string; name: string } | null>(null);
@@ -130,74 +71,79 @@ export default function AppointmentManagementPage() {
     patientId: "",
     phone: "",
     treatmentType: "Routine Cleaning & Checkup",
-    date: "2026-05-26",
+    date: new Date().toISOString().split("T")[0],
     timeSlot: "11:00 AM",
     priority: "normal" as AppointmentPriority,
     notes: "",
   });
 
+  const loadData = useCallback(async () => {
+    const { data: patientsData } = await supabase.from("patients").select("*");
+    const patientMap = new Map<string, string>();
+    if (patientsData) {
+      setPatientOptions(
+        patientsData.map((patient: any) => {
+          const name =
+            patient.full_name ||
+            `${patient.first_name || ""} ${patient.last_name || ""}`.trim() ||
+            "Unknown Patient";
+          patientMap.set(patient.id, name);
+          return { id: String(patient.id), name };
+        }),
+      );
+    }
+
+    const { data: apptData, error } = await supabase
+      .from("appointments")
+      .select("*, patients(*)")
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("APPOINTMENTS ERROR:", error);
+    }
+
+    if (apptData) {
+      setAppointments(
+        apptData.map((appt: any) => {
+          const statusMap: AppointmentStatus =
+            appt.status === "requested"
+              ? "pending"
+              : appt.status === "confirmed"
+                ? "approved"
+                : appt.status === "completed"
+                  ? "completed"
+                  : "cancelled";
+
+          const patientObj = appt.patients;
+          const patientName =
+            patientObj?.full_name ||
+            `${patientObj?.first_name || ""} ${patientObj?.last_name || ""}`.trim() ||
+            patientMap.get(appt.patient_id) ||
+            `Patient ${appt.patient_id.slice(0, 8)}`;
+
+          const phoneMatch = appt.notes?.match(/\[Phone:\s*([^\]]+)\]/);
+          const phone = patientObj?.phone || (phoneMatch ? phoneMatch[1] : "");
+
+          return {
+            id: appt.id,
+            patientName,
+            patientId: appt.patient_id,
+            phone,
+            treatmentType: appt.service,
+            dateTime: appt.appointment_date,
+            duration: `${appt.duration_minutes || 30} mins`,
+            status: statusMap,
+            priority: appt.priority || "normal",
+            notes: appt.notes || "",
+          };
+        }),
+      );
+    }
+  }, []);
+
   useEffect(() => {
-    async function loadAppointments() {
-      const { data, error } = await supabase.from("appointments").select(`
-          *,
-          patients (
-            first_name,
-            last_name
-          )
-        `);
-
-      console.log("APPOINTMENTS:", data);
-      console.log("APPOINTMENTS ERROR:", error);
-
-      if (data) {
-        setAppointments(
-          data.map((appt) => {
-            const statusMap: AppointmentStatus =
-              appt.status === "requested"
-                ? "pending"
-                : appt.status === "confirmed"
-                  ? "approved"
-                  : appt.status === "completed"
-                    ? "completed"
-                    : "cancelled";
-
-            return {
-              id: appt.id,
-              patientName:
-                patientOptions.find((p) => p.id === appt.patient_id)?.name ??
-                `Patient ${appt.patient_id.slice(0, 8)}`,
-              patientId: appt.patient_id,
-              phone: "",
-              treatmentType: appt.service,
-              dateTime: appt.appointment_date,
-              duration: `${appt.duration_minutes} mins`,
-              status: statusMap,
-              priority: appt.priority || "normal",
-              notes: appt.notes || "",
-            };
-          }),
-        );
-      }
-    }
-
-    async function loadPatientOptions() {
-      const { data, error } = await supabase.from("patients").select("*");
-
-      console.log("PATIENT OPTIONS:", data);
-      console.log("PATIENT OPTIONS ERROR:", error);
-      if (data) {
-        setPatientOptions(
-          data.map((patient: Record<string, unknown>) => ({
-            id: String(patient.id),
-            name: `${patient["first_name"]} ${patient["last_name"]}`,
-          })),
-        );
-      }
-    }
-
-    loadAppointments();
-    loadPatientOptions();
-  }, [patientOptions]);
+    loadData();
+  }, [loadData]);
 
   const scheduleDate = selectedDate;
   const scheduleLabel = scheduleDate.toLocaleDateString("en-US", {
@@ -223,23 +169,89 @@ export default function AppointmentManagementPage() {
 
     if (error) {
       console.error(error);
-      alert("Failed to update appointment status");
+      toast.error("Failed to update appointment status");
       return;
     }
 
-    setAppointments((prev) =>
-      prev.map((apt) => (apt.id === id ? { ...apt, status: newStatus } : apt)),
-    );
+    try {
+      const { data: apptRow } = await supabase
+        .from("appointments")
+        .select("patient_id, service, patients(user_id, full_name)")
+        .eq("id", id)
+        .single();
+
+      if ((apptRow as any)?.patients?.user_id) {
+        const statusText =
+          dbStatus === "confirmed"
+            ? "confirmed"
+            : dbStatus === "completed"
+              ? "completed"
+              : dbStatus === "cancelled"
+                ? "cancelled"
+                : dbStatus;
+
+        await (supabase as any).from("notifications").insert({
+          user_id: (apptRow as any).patients.user_id,
+          title: `Appointment ${statusText.charAt(0).toUpperCase() + statusText.slice(1)}`,
+          body: `Your appointment for ${apptRow?.service || "dental service"} has been marked as ${statusText}.`,
+          message: `Your appointment for ${apptRow?.service || "dental service"} has been marked as ${statusText}.`,
+          type: "reminder",
+        });
+      }
+    } catch (e) {
+      console.warn("Failed to send patient notification:", e);
+    }
+
+    toast.success(`Appointment status updated to ${newStatus}`);
+    await loadData();
   };
 
-  const handleReschedule = (id: string) => {
-    const newTime = prompt("Enter new target time slot (e.g., 2026-05-26T14:30:00):");
+  const handleReschedule = async (id: string) => {
+    const targetApt = appointments.find((a) => a.id === id);
+    if (!targetApt) return;
+    const newTime = prompt(
+      "Enter new target time slot (YYYY-MM-DDTHH:MM, e.g. 2026-07-25T14:30):",
+      targetApt.dateTime ? targetApt.dateTime.slice(0, 16) : "",
+    );
     if (newTime) {
-      setAppointments((prev) =>
-        prev.map((apt) =>
-          apt.id === id ? { ...apt, dateTime: newTime, status: "approved" } : apt,
-        ),
-      );
+      const parsedDate = new Date(newTime);
+      if (isNaN(parsedDate.getTime())) {
+        toast.error("Invalid date format provided.");
+        return;
+      }
+      const isoStr = parsedDate.toISOString();
+      const { error } = await supabase
+        .from("appointments")
+        .update({ appointment_date: isoStr, status: "confirmed" })
+        .eq("id", id);
+
+      if (error) {
+        toast.error("Failed to reschedule appointment.");
+        return;
+      }
+
+      try {
+        const { data: apptRow } = await supabase
+          .from("appointments")
+          .select("patient_id, service, patients(user_id)")
+          .eq("id", id)
+          .single();
+
+        if ((apptRow as any)?.patients?.user_id) {
+          await (supabase as any).from("notifications").insert({
+            user_id: (apptRow as any).patients.user_id,
+            title: "Appointment Rescheduled",
+            body: `Your appointment for ${apptRow?.service || "dental service"} has been rescheduled to ${parsedDate.toLocaleString()}.`,
+            message: `Your appointment for ${apptRow?.service || "dental service"} has been rescheduled to ${parsedDate.toLocaleString()}.`,
+            type: "reminder",
+          });
+        }
+      } catch (e) {
+        console.warn("Failed to send reschedule notification:", e);
+      }
+
+      toast.success("Appointment rescheduled successfully.");
+      await loadData();
     }
   };
 
@@ -251,26 +263,15 @@ export default function AppointmentManagementPage() {
     if (ampm === "PM" && hours < 12) hours += 12;
     if (ampm === "AM" && hours === 12) hours = 0;
 
-    const isoDateTime = `${formData.date}T${String(hours).padStart(2, "0")}:${minuteStr}:00`;
+    const [year, month, day] = formData.date.split("-").map(Number);
+    const localDate = new Date(year, month - 1, day, hours, parseInt(minuteStr));
+    const isoDateTime = localDate.toISOString();
 
     const selectedPatientName = selectedPatient?.name || formData.patientName;
     if (!selectedPatient) {
       alert("Please select a patient.");
       return;
     }
-
-    const newApt: Appointment = {
-      id: `APT-${Math.floor(2000 + Math.random() * 9000)}`,
-      patientName: selectedPatientName,
-      patientId: selectedPatient.id,
-      phone: formData.phone,
-      treatmentType: formData.treatmentType,
-      dateTime: isoDateTime,
-      duration: "45 mins",
-      status: "approved",
-      priority: formData.priority,
-      notes: formData.notes,
-    };
 
     const { error } = await supabase.from("appointments").insert({
       patient_id: selectedPatient.id,
@@ -287,14 +288,8 @@ export default function AppointmentManagementPage() {
       return;
     }
 
-    const { data: refreshedAppointments, error: refreshError } = await supabase
-      .from("appointments")
-      .select("*");
-
-    if (refreshedAppointments) {
-      console.log("REFRESHED APPOINTMENTS:", refreshedAppointments);
-    }
-    console.log("REFRESH ERROR:", refreshError);
+    setSelectedDate(localDate);
+    await loadData();
 
     setIsModalOpen(false);
     setFormData({
@@ -302,7 +297,7 @@ export default function AppointmentManagementPage() {
       patientId: "",
       phone: "",
       treatmentType: "Routine Cleaning & Checkup",
-      date: "2026-05-26",
+      date: new Date().toISOString().split("T")[0],
       timeSlot: "11:00 AM",
       priority: "normal",
       notes: "",
@@ -310,7 +305,6 @@ export default function AppointmentManagementPage() {
     setPatientSearchQuery("");
     setSelectedPatient(null);
     setShowPatientDropdown(false);
-    setSelectedDate(new Date(isoDateTime));
   };
 
   const pendingRequests = useMemo(() => {
@@ -354,15 +348,31 @@ export default function AppointmentManagementPage() {
   }, [patientOptions, patientSearchQuery]);
 
   const dayScheduleTimeline = useMemo(() => {
+    const startOfDay = new Date(
+      selectedDate.getFullYear(),
+      selectedDate.getMonth(),
+      selectedDate.getDate(),
+      0,
+      0,
+      0,
+      0,
+    ).getTime();
+    const endOfDay = new Date(
+      selectedDate.getFullYear(),
+      selectedDate.getMonth(),
+      selectedDate.getDate(),
+      23,
+      59,
+      59,
+      999,
+    ).getTime();
+
     return appointments
       .filter((apt) => {
-        const aptDate = new Date(apt.dateTime);
-
-        return (
-          aptDate.getDate() === selectedDate.getDate() &&
-          aptDate.getMonth() === selectedDate.getMonth() &&
-          aptDate.getFullYear() === selectedDate.getFullYear()
-        );
+        if (!apt.dateTime) return false;
+        const aptTime = new Date(apt.dateTime).getTime();
+        if (isNaN(aptTime)) return false;
+        return aptTime >= startOfDay && aptTime <= endOfDay;
       })
       .sort((a, b) => new Date(a.dateTime).getTime() - new Date(b.dateTime).getTime());
   }, [appointments, selectedDate]);
@@ -379,11 +389,48 @@ export default function AppointmentManagementPage() {
   }, [appointments]);
 
   const getSlotMatch = (isoString: string) => {
-    const hours = new Date(isoString).getHours();
+    if (!isoString) return "";
+    const d = new Date(isoString);
+    if (isNaN(d.getTime())) return "";
+    const hours = d.getHours();
     const ampm = hours >= 12 ? "PM" : "AM";
     const adjustedHour = hours % 12 || 12;
     return `${String(adjustedHour).padStart(2, "0")}:00 ${ampm}`;
   };
+
+  const timelineSlots = useMemo(() => {
+    const baseSlots = [
+      "08:00 AM",
+      "09:00 AM",
+      "10:00 AM",
+      "11:00 AM",
+      "12:00 PM",
+      "01:00 PM",
+      "02:00 PM",
+      "03:00 PM",
+      "04:00 PM",
+      "05:00 PM",
+      "06:00 PM",
+      "07:00 PM",
+      "08:00 PM",
+    ];
+    const set = new Set(baseSlots);
+    dayScheduleTimeline.forEach((apt) => {
+      const slot = getSlotMatch(apt.dateTime);
+      if (slot) set.add(slot);
+    });
+
+    return Array.from(set).sort((a, b) => {
+      const parseSlotHour = (s: string) => {
+        const [timeStr, ampm] = s.split(" ");
+        let [h] = timeStr.split(":").map(Number);
+        if (ampm === "PM" && h < 12) h += 12;
+        if (ampm === "AM" && h === 12) h = 0;
+        return h;
+      };
+      return parseSlotHour(a) - parseSlotHour(b);
+    });
+  }, [dayScheduleTimeline]);
 
   const formatClockTime = (isoString: string) => {
     return new Date(isoString).toLocaleTimeString("en-US", {
@@ -643,7 +690,7 @@ export default function AppointmentManagementPage() {
             </div>
 
             <div className="p-5 space-y-4">
-              {TIMELINE_SLOTS.map((slot) => {
+              {timelineSlots.map((slot) => {
                 const matchingApts = dayScheduleTimeline.filter(
                   (a) => getSlotMatch(a.dateTime) === slot,
                 );

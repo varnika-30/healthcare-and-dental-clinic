@@ -51,17 +51,23 @@ export default function PatientDashboardOverview() {
       }
 
       // 2. Fetch Appointments for Today
-      const todayStr = new Date().toISOString().split("T")[0];
+      const today = new Date();
+      const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate()).toISOString();
+      const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59, 999).toISOString();
+
       const { data: apptsData } = await supabase
         .from("appointments")
         .select("*, patients(*)")
-        .eq("appointment_date", todayStr);
+        .gte("appointment_date", startOfDay)
+        .lte("appointment_date", endOfDay)
+        .order("appointment_date", { ascending: true });
 
       if (apptsData) {
         const mappedAppts = apptsData.map((apt: any) => {
           const patientName = apt.patients
-            ? `${apt.patients.first_name || ""} ${apt.patients.last_name || ""}`.trim() ||
-              apt.patients.full_name
+            ? apt.patients.full_name ||
+              `${apt.patients.first_name || ""} ${apt.patients.last_name || ""}`.trim() ||
+              "Patient " + apt.patient_id.slice(0, 8)
             : "Unknown Patient";
 
           const status =
@@ -82,7 +88,7 @@ export default function PatientDashboardOverview() {
 
           let time = "10:00 AM";
           try {
-            time = new Date(apt.created_at).toLocaleTimeString([], {
+            time = new Date(apt.appointment_date).toLocaleTimeString("en-US", {
               hour: "2-digit",
               minute: "2-digit",
             });
@@ -337,14 +343,6 @@ export default function PatientDashboardOverview() {
                           >
                             {apt.status}
                           </span>
-                          <button
-                            type="button"
-                            onClick={() => handleAction(`Chart View for ${apt.patientName}`)}
-                            className="p-2 text-slate-300 hover:text-slate-500 rounded-xl hover:bg-slate-50 transition-colors"
-                            aria-label="View Details"
-                          >
-                            <ChevronRight className="h-5 w-5" />
-                          </button>
                         </div>
                       </div>
                     ))
